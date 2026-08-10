@@ -1,0 +1,149 @@
+name: Feature Request
+description: Solicite uma nova funcionalidade com foco em valor, escopo e validação
+title: "[Feature] "
+labels: ["feature"]
+type: "Feature"
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 📋 Sobre este template
+
+        Preencha os campos abaixo com o máximo de clareza possível. Isso ajuda o time a entender o **valor**, o **escopo** e a **validação** da funcionalidade antes de qualquer implementação.
+
+        ---
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🎯 Definição da funcionalidade
+
+  - type: textarea
+    id: user_story
+    attributes:
+      label: 👤 User Story
+      description: Descreva a necessidade do ponto de vista do usuário, no formato "Como..., quero..., para...".
+      placeholder: |
+        Como usuário, quero filtrar tarefas por intervalo de datas, para localizar rapidamente os registros de um período específico.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 🌍 Contexto
+      description: Explique a dor atual, oportunidade ou cenário que justifica esta funcionalidade.
+      placeholder: |
+        Exemplo:
+        Usuários precisam localizar tarefas por período, mas hoje não existe filtro por data.
+        Isso torna a busca manual e lenta em listas com muitos registros.
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: 🎯 Objetivo
+      description: Descreva o resultado esperado e por que isso importa para o produto ou para o usuário.
+      placeholder: |
+        Exemplo:
+        Permitir o filtro por intervalo de datas para reduzir o tempo de busca e melhorar a produtividade.
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🔄 Situação atual e comportamento esperado
+
+  - type: textarea
+    id: current_situation
+    attributes:
+      label: 🕓 Situação atual
+      description: Descreva como o fluxo funciona hoje, sem esta funcionalidade.
+      placeholder: |
+        Exemplo:
+        Atualmente a listagem não permite filtrar tarefas por data, exigindo busca manual entre vários registros.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: ✅ Comportamento esperado
+      description: Descreva como a funcionalidade deve se comportar após a entrega.
+      placeholder: |
+        Exemplo:
+        O usuário deve poder selecionar um intervalo de datas e visualizar apenas os registros correspondentes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: 📐 Critérios de aceitação
+      description: Liste condições objetivas e testáveis para considerar a funcionalidade concluída. Use checkboxes.
+      placeholder: |
+        - [ ] O usuário deve poder selecionar data inicial e final
+        - [ ] A lista deve exibir apenas registros dentro do intervalo informado
+        - [ ] Deve ser possível limpar o filtro e retornar ao estado inicial
+        - [ ] O filtro deve funcionar sem regressão nas demais opções de busca
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🧭 Planejamento
+
+        As informações abaixo ajudam o time a priorizar e dimensionar o trabalho. Preencha apenas o que for aplicável.
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 🚦 Prioridade
+      description: Qual a prioridade desta funcionalidade para o produto?
+      options:
+        - Alta
+        - Média
+        - Baixa
+      default: 0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected_area
+    attributes:
+      label: 🗂️ Área afetada
+      description: Qual área do produto é impactada por esta funcionalidade?
+      options:
+        - Backend
+        - Frontend Web
+        - Aplicativo Móvel
+        - Infraestrutura
+        - Documentação
+        - Outro
+    validations:
+      required: false
+
+  - type: textarea
+    id: technical_notes
+    attributes:
+      label: 🔧 Considerações técnicas (opcional)
+      description: Detalhes de implementação, dependências, impacto em outras áreas ou restrições técnicas.
+      placeholder: |
+        Exemplo:
+        - A implementação envolve a API de listagem de tarefas e o componente de filtros na tela inicial.
+        - Pode ser necessário criar índices no banco para otimizar a consulta por período.
+    validations:
+      required: false
+
+  - type: input
+    id: references
+    attributes:
+      label: 🔗 Referências (opcional)
+      description: Links para documentos, designs, protótipos ou issues relacionadas.
+      placeholder: "https://..."
+    validations:
+      required: false
