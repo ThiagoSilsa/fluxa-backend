@@ -50,6 +50,7 @@
     "@nestjs/swagger": "^11.4.6",
     "@nestjs/testing": "^11.0.1",
     "@testcontainers/postgresql": "^12.1.0",
+    "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
