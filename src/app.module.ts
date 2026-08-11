@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './features/auth/auth.module';
 import { buildTypeOrmOptions } from './shared/database/typeorm/config/typeorm.config';
@@ -15,6 +16,16 @@ import { validateEnvironment } from './shared/validators/environment.validator';
       useFactory: () => buildTypeOrmOptions(),
     }),
     AuthModule,
+  ],
+  providers: [
+    // Validação global de DTOs (sem tocar no main.ts — AGENTS.md).
+    {
+      provide: APP_PIPE,
+      useValue: new ValidationPipe({
+        transform: true,
+        whitelist: true,
+      }),
+    },
   ],
 })
 export class AppModule {}

@@ -6,6 +6,7 @@ import { JwtTokenSignUseCase } from '../../shared/security/jwt-token-sign.use-ca
 import { JwtTokenVerifyUseCase } from '../../shared/security/jwt-token-verify.use-case';
 import { PasswordHashUseCase } from '../../shared/security/password-hash.use-case';
 import { PasswordVerifyUseCase } from '../../shared/security/password-verify.use-case';
+import { LoginUseCase } from './application/use-cases/login.use-case';
 import { ResolveAuthenticatedUserUseCase } from './application/use-cases/resolve-authenticated-user.use-case';
 import { ValidateJwtPayloadUseCase } from './application/use-cases/validate-jwt-payload.use-case';
 import { AUTH_REPOSITORY } from './domain/repositories/auth.repository';
@@ -19,6 +20,7 @@ import { RoleOrmEntity } from './infrastructure/persistence/typeorm/role.orm-ent
 import { UserCompanyOrmEntity } from './infrastructure/persistence/typeorm/user-company.orm-entity';
 import { UserRoleOrmEntity } from './infrastructure/persistence/typeorm/user-role.orm-entity';
 import { UserOrmEntity } from './infrastructure/persistence/typeorm/user.orm-entity';
+import { AuthController } from './presentation/http/controllers/auth.controller';
 
 /**
  * Módulo de autenticação — Fases 2 e 3 (entidades, repositórios, JWT, senha e
@@ -57,16 +59,19 @@ import { UserOrmEntity } from './infrastructure/persistence/typeorm/user.orm-ent
     ...userCompanyProviders,
     ResolveAuthenticatedUserUseCase,
     ValidateJwtPayloadUseCase,
+    LoginUseCase,
     JwtTokenSignUseCase,
     JwtTokenVerifyUseCase,
     PasswordHashUseCase,
     PasswordVerifyUseCase,
   ],
+  controllers: [AuthController],
   exports: [
     AUTH_REPOSITORY,
     USER_COMPANY_REPOSITORY,
     ResolveAuthenticatedUserUseCase,
     ValidateJwtPayloadUseCase,
+    LoginUseCase,
     JwtTokenSignUseCase,
     JwtTokenVerifyUseCase,
     PasswordHashUseCase,
