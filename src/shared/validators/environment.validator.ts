@@ -26,6 +26,8 @@ export function validateEnvironment(
   env.DB_LOGGING = parseBooleanValue(env.DB_LOGGING, false, 'DB_LOGGING');
   env.REDIS_HOST = env.REDIS_HOST ?? 'localhost';
   env.REDIS_PORT = parseIntValue(env.REDIS_PORT, 6379, 'REDIS_PORT');
+  env.JWT_SECRET = env.JWT_SECRET ?? 'dev-secret-change-me';
+  env.JWT_EXPIRES_IN = env.JWT_EXPIRES_IN ?? '28800s';
   env.ADMIN_DEFAULT_EMAIL = env.ADMIN_DEFAULT_EMAIL ?? 'admin@somar.local';
   env.ADMIN_DEFAULT_PASSWORD = env.ADMIN_DEFAULT_PASSWORD ?? 'admin123';
 
