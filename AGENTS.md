@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## 1. Stack e ambiente do projeto
-
+- Nome do projeto: **Fluxa**
 - Framework: **NestJS**
 - Linguagem: **TypeScript**
 - Banco principal: **PostgreSQL** (ORM: TypeORM)
