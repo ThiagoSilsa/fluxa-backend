@@ -8,7 +8,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * veículo padrão (FROTA, PARTICULAR).
  *
  * Idempotente (ON CONFLICT / WHERE NOT EXISTS) e com IDs fixos para os dados
- * seedados — conforme planejamento e ADR 0001.
+ * seedados — conforme planejamento, ADR 0001 e ADR 0002 (admin = pessoa em
+ * `user` + vínculo `user_company` com type/is_active).
  */
 export class SeedDefaultCompanyRolesAdminVehicleTypes1760001000001 implements MigrationInterface {
   name = 'SeedDefaultCompanyRolesAdminVehicleTypes1760001000001';
@@ -123,6 +124,8 @@ export class SeedDefaultCompanyRolesAdminVehicleTypes1760001000001 implements Mi
   public async down(queryRunner: QueryRunner): Promise<void> {
     const companyId =
       SeedDefaultCompanyRolesAdminVehicleTypes1760001000001.COMPANY_ID;
+    const adminUserId =
+      SeedDefaultCompanyRolesAdminVehicleTypes1760001000001.ADMIN_USER_ID;
     await queryRunner.query(`DELETE FROM "user_role" WHERE "company_id" = $1`, [
       companyId,
     ]);
@@ -130,8 +133,14 @@ export class SeedDefaultCompanyRolesAdminVehicleTypes1760001000001 implements Mi
       `DELETE FROM "role_permission" WHERE "company_id" = $1`,
       [companyId],
     );
-    await queryRunner.query(`DELETE FROM "user" WHERE "company_id" = $1`, [
-      companyId,
+    // Remove o vínculo antes da pessoa (FK de user_company → user bloqueia o
+    // DELETE em "user").
+    await queryRunner.query(
+      `DELETE FROM "user_company" WHERE "company_id" = $1`,
+      [companyId],
+    );
+    await queryRunner.query(`DELETE FROM "user" WHERE "id" = $1`, [
+      adminUserId,
     ]);
     await queryRunner.query(`DELETE FROM "role" WHERE "company_id" = $1`, [
       companyId,
@@ -212,11 +221,21 @@ export class SeedDefaultCompanyRolesAdminVehicleTypes1760001000001 implements Mi
     const password = process.env.ADMIN_DEFAULT_PASSWORD ?? 'admin123';
     const passwordHash: string = hashSync(password, 10);
 
+    // Pessoa (identidade) — sem company_id; type/is_active vivem no vínculo
+    // (ADR 0002).
     await queryRunner.query(
-      `INSERT INTO "user" ("id", "company_id", "name", "email", "password", "type", "is_active")
-       VALUES ($1, $2, 'Administrador', $3, $4, 'EMPLOYEE', true)
-       ON CONFLICT ("company_id", "email") DO NOTHING`,
-      [adminUserId, companyId, email, passwordHash],
+      `INSERT INTO "user" ("id", "name", "email", "password")
+       VALUES ($1, 'Administrador', $2, $3)
+       ON CONFLICT ("id") DO NOTHING`,
+      [adminUserId, email, passwordHash],
+    );
+
+    // Vínculo pessoa ↔ empresa (ADR 0002).
+    await queryRunner.query(
+      `INSERT INTO "user_company" ("id", "user_id", "company_id", "type", "is_active")
+       VALUES (gen_random_uuid(), $1, $2, 'EMPLOYEE', true)
+       ON CONFLICT ("user_id", "company_id") DO NOTHING`,
+      [adminUserId, companyId],
     );
 
     await queryRunner.query(
