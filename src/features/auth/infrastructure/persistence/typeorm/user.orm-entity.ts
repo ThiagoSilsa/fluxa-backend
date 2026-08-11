@@ -14,42 +14,45 @@ import { UserRoleOrmEntity } from './user-role.orm-entity';
  *
  * Modelo-alvo do ADR 0002: sem `company_id`, `type` ou `is_active` (esses
  * vivem no vínculo `user_company`). `email` e `document` são únicos globais.
+ *
+ * Propriedades com `!` são preenchidas pelo ORM em runtime (padrão TypeORM
+ * em modo estrito).
  */
 @Entity('user')
 export class UserOrmEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'varchar', length: 255 })
-  name: string;
+  name!: string;
 
   @Column({ type: 'varchar', length: 255, unique: true })
-  email: string;
+  email!: string;
 
   @Column({ type: 'varchar', length: 255 })
-  password: string;
+  password!: string;
 
   @Column({ type: 'varchar', length: 32, nullable: true })
-  phone: string | null;
+  phone!: string | null;
 
   @Column({ type: 'varchar', length: 32, nullable: true, unique: true })
-  document: string | null;
+  document!: string | null;
 
   @Column({ type: 'text', nullable: true })
-  observation: string | null;
+  observation!: string | null;
 
   @Column({ name: 'photo_url', type: 'varchar', length: 512, nullable: true })
-  photoUrl: string | null;
+  photoUrl!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @OneToMany(() => UserCompanyOrmEntity, (link) => link.user)
-  companies: UserCompanyOrmEntity[];
+  companies!: UserCompanyOrmEntity[];
 
   @OneToMany(() => UserRoleOrmEntity, (userRole) => userRole.user)
-  userRoles: UserRoleOrmEntity[];
+  userRoles!: UserRoleOrmEntity[];
 }

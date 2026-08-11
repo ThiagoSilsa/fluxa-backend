@@ -14,32 +14,35 @@ import { UserOrmEntity } from './user.orm-entity';
  * Cargos de cada usuário — tabela `user_role` (escopada por empresa).
  *
  * Já é escopado por `company_id`: papéis nunca vazam entre empresas (ADR 0002).
+ *
+ * Propriedades com `!` são preenchidas pelo ORM em runtime (padrão TypeORM
+ * em modo estrito).
  */
 @Entity('user_role')
 export class UserRoleOrmEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ name: 'company_id', type: 'uuid' })
-  companyId: string;
+  companyId!: string;
 
   @Column({ name: 'user_id', type: 'uuid' })
-  userId: string;
+  userId!: string;
 
   @Column({ name: 'role_id', type: 'uuid' })
-  roleId: string;
+  roleId!: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @ManyToOne(() => UserOrmEntity, (user) => user.userRoles)
   @JoinColumn({ name: 'user_id' })
-  user: UserOrmEntity;
+  user!: UserOrmEntity;
 
   @ManyToOne(() => RoleOrmEntity, (role) => role.userRoles)
   @JoinColumn({ name: 'role_id' })
-  role: RoleOrmEntity;
+  role!: RoleOrmEntity;
 }

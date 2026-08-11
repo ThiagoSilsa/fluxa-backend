@@ -16,35 +16,38 @@ import { UserOrmEntity } from './user.orm-entity';
  *
  * `type` e `is_active` (o que muda por empresa) moram aqui. Uma pessoa só
  * participa de uma empresa uma vez (`UNIQUE (user_id, company_id)`).
+ *
+ * Propriedades com `!` são preenchidas pelo ORM em runtime (padrão TypeORM
+ * em modo estrito).
  */
 @Entity('user_company')
 export class UserCompanyOrmEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ name: 'user_id', type: 'uuid' })
-  userId: string;
+  userId!: string;
 
   @Column({ name: 'company_id', type: 'uuid' })
-  companyId: string;
+  companyId!: string;
 
   @Column({ type: 'enum', enum: UserType, enumName: 'user_type' })
-  type: UserType;
+  type!: UserType;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @ManyToOne(() => UserOrmEntity, (user) => user.companies)
   @JoinColumn({ name: 'user_id' })
-  user: UserOrmEntity;
+  user!: UserOrmEntity;
 
   @ManyToOne(() => CompanyOrmEntity, (company) => company.userCompanies)
   @JoinColumn({ name: 'company_id' })
-  company: CompanyOrmEntity;
+  company!: CompanyOrmEntity;
 }
