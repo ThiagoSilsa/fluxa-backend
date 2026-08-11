@@ -2,7 +2,8 @@
 
 > Modelagem do banco para o **escopo de tenant, usuários e RBAC** do SOMAR, incluindo as tabelas de **suporte operacional** (`device`, `import_job`) e a **auditoria** (versão completa, planejada).
 > Implementada pela migration `0001` (RBAC) e parcialmente pela `0005` (device/import), conforme [ADR 0001](../adr/0001-migrations-seeds-iniciais.md).
-> Regras de negócio deste escopo: [regra-negocio-usuarios-empresas-permissoes.md](../produto/regra-negocio-usuarios-empresas-permissoes.md).
+> A **identidade multi-empresa** (tabela `user_company` e remoção de `company_id` de `user`) segue o modelo-alvo do [ADR 0002 — A pessoa é a identidade e a empresa é um vínculo](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md) — **planejado, migração ainda não implementada**.
+> Regras de negócio deste escopo: [regras-negocio-usuarios-empresas-permissoes.md](../produto/regras-negocio-usuarios-empresas-permissoes.md).
 
 ## Escopo
 
@@ -10,7 +11,7 @@ Tabelas do domínio de tenant, usuários e RBAC, mais o suporte operacional:
 
 | Domínio lógico              | Tabelas                                                                | Migração                             |
 | --------------------------- | ---------------------------------------------------------------------- | ------------------------------------ |
-| Tenant e usuários           | `company`, `user`                                                      | `0001`                               |
+| Tenant e usuários           | `company`, `user`, `user_company` (vínculo)                            | `0001` (+ `user_company` — ADR 0002) |
 | RBAC                        | `role`, `permission` (catálogo global), `role_permission`, `user_role` | `0001`                               |
 | Suporte operacional         | `device` (app do porteiro/sync), `import_job` (importação)             | `0005`                               |
 | Auditoria (versão completa) | `audit_log`                                                            | `0006` (planejada, não implementada) |
@@ -21,7 +22,8 @@ Tabelas de **controle de veículos e fluxo de acesso** (`vehicle_type`, `vehicle
 
 ```mermaid
 erDiagram
-    company ||--o{ user : "emprega"
+    company ||--o{ user_company : "participação"
+    user ||--o{ user_company : "vínculos"
     company ||--o{ role : "define cargos"
     company ||--o{ role_permission : "escopo"
     company ||--o{ user_role : "escopo"
@@ -54,24 +56,39 @@ erDiagram
 
 > Seed: empresa padrão **SOMAR** (`timezone = 'America/Sao_Paulo'`) — ver [seeds](#dados-base-seedados).
 
-### `user` — usuários
+### `user` — usuários (identidade da pessoa)
 
-| Coluna                      | Tipo                                   | Constraints / Notas                                                                                                                                  |
-| --------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                        | uuid                                   | PK, default `gen_random_uuid()`                                                                                                                      |
-| `company_id`                | uuid NOT NULL                          | FK → `company(id)`                                                                                                                                   |
-| `name`                      | varchar(255) NOT NULL                  |                                                                                                                                                      |
-| `email`                     | varchar(255) NOT NULL                  | `UQ_user_company_id_email UNIQUE (company_id, email)` — mesmo email pode existir em empresas diferentes (base p/ identidade entre tenants no futuro) |
-| `password`                  | varchar(255) NOT NULL                  | hash (bcrypt), nunca texto puro                                                                                                                      |
-| `phone`                     | varchar(32) NULL                       |                                                                                                                                                      |
-| `document`                  | varchar(32) NULL                       | `UQ_user_company_id_document UNIQUE (company_id, document)`                                                                                          |
-| `type`                      | `user_type` NOT NULL DEFAULT 'VISITOR' | `EMPLOYEE` / `VISITOR`                                                                                                                               |
-| `is_active`                 | boolean NOT NULL DEFAULT true          | desativado deixa de operar                                                                                                                           |
-| `observation`               | text NULL                              |                                                                                                                                                      |
-| `photo_url`                 | varchar(512) NULL                      |                                                                                                                                                      |
-| `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now()     |                                                                                                                                                      |
+> Modelo-alvo do [ADR 0002](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md): a pessoa é a identidade, sem `company_id` — a participação numa empresa é o vínculo `user_company`. (Hoje implementado com `company_id`; a migração de ajuste ainda não foi criada.)
 
-Índices: `IDX_user_company_id (company_id)`.
+| Coluna                      | Tipo                               | Constraints / Notas                                                      |
+| --------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
+| `id`                        | uuid                               | PK, default `gen_random_uuid()`                                          |
+| `name`                      | varchar(255) NOT NULL              |                                                                          |
+| `email`                     | varchar(255) NOT NULL              | `UQ_user_email UNIQUE (email)` — **global**: a pessoa é única no sistema |
+| `password`                  | varchar(255) NOT NULL              | hash (bcrypt), nunca texto puro                                          |
+| `phone`                     | varchar(32) NULL                   |                                                                          |
+| `document`                  | varchar(32) NULL                   | `UQ_user_document UNIQUE (document)` — global (NULLs permitidos)         |
+| `observation`               | text NULL                          |                                                                          |
+| `photo_url`                 | varchar(512) NULL                  |                                                                          |
+| `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now() |                                                                          |
+
+> `type` e `is_active` **saem de `user`** e passam para o vínculo `user_company` (o que muda por empresa mora no vínculo).
+
+### `user_company` — vínculo pessoa ↔ empresa
+
+> Tabela **nova** (planejada — ADR 0002): uma pessoa participa de uma empresa por linha. `company_id` deixa de ser propriedade do usuário e passa a ser da **sessão**.
+
+| Coluna                      | Tipo                                   | Constraints / Notas                             |
+| --------------------------- | -------------------------------------- | ----------------------------------------------- |
+| `id`                        | uuid                                   | PK, default `gen_random_uuid()`                 |
+| `user_id`                   | uuid NOT NULL                          | FK → `user(id)`                                 |
+| `company_id`                | uuid NOT NULL                          | FK → `company(id)`                              |
+| `type`                      | `user_type` NOT NULL DEFAULT 'VISITOR' | `EMPLOYEE` / `VISITOR` — relação com a empresa  |
+| `is_active`                 | boolean NOT NULL DEFAULT true          | desativar é ato da empresa sobre a participação |
+| `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now()     |                                                 |
+
+Uniques: `UQ_user_company_user_company UNIQUE (user_id, company_id)` — uma pessoa só participa de uma empresa uma vez.
+Índices: `IDX_user_company_user_id (user_id)`, `IDX_user_company_company_id (company_id)`.
 
 ## RBAC (migração `0001`)
 
@@ -121,6 +138,8 @@ Uniques: `UQ_role_permission_company_role_permission UNIQUE (company_id, role_id
 | `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now() |                                 |
 
 Uniques: `UQ_user_role_company_user_role UNIQUE (company_id, user_id, role_id)` — evita cargo repetido no usuário.
+
+> Já é escopado por empresa. Com o ADR 0002, a resolução de papéis/permissões continua por `(user_id, company_id)` — papéis **nunca vazam entre empresas**.
 
 ## Suporte operacional (migração `0005`)
 
@@ -180,21 +199,21 @@ Uniques: `UQ_user_role_company_user_role UNIQUE (company_id, user_id, role_id)` 
 
 ## Enums (nativos do PostgreSQL)
 
-| Enum                | Valores                                              | Migração |
-| ------------------- | ---------------------------------------------------- | -------- |
-| `user_type`         | `EMPLOYEE`, `VISITOR`                                | `0001`   |
-| `device_platform`   | `ANDROID`, `IOS`                                     | `0005`   |
-| `import_job_type`   | `VEHICLE`, `USER`, `USER_VEHICLE`                    | `0005`   |
-| `import_job_status` | `PENDING`, `PROCESSING`, `DONE`, `FAILED`, `PARTIAL` | `0005`   |
-| `audit_actor_type`  | `USER`, `SYSTEM`, `API` (planejado)                  | `0006`   |
+| Enum                | Valores                                              | Migração                                             |
+| ------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| `user_type`         | `EMPLOYEE`, `VISITOR`                                | `0001` (coluna migra para `user_company` — ADR 0002) |
+| `device_platform`   | `ANDROID`, `IOS`                                     | `0005`                                               |
+| `import_job_type`   | `VEHICLE`, `USER`, `USER_VEHICLE`                    | `0005`                                               |
+| `import_job_status` | `PENDING`, `PROCESSING`, `DONE`, `FAILED`, `PARTIAL` | `0005`                                               |
+| `audit_actor_type`  | `USER`, `SYSTEM`, `API` (planejado)                  | `0006`                                               |
 
 > Enums do escopo de veículos (`vehicle_block_type`, `vehicle_block_status`, `entry_denial_reason`, `sync_status`, `block_request_status`, `movement_type`, `movement_source`, `access_status`, `access_request_type`, `access_request_status`, `contact_channel`) — ver [modelagem-controle-veiculos.md](./modelagem-controle-veiculos.md).
 
 ## Regras de integridade notáveis
 
-- **Multi-tenant**: toda tabela tem `company_id` (exceto `permission`, catálogo global, e `audit_log`, que pode ter `company_id` NULL). Toda referência deve pertencer ao **mesmo** `company_id` da linha (garantia em nível de aplicação — não expressável em SQL puro).
+- **Multi-tenant**: toda tabela tem `company_id` (exceto `permission` — catálogo global —, `user` — identidade da pessoa, ADR 0002 — e `audit_log`, que pode ter `company_id` NULL). Toda referência deve pertencer ao **mesmo** `company_id` da linha (garantia em nível de aplicação — não expressável em SQL puro); com o ADR 0002, a validação de `user` passa a ser via vínculo `user_company` em vez de `user.company_id`.
 - **Catálogo global**: `permission` não tem `company_id`; o escopo por empresa ocorre via `role_permission` (que carrega `company_id` direto, consistente com as demais tabelas-join).
-- **Uniques compostos por empresa**: `user` (email, document), `device` (token) — permitem o mesmo valor em empresas diferentes.
+- **Uniques globais vs. por empresa**: `user` com `email`/`document` **globais** (ADR 0002); `device` (token) e as demais tabelas continuam únicos **por empresa** (`company_id`, ...).
 - **Extensão `pgcrypto`**: criada na `0001` (mantida no `down()`) para `gen_random_uuid()` em todo o schema.
 
 ## Dados base seedados
@@ -211,14 +230,15 @@ Seeds em `src/shared/database/typeorm/seeds/` (DML idempotente — ver [ADR 0001
     - `SEGURANÇA`: tudo do porteiro + `MANAGE_BLOCKS`;
     - `PRESIDÊNCIA`: `VIEW_DASHBOARDS`, `GRANT_FREE_PASS`, `MANAGE_BLOCKS`;
     - `ADMINISTRAÇÃO`: todas as 23 permissões (via `is_admin = true` e `role_permission` completa);
-  - Usuário **admin** (e-mail/senha via `ADMIN_DEFAULT_EMAIL`/`ADMIN_DEFAULT_PASSWORD`, fallback dev; hash **bcrypt**; `type = EMPLOYEE`) + vínculo `user_role` Administração;
+  - Usuário **admin** (e-mail/senha via `ADMIN_DEFAULT_EMAIL`/`ADMIN_DEFAULT_PASSWORD`, fallback dev; hash **bcrypt**) + vínculo `user_company` (`type = EMPLOYEE`, `is_active = true`) + vínculo `user_role` Administração — com o ADR 0002, o `type` passa a viver no vínculo `user_company`;
   - Tipos de veículo padrão: `FROTA` (`is_fleet = true`) e `PARTICULAR` (`is_fleet = false`).
 - **Departamentos e vagas NÃO são seedados** — cadastro pela administração (obrigatório no início; a portaria só opera após esse cadastro).
 
 ## Referências
 
 - [ADR 0001 — Migrations e seeds iniciais](../adr/0001-migrations-seeds-iniciais.md)
-- [Regras de negócio — Usuários, empresas e permissões](../produto/regra-negocio-usuarios-empresas-permissoes.md)
+- [ADR 0002 — A pessoa é a identidade e a empresa é um vínculo](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md)
+- [Regras de negócio — Usuários, empresas e permissões](../produto/regras-negocio-usuarios-empresas-permissoes.md)
 - [Modelagem — Controle de veículos](./modelagem-controle-veiculos.md)
 - Migrations: `src/shared/database/typeorm/migrations/0001-create-initial-multi-tenant-rbac-schema.ts`, `0005-create-request-device-import-schema.ts`
 - Seeds: `src/shared/database/typeorm/seeds/0001-seed-initial-permissions.ts`, `0002-seed-default-company-roles-admin-vehicle-types.ts`

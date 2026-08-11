@@ -116,5 +116,5 @@
 - [Modelagem — Controle de veículos e fluxo de acesso](../modelagem/modelagem-controle-veiculos.md)
 - [Modelagem — Usuários, empresas e permissões](../modelagem/modelagem-usuarios-empresas-permissoes.md)
 - [ADR 0001 — Migrations e seeds iniciais](../adr/0001-migrations-seeds-iniciais.md)
-- [Regras de negócio — Usuários, empresas e permissões](./regra-negocio-usuarios-empresas-permissoes.md)
+- [Regras de negócio — Usuários, empresas e permissões](./regras-negocio-usuarios-empresas-permissoes.md)
 - Fonte consolidada: `planejamento/planejamento-geral.md` (Decisões de negócio resolvidas) e `planejamento/planejamento-frontend/planejamento-aplicativo-celular.md` (offline/sync)

@@ -2,7 +2,7 @@
 
 > Modelagem do banco para o **escopo de controle de veículos e fluxo de acesso** do SOMAR: catálogo de veículos, portarias, bloqueios, movimento/ocupação e solicitações de cadastro.
 > Implementada pelas migrations `0002` a `0005` (ver `src/shared/database/typeorm/migrations/`), conforme [ADR 0001](../adr/0001-migrations-seeds-iniciais.md).
-> Regras de negócio deste escopo: [regra-negocio-controle-veiculos.md](../produto/regra-negocio-controle-veiculos.md).
+> Regras de negócio deste escopo: [regras-negocio-controle-veiculos.md](../produto/regras-negocio-controle-veiculos.md).
 
 ## Escopo
 
@@ -406,7 +406,7 @@ Criados com `DO $$ BEGIN IF NOT EXISTS ... END $$` (idempotente). Evolução de 
 ## Referências
 
 - [ADR 0001 — Migrations e seeds iniciais](../adr/0001-migrations-seeds-iniciais.md)
-- [Regras de negócio — Controle de veículos](../produto/regra-negocio-controle-veiculos.md)
+- [Regras de negócio — Controle de veículos](../produto/regras-negocio-controle-veiculos.md)
 - [Modelagem — Usuários, empresas e permissões](./modelagem-usuarios-empresas-permissoes.md)
 - Migrations: `src/shared/database/typeorm/migrations/0002-create-vehicle-catalog-schema.ts`, `0003-create-access-and-block-schema.ts`, `0004-create-movement-and-occupancy-schema.ts`, `0005-create-request-device-import-schema.ts`
 - Planejamento original do schema: `planejamento/planejamento-backend/planejamento-back-end.md`
