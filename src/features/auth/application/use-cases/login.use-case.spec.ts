@@ -17,7 +17,10 @@ describe('LoginUseCase', () => {
 
   const authRepoMock = {
     findUsersByEmail: jest.fn(),
-  } as jest.Mocked<Pick<AuthRepository, 'findUsersByEmail'>>;
+    updateLastLoginAt: jest.fn(),
+  } as jest.Mocked<
+    Pick<AuthRepository, 'findUsersByEmail' | 'updateLastLoginAt'>
+  >;
 
   const passwordVerifyMock = {
     execute: jest.fn(),
@@ -49,6 +52,7 @@ describe('LoginUseCase', () => {
     jest.clearAllMocks();
     passwordVerifyMock.execute.mockReturnValue(true);
     jwtSignMock.execute.mockResolvedValue('token.jwt');
+    authRepoMock.updateLastLoginAt.mockResolvedValue(undefined);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -112,6 +116,30 @@ describe('LoginUseCase', () => {
       ],
     });
     expect(jwtSignMock.execute).not.toHaveBeenCalled();
+    expect(authRepoMock.updateLastLoginAt).not.toHaveBeenCalled();
+  });
+
+  it('registra last_login_at no login bem-sucedido (ADR 0003)', async () => {
+    authRepoMock.findUsersByEmail.mockResolvedValue([somarCandidate]);
+
+    await useCase.execute(new LoginInputDto('admin@somar.local', 'senha'));
+
+    expect(authRepoMock.updateLastLoginAt).toHaveBeenCalledWith(
+      somarCandidate.id,
+    );
+  });
+
+  it('falha ao gravar last_login_at não bloqueia o login (ADR 0003)', async () => {
+    authRepoMock.findUsersByEmail.mockResolvedValue([somarCandidate]);
+    authRepoMock.updateLastLoginAt.mockRejectedValue(
+      new Error('banco indisponível'),
+    );
+
+    const result = await useCase.execute(
+      new LoginInputDto('admin@somar.local', 'senha'),
+    );
+
+    expect(result).toMatchObject({ accessToken: 'token.jwt' });
   });
 
   it('entra na empresa escolhida quando companyId é informado', async () => {

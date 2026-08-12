@@ -44,6 +44,9 @@ export class UserOrmEntity {
   @Column({ name: 'photo_url', type: 'varchar', length: 512, nullable: true })
   photoUrl!: string | null;
 
+  @Column({ name: 'last_login_at', type: 'timestamptz', nullable: true })
+  lastLoginAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

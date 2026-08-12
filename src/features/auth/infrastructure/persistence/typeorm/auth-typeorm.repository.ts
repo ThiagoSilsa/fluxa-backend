@@ -127,6 +127,16 @@ export class AuthTypeormRepository implements AuthRepository {
   }
 
   /**
+   * Registra o momento do último login da pessoa (ADR 0003).
+   *
+   * @param userId Id da pessoa.
+   * @returns Promise resolvida quando o registro é gravado.
+   */
+  public async updateLastLoginAt(userId: string): Promise<void> {
+    await this.userRepo.update({ id: userId }, { lastLoginAt: new Date() });
+  }
+
+  /**
    * Mapeia ORM (user + vínculo + empresa) para a entidade de domínio.
    *
    * @param user Pessoa (ORM).

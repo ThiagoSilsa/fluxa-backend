@@ -30,7 +30,8 @@ import { parseExpiresInToSeconds } from '../utils/jwt-expires-in.util';
  *    - **1 candidato → entra direto**;
  *    - **N candidatos sem escolha → `requiresCompanyChoice`** com a lista
  *      (exposta apenas depois de a senha conferir);
- * 4. assina o JWT `{ sub, companyId, email }` da sessão.
+ * 4. registra `last_login_at` (ADR 0003) — **falha não bloqueia** a sessão;
+ * 5. assina o JWT `{ sub, companyId, email }` da sessão.
  *
  * Todas as falhas devolvem o mesmo 401 (respostas indistinguíveis).
  */
@@ -84,6 +85,18 @@ export class LoginUseCase {
     }
 
     const candidate = resolved.candidate;
+
+    // Registra o último login — falha não bloqueia a sessão (ADR 0003).
+    try {
+      await this.authRepository.updateLastLoginAt(candidate.id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'erro desconhecido';
+      this.logger.warn(
+        `Falha ao registrar last_login_at do usuário ${candidate.id}: ${message}`,
+      );
+    }
+
     const accessToken = await this.jwtTokenSign.execute({
       sub: candidate.id,
       companyId: candidate.companyId,

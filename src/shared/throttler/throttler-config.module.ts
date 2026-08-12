@@ -10,7 +10,7 @@ import { buildLoginThrottleOptions } from './login-throttle.options';
  * `POST /auth/login` via `@ThrottleLogin()` — as demais rotas não são
  * limitadas por este módulo.
  *
- * Storage em memória no MVP; trocar por storage Redis quando a API rodar em
+ * TODO: Trocar por storage Redis quando a API rodar em
  * múltiplas instâncias (senão cada instância conta a sua própria janela).
  */
 @Module({

@@ -10,5 +10,9 @@ export class LoginInputDto {
     readonly password: string,
     /** Empresa escolhida (opcional — multi-empresa, ADR 0002). */
     readonly companyId?: string,
+    /** IP de origem (ADR 0003 — contexto de sessão). */
+    readonly ipAddress?: string,
+    /** User-Agent de origem (ADR 0003 — contexto de sessão). */
+    readonly userAgent?: string,
   ) {}
 }

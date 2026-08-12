@@ -9,6 +9,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../../../../../shared/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../../../../shared/guards/jwt-auth.guard';
 import { LoginInputDto } from '../../../application/dto/login-input.dto';
@@ -49,8 +50,10 @@ export class AuthController {
    * Autentica o usuário e devolve a sessão (ou a lista de empresas).
    *
    * Rota pública protegida por rate limiting (ADR 0003): 20 tentativas/min
-   * por IP e 10/min por e-mail, com 429 genérico no excesso.
+   * por IP e 10/min por e-mail, com 429 genérico no excesso. Captura o
+   * contexto da sessão (`ip`/`user-agent`) do request — ADR 0003.
    *
+   * @param request Request HTTP (para IP e user-agent).
    * @param dto Credenciais (email, senha) e empresa escolhida (opcional).
    * @returns Sessão JWT ou `requiresCompanyChoice` (multi-empresa).
    */
@@ -59,11 +62,42 @@ export class AuthController {
   @ThrottleLogin()
   @ApiLogin()
   public async login(
+    @Req() request: Request,
     @Body() dto: LoginDto,
   ): Promise<LoginSessionResponse | LoginCompanyChoiceResponse> {
     return this.loginUseCase.execute(
-      new LoginInputDto(dto.email, dto.password, dto.companyId),
+      new LoginInputDto(
+        dto.email,
+        dto.password,
+        dto.companyId,
+        this.extractIp(request),
+        this.extractUserAgent(request),
+      ),
     );
+  }
+
+  /**
+   * Extrai o IP de origem do request (ADR 0003 — contexto de sessão).
+   *
+   * @param request Request HTTP.
+   * @returns IP limitado a 45 caracteres (alinhado ao `@MaxLength(45)` do
+   * DTO) ou `undefined` quando ausente.
+   */
+  private extractIp(request: Request): string | undefined {
+    const ip = request.ip;
+    return ip ? ip.slice(0, 45) : undefined;
+  }
+
+  /**
+   * Extrai o User-Agent do request (ADR 0003 — contexto de sessão).
+   *
+   * @param request Request HTTP.
+   * @returns User-Agent limitado a 500 caracteres (alinhado ao
+   * `@MaxLength(500)` do DTO) ou `undefined` quando ausente.
+   */
+  private extractUserAgent(request: Request): string | undefined {
+    const userAgent = request.headers['user-agent'];
+    return typeof userAgent === 'string' ? userAgent.slice(0, 500) : undefined;
   }
 
   /**

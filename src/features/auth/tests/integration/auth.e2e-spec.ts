@@ -13,6 +13,7 @@ import { CreateAccessAndBlockSchema1760000000002 } from '../../../../shared/data
 import { CreateMovementAndOccupancySchema1760000000003 } from '../../../../shared/database/typeorm/migrations/0004-create-movement-and-occupancy-schema';
 import { CreateRequestDeviceImportSchema1760000000004 } from '../../../../shared/database/typeorm/migrations/0005-create-request-device-import-schema';
 import { CreateUserCompanySchema1760000000005 } from '../../../../shared/database/typeorm/migrations/0006-create-user-company-schema';
+import { AddLastLoginAtToUser1760000000007 } from '../../../../shared/database/typeorm/migrations/0008-add-last-login-at-to-user';
 import { SeedInitialPermissions1760001000000 } from '../../../../shared/database/typeorm/seeds/0001-seed-initial-permissions';
 import { SeedDefaultCompanyRolesAdminVehicleTypes1760001000001 } from '../../../../shared/database/typeorm/seeds/0002-seed-default-company-roles-admin-vehicle-types';
 
@@ -67,6 +68,7 @@ describe('Auth (e2e) — multi-empresa (ADR 0002)', () => {
         CreateMovementAndOccupancySchema1760000000003,
         CreateRequestDeviceImportSchema1760000000004,
         CreateUserCompanySchema1760000000005,
+        AddLastLoginAtToUser1760000000007,
         SeedInitialPermissions1760001000000,
         SeedDefaultCompanyRolesAdminVehicleTypes1760001000001,
       ],
@@ -105,6 +107,19 @@ describe('Auth (e2e) — multi-empresa (ADR 0002)', () => {
       });
       expect(typeof res.body.accessToken).toBe('string');
       token = res.body.accessToken as string;
+    });
+
+    it('login grava user.last_login_at (ADR 0003)', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })
+        .expect(200);
+
+      const rows = await dataSource.query(
+        `SELECT "last_login_at" FROM "user" WHERE "id" = $1`,
+        [ADMIN_USER_ID],
+      );
+      expect(rows[0]?.last_login_at).toBeDefined();
     });
 
     it('senha errada → 401 indistinguível', async () => {

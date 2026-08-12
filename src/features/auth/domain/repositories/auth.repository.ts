@@ -58,4 +58,15 @@ export interface AuthRepository {
     userId: string,
     companyId: string,
   ): Promise<PermissionCode[]>;
+
+  /**
+   * Registra o momento do último login da pessoa (`user.last_login_at`).
+   *
+   * Chamado pelo `LoginUseCase` de forma **não-bloqueante** (ADR 0003): a
+   * falha desta escrita não derruba a sessão.
+   *
+   * @param userId Id da pessoa.
+   * @returns Promise resolvida quando o registro é gravado.
+   */
+  updateLastLoginAt(userId: string): Promise<void>;
 }
