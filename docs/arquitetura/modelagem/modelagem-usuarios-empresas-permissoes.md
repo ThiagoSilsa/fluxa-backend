@@ -243,6 +243,6 @@ Seeds em `src/shared/database/typeorm/seeds/` (DML idempotente — ver [ADR 0001
 - [ADR 0003 — Endurecimento do login: rate limiting, contexto de sessão e eventos](../adr/0003-endurecimento-do-login-rate-limiting-contexto-e-eventos.md)
 - [Regras de negócio — Usuários, empresas e permissões](../produto/regras-negocio-usuarios-empresas-permissoes.md)
 - [Modelagem — Controle de veículos](./modelagem-controle-veiculos.md)
-- Migrations: `src/shared/database/typeorm/migrations/0001-create-initial-multi-tenant-rbac-schema.ts`, `0005-create-request-device-import-schema.ts`, `0006-create-user-company-schema.ts`, `0008-add-last-login-at-to-user.ts` (planejada)
+- Migrations: `src/shared/database/typeorm/migrations/0001-create-initial-multi-tenant-rbac-schema.ts`, `0005-create-request-device-import-schema.ts`, `0006-create-user-company-schema.ts`, `0008-add-last-login-at-to-user.ts`
 - Seeds: `src/shared/database/typeorm/seeds/0001-seed-initial-permissions.ts`, `0002-seed-default-company-roles-admin-vehicle-types.ts`
 - Planejamento original do schema: `planejamento/planejamento-backend/planejamento-back-end.md`
