@@ -68,7 +68,7 @@
 
 ## 7. Auditoria (versão completa)
 
-41. **Auditoria** (`audit_log`) é apenas da **versão completa** — sem auditoria mínima no MVP (a migração `0006` fica fora da leva inicial, sem impacto nas anteriores).
+41. **Auditoria** (`audit_log`) é apenas da **versão completa** — sem auditoria mínima no MVP (a migração `0007` fica fora da leva inicial, sem impacto nas anteriores).
 42. Registra ações (`CREATE`, `UPDATE`, `DELETE`, `LOGIN`, `EXPORT`, `IMPORT`, `PRINT_QRCODE`, ...) com ator (`USER`/`SYSTEM`/`API`), snapshot do papel, `entity_type`/`entity_id`, `request_id` (correlação), `context` (ip, user_agent, device) e `old_values`/`new_values`.
 43. `created_at` é **imutável** (só INSERT; sem `updated_at`).
 

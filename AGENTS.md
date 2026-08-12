@@ -1,6 +1,7 @@
 # AGENTS.md
 
 ## 1. Stack e ambiente do projeto
+
 - Nome do projeto: **Fluxa**
 - Framework: **NestJS**
 - Linguagem: **TypeScript**
@@ -52,7 +53,7 @@
   - **DTOs de aplicação** (`src/features/<feature>/application/dto/`): usados pelos **Use Cases**. Classes puras (não interfaces), **sem** decorators de validação. Representam os dados tipados e já validados que o use case recebe depois que o controller validou e transformou a entrada. Definem o contrato de aplicação, independente da camada de transporte.
 - **Regra**: controllers validam a entrada HTTP via DTO de apresentação → mapeiam para DTO de aplicação → chamam o use case. **Use Cases nunca referenciam DTOs de apresentação**.
 - **Orquestração de Use Cases**: use cases podem injetar e chamar outros use cases para fluxos complexos (ex.: `RegisterEntryUseCase` chama `CheckVehicleBlockUseCase`, `EnforceAutoBlockUseCase`). Mantenha cada use case focado em uma única responsabilidade mesmo ao orquestrar.
-- **Código transversal** vai para `src/shared/` (não pertence a nenhuma feature): `constants/`, `database/`, `decorators/`, `dto/`, `filters/`, `guards/`, `interceptors/`, `pipes/`, `queue/`, `spreadsheet/`, `throttler/`, `types/`, `utils/`, `validators/`.
+- **Código transversal** vai para `src/shared/` (não pertence a nenhuma feature): `constants/`, `database/`, `decorators/`, `dto/`, `filters/`, `guards/`, `interceptors/`, `pipes/`, `queue/`, `security/`, `spreadsheet/`, `throttler/`, `types/`, `utils/`, `validators/`.
 
 ## 3. Estilo de código e regras
 
@@ -80,6 +81,7 @@
     private isScopeError(body: string): boolean { … }
   }
   ```
+
 - **Re-exportar símbolo de outro módulo é proibido**: nunca escreva `export { x } from '<outro caminho>'` para manter um caminho de import antigo vivo após mover código. Mova o símbolo e corrija todos os importadores para apontar para o novo local — incluindo testes, que se movem junto com o código que cobrem.
 
   Um re-export esconde onde o código realmente vive: quem segue o import chega a um arquivo que não o define, e o grep pelo símbolo encontra duas respostas. Ele também mantém silenciosamente a aresta de dependência antiga — o módulo continua parecendo depender do que não é mais seu — então o acoplamento que a movimentação pretendia remover sobrevive.
@@ -95,6 +97,7 @@
   ```
 
   Isso é sobre **encaminhar o símbolo de outro módulo**. Um barrel do próprio módulo (`src/shared/utils/index.ts`, `application/use-cases/index.ts`) que coleciona símbolos que o próprio módulo define **não** é re-export nesse sentido e continua permitido.
+
 - **Documentação JSDoc**: todo método público de toda classe (use cases, controllers, repositórios, processors, listeners, validators, utils) **deve** ter um comentário JSDoc documentando:
   - O propósito do método;
   - `@param` para cada parâmetro (tipo e descrição);
@@ -132,7 +135,7 @@
 - **Transações**: use `this.dataSource.transaction()` para operações de escrita em múltiplas etapas (ex.: registrar ENTRY — `vehicle_movement` + `vehicle_access`).
 - **Nomenclatura de métodos**: sufixo `AndCompanyId` para escopo multi-tenant (ex.: `findByIdAndCompanyId`, `updateByIdAndCompanyId`).
 - **Acesso a banco pertence aos repositórios — um util NÃO deve tocar `DataSource`.** Arquivos em `application/utils/` (e qualquer outro módulo auxiliar) são funções puras sobre os dados que recebem. Nunca injetam, recebem ou importam `DataSource`, `EntityManager`, `QueryRunner` ou repositório TypeORM, e nunca escrevem SQL. Se um helper precisar de dados para decidir algo, o chamador busca via repositório e passa o dado.
-- **Multi-tenant**: toda tabela tem `company_id` (exceto catálogos globais). Toda referência (`user_id`, `vehicle_id`, `role_id`, `department_id` etc.) deve pertencer ao **mesmo** `company_id` da linha — validação em nível de aplicação (use cases/repositórios), pois não é expressável em SQL puro.
+- **Multi-tenant**: toda tabela tem `company_id` (exceto catálogos globais — `permission` — e a identidade da pessoa — `user`, cuja participação numa empresa é o vínculo `user_company`; ver ADR 0002). Toda referência (`user_id`, `vehicle_id`, `role_id`, `department_id` etc.) deve pertencer ao **mesmo** `company_id` da linha — validação em nível de aplicação (use cases/repositórios), pois não é expressável em SQL puro. Para `user`, a validação é feita pelo vínculo `user_company` (user_id, company_id) ativo — nunca via `user.company_id` (coluna não existe desde a migration 0006).
 
 ## 5. Requisitos de teste
 

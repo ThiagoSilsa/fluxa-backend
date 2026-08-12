@@ -2,7 +2,7 @@
 
 > Modelagem do banco para o **escopo de tenant, usuários e RBAC** do SOMAR, incluindo as tabelas de **suporte operacional** (`device`, `import_job`) e a **auditoria** (versão completa, planejada).
 > Implementada pela migration `0001` (RBAC) e parcialmente pela `0005` (device/import), conforme [ADR 0001](../adr/0001-migrations-seeds-iniciais.md).
-> A **identidade multi-empresa** (tabela `user_company` e remoção de `company_id` de `user`) segue o modelo-alvo do [ADR 0002 — A pessoa é a identidade e a empresa é um vínculo](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md) — **planejado, migração ainda não implementada**.
+> A **identidade multi-empresa** (tabela `user_company` e remoção de `company_id`/`type`/`is_active` de `user`) foi implementada pela migration `0006`, conforme [ADR 0002 — A pessoa é a identidade e a empresa é um vínculo](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md).
 > Regras de negócio deste escopo: [regras-negocio-usuarios-empresas-permissoes.md](../produto/regras-negocio-usuarios-empresas-permissoes.md).
 
 ## Escopo
@@ -11,10 +11,10 @@ Tabelas do domínio de tenant, usuários e RBAC, mais o suporte operacional:
 
 | Domínio lógico              | Tabelas                                                                | Migração                             |
 | --------------------------- | ---------------------------------------------------------------------- | ------------------------------------ |
-| Tenant e usuários           | `company`, `user`, `user_company` (vínculo)                            | `0001` (+ `user_company` — ADR 0002) |
+| Tenant e usuários           | `company`, `user`, `user_company` (vínculo)                            | `0001` + `0006`                      |
 | RBAC                        | `role`, `permission` (catálogo global), `role_permission`, `user_role` | `0001`                               |
 | Suporte operacional         | `device` (app do porteiro/sync), `import_job` (importação)             | `0005`                               |
-| Auditoria (versão completa) | `audit_log`                                                            | `0006` (planejada, não implementada) |
+| Auditoria (versão completa) | `audit_log`                                                            | `0007` (planejada, não implementada) |
 
 Tabelas de **controle de veículos e fluxo de acesso** (`vehicle_type`, `vehicle`, `department`, `vehicle_department`, `user_vehicle`, `vehicle_qr_code`, `entrance`, `vehicle_block`, `entry_denial`, `block_request`, `vehicle_access`, `vehicle_movement`, `occupancy_snapshot`, `access_request`) estão documentadas em [modelagem-controle-veiculos.md](./modelagem-controle-veiculos.md).
 
@@ -58,7 +58,7 @@ erDiagram
 
 ### `user` — usuários (identidade da pessoa)
 
-> Modelo-alvo do [ADR 0002](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md): a pessoa é a identidade, sem `company_id` — a participação numa empresa é o vínculo `user_company`. (Hoje implementado com `company_id`; a migração de ajuste ainda não foi criada.)
+> Implementado pela migration `0006` conforme [ADR 0002](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md): a pessoa é a identidade, sem `company_id` — a participação numa empresa é o vínculo `user_company`.
 
 | Coluna                      | Tipo                               | Constraints / Notas                                                      |
 | --------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
@@ -76,7 +76,7 @@ erDiagram
 
 ### `user_company` — vínculo pessoa ↔ empresa
 
-> Tabela **nova** (planejada — ADR 0002): uma pessoa participa de uma empresa por linha. `company_id` deixa de ser propriedade do usuário e passa a ser da **sessão**.
+> Tabela criada na migration `0006` (ADR 0002): uma pessoa participa de uma empresa por linha. `company_id` deixa de ser propriedade do usuário e passa a ser da **sessão**.
 
 | Coluna                      | Tipo                                   | Constraints / Notas                             |
 | --------------------------- | -------------------------------------- | ----------------------------------------------- |
@@ -177,7 +177,7 @@ Uniques: `UQ_user_role_company_user_role UNIQUE (company_id, user_id, role_id)` 
 
 > Pós-importação: a **web** gera os QR codes dos veículos importados (em lote) e disponibiliza a impressão.
 
-## Auditoria — versão completa (migração `0006`, planejada)
+## Auditoria — versão completa (migração `0007`, planejada)
 
 > **Não implementada nesta leva** (adiada sem impacto nas anteriores). Enum `audit_actor_type` (`USER`, `SYSTEM`, `API`) planejado.
 
@@ -199,13 +199,13 @@ Uniques: `UQ_user_role_company_user_role UNIQUE (company_id, user_id, role_id)` 
 
 ## Enums (nativos do PostgreSQL)
 
-| Enum                | Valores                                              | Migração                                             |
-| ------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
-| `user_type`         | `EMPLOYEE`, `VISITOR`                                | `0001` (coluna migra para `user_company` — ADR 0002) |
-| `device_platform`   | `ANDROID`, `IOS`                                     | `0005`                                               |
-| `import_job_type`   | `VEHICLE`, `USER`, `USER_VEHICLE`                    | `0005`                                               |
-| `import_job_status` | `PENDING`, `PROCESSING`, `DONE`, `FAILED`, `PARTIAL` | `0005`                                               |
-| `audit_actor_type`  | `USER`, `SYSTEM`, `API` (planejado)                  | `0006`                                               |
+| Enum                | Valores                                              | Migração                                         |
+| ------------------- | ---------------------------------------------------- | ------------------------------------------------ |
+| `user_type`         | `EMPLOYEE`, `VISITOR`                                | `0001` (em uso em `user_company` desde a `0006`) |
+| `device_platform`   | `ANDROID`, `IOS`                                     | `0005`                                           |
+| `import_job_type`   | `VEHICLE`, `USER`, `USER_VEHICLE`                    | `0005`                                           |
+| `import_job_status` | `PENDING`, `PROCESSING`, `DONE`, `FAILED`, `PARTIAL` | `0005`                                           |
+| `audit_actor_type`  | `USER`, `SYSTEM`, `API` (planejado)                  | `0007`                                           |
 
 > Enums do escopo de veículos (`vehicle_block_type`, `vehicle_block_status`, `entry_denial_reason`, `sync_status`, `block_request_status`, `movement_type`, `movement_source`, `access_status`, `access_request_type`, `access_request_status`, `contact_channel`) — ver [modelagem-controle-veiculos.md](./modelagem-controle-veiculos.md).
 
@@ -240,6 +240,6 @@ Seeds em `src/shared/database/typeorm/seeds/` (DML idempotente — ver [ADR 0001
 - [ADR 0002 — A pessoa é a identidade e a empresa é um vínculo](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md)
 - [Regras de negócio — Usuários, empresas e permissões](../produto/regras-negocio-usuarios-empresas-permissoes.md)
 - [Modelagem — Controle de veículos](./modelagem-controle-veiculos.md)
-- Migrations: `src/shared/database/typeorm/migrations/0001-create-initial-multi-tenant-rbac-schema.ts`, `0005-create-request-device-import-schema.ts`
+- Migrations: `src/shared/database/typeorm/migrations/0001-create-initial-multi-tenant-rbac-schema.ts`, `0005-create-request-device-import-schema.ts`, `0006-create-user-company-schema.ts`
 - Seeds: `src/shared/database/typeorm/seeds/0001-seed-initial-permissions.ts`, `0002-seed-default-company-roles-admin-vehicle-types.ts`
 - Planejamento original do schema: `planejamento/planejamento-backend/planejamento-back-end.md`
