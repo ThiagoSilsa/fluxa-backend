@@ -44,6 +44,23 @@ export function ApiListSessionCompanies(): MethodDecorator {
 }
 
 /**
+ * Decorator Swagger do endpoint `GET /auth/validate` (ADR 0003).
+ */
+export function ApiValidateToken(): MethodDecorator {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Valida a sessão atual e devolve o ator',
+      description:
+        'Confere o token (assinatura/expiração) e revalida o vínculo ' +
+        'pessoa+empresa a cada requisição (ADR 0002/0003). Devolve pessoa, ' +
+        'empresa da sessão, cargos e permissões — usado pelo frontend no boot.',
+    }),
+    ApiResponse({ status: 200, description: 'Sessão válida — dados do ator.' }),
+    ApiResponse({ status: 401, description: 'Token inválido/sem vínculo.' }),
+  );
+}
+
+/**
  * Decorator Swagger do endpoint `POST /auth/switch-company`.
  */
 export function ApiSwitchCompany(): MethodDecorator {

@@ -122,6 +122,33 @@ describe('Auth (e2e) — multi-empresa (ADR 0002)', () => {
       expect(rows[0]?.last_login_at).toBeDefined();
     });
 
+    it('GET /auth/validate com token → 200 com dados da sessão (ADR 0003)', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/auth/validate')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        id: ADMIN_USER_ID,
+        companyId: SOMAR_COMPANY_ID,
+        email: ADMIN_EMAIL,
+        type: 'EMPLOYEE',
+      });
+      expect(Array.isArray(res.body.roleCodes)).toBe(true);
+      expect(Array.isArray(res.body.permissions)).toBe(true);
+    });
+
+    it('GET /auth/validate sem token → 401', async () => {
+      await request(app.getHttpServer()).get('/auth/validate').expect(401);
+    });
+
+    it('GET /auth/validate com token inválido → 401', async () => {
+      await request(app.getHttpServer())
+        .get('/auth/validate')
+        .set('Authorization', 'Bearer token-invalido')
+        .expect(401);
+    });
+
     it('senha errada → 401 indistinguível', async () => {
       await request(app.getHttpServer())
         .post('/auth/login')

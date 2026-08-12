@@ -27,10 +27,13 @@ import {
   ApiListSessionCompanies,
   ApiLogin,
   ApiSwitchCompany,
+  ApiValidateToken,
 } from '../../../decorators/api-auth.decorator';
 import { LoginDto } from '../dto/login.dto';
 import { SwitchCompanyDto } from '../dto/switch-company.dto';
 import { ThrottleLogin } from '../../../../../shared/throttler/throttle-login.decorator';
+import type { ValidateSessionResponse } from '../../../application/types/login.type';
+import { ValidateSessionUseCase } from '../../../application/use-cases/validate-session.use-case';
 
 /**
  * Controller de autenticação.
@@ -44,6 +47,7 @@ export class AuthController {
     private readonly loginUseCase: LoginUseCase,
     private readonly listSessionCompaniesUseCase: ListSessionCompaniesUseCase,
     private readonly switchCompanyUseCase: SwitchCompanyUseCase,
+    private readonly validateSessionUseCase: ValidateSessionUseCase,
   ) {}
 
   /**
@@ -113,6 +117,23 @@ export class AuthController {
     @Req() request: AuthenticatedRequest,
   ): Promise<AuthCompanyEntity[]> {
     return this.listSessionCompaniesUseCase.execute(this.requireUser(request));
+  }
+
+  /**
+   * Valida a sessão atual e devolve o ator (boot do frontend — ADR 0003).
+   *
+   * O `JwtAuthGuard` revalida o vínculo pessoa+empresa a cada requisição.
+   *
+   * @param request Requisição autenticada.
+   * @returns Dados da sessão (pessoa, empresa, cargos e permissões).
+   */
+  @Get('validate')
+  @UseGuards(JwtAuthGuard)
+  @ApiValidateToken()
+  public validateSession(
+    @Req() request: AuthenticatedRequest,
+  ): ValidateSessionResponse {
+    return this.validateSessionUseCase.execute(this.requireUser(request));
   }
 
   /**

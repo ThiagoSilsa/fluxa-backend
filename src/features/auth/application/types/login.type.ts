@@ -1,3 +1,4 @@
+import type { PermissionCode } from '../../../../shared/constants/access-control.constant';
 import type { AuthUserEntity } from '../../domain/entities/auth-user.entity';
 import type { UserType } from '../../domain/constants/user-type.constant';
 
@@ -45,3 +46,21 @@ export interface LoginCompanyChoiceResponse {
 export type ResolveChosenResult =
   | { type: 'chosen'; candidate: AuthUserEntity }
   | { type: 'choice'; companies: LoginCompanyOption[] };
+
+/** Dados da sessão válida devolvidos por `GET /auth/validate` (ADR 0003). */
+export interface ValidateSessionResponse {
+  /** Id da pessoa. */
+  id: string;
+  /** Empresa da sessão. */
+  companyId: string;
+  /** E-mail (identidade global). */
+  email: string;
+  /** Nome da pessoa. */
+  name: string;
+  /** Tipo no vínculo da empresa da sessão. */
+  type: UserType;
+  /** Códigos dos cargos da pessoa na empresa da sessão. */
+  roleCodes: string[];
+  /** Permissões efetivas (via cargos → role_permission). */
+  permissions: PermissionCode[];
+}

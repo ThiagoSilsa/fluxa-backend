@@ -11,6 +11,7 @@ import { ListSessionCompaniesUseCase } from './application/use-cases/list-sessio
 import { ResolveAuthenticatedUserUseCase } from './application/use-cases/resolve-authenticated-user.use-case';
 import { SwitchCompanyUseCase } from './application/use-cases/switch-company.use-case';
 import { ValidateJwtPayloadUseCase } from './application/use-cases/validate-jwt-payload.use-case';
+import { ValidateSessionUseCase } from './application/use-cases/validate-session.use-case';
 import { AUTH_REPOSITORY } from './domain/repositories/auth.repository';
 import { USER_COMPANY_REPOSITORY } from './domain/repositories/user-company.repository';
 import { authProviders } from './infrastructure/persistence/providers/auth.providers';
@@ -64,6 +65,7 @@ import { AuthController } from './presentation/http/controllers/auth.controller'
     LoginUseCase,
     ListSessionCompaniesUseCase,
     SwitchCompanyUseCase,
+    ValidateSessionUseCase,
     JwtTokenSignUseCase,
     JwtTokenVerifyUseCase,
     PasswordHashUseCase,
@@ -78,6 +80,7 @@ import { AuthController } from './presentation/http/controllers/auth.controller'
     LoginUseCase,
     ListSessionCompaniesUseCase,
     SwitchCompanyUseCase,
+    ValidateSessionUseCase,
     JwtTokenSignUseCase,
     JwtTokenVerifyUseCase,
     PasswordHashUseCase,
