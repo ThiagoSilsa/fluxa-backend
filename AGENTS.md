@@ -56,7 +56,7 @@
 - **Código transversal** vai para `src/shared/` (não pertence a nenhuma feature): `constants/`, `database/`, `decorators/`, `dto/`, `filters/`, `guards/`, `interceptors/`, `pipes/`, `queue/`, `security/`, `spreadsheet/`, `throttler/`, `types/`, `utils/`, `validators/`.
 
 ## 3. Estilo de código e regras
-
+- **Tarefas Futuras**: Sempre adicionar um "TODO: <Tarefa Futura>" No código.
 - **Nomenclatura de arquivos**: minúsculas, kebab-case separado por pontos (ex.: `register-entry.use-case.ts`, `auth.controller.ts`).
 - **Estrutura de resposta**: nunca retorne entidades cruas do banco. Use serialização ou mapeamentos explícitos para a forma de resposta desejada.
 - **Mapeamento `toDomain()` do repositório**: nunca retorne ORM entities cruas do repositório. Implemente um método privado `toDomain()` para mapear registros ORM para entidades de domínio (ex.: `private toDomain(orm: OrmEntity): DomainEntity`). Isso mantém as entidades de domínio limpas de imports de ORM.
