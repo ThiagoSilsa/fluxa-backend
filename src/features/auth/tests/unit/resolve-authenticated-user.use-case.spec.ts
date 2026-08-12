@@ -6,7 +6,7 @@ import {
   AuthRepository,
   AUTH_REPOSITORY,
 } from '../../domain/repositories/auth.repository';
-import { ResolveAuthenticatedUserUseCase } from './resolve-authenticated-user.use-case';
+import { ResolveAuthenticatedUserUseCase } from '../../application/use-cases/resolve-authenticated-user.use-case';
 
 describe('ResolveAuthenticatedUserUseCase', () => {
   let useCase: ResolveAuthenticatedUserUseCase;

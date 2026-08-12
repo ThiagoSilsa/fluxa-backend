@@ -1,7 +1,7 @@
 import { PermissionCode } from '../../../../shared/constants/access-control.constant';
 import { UserType } from '../../domain/constants/user-type.constant';
 import type { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
-import { ValidateSessionUseCase } from './validate-session.use-case';
+import { ValidateSessionUseCase } from '../../application/use-cases/validate-session.use-case';
 
 /**
  * Testes unitários do `ValidateSessionUseCase` (ADR 0003).

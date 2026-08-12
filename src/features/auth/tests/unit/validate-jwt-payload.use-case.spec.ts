@@ -2,8 +2,8 @@ import { Test } from '@nestjs/testing';
 import { PermissionCode } from '../../../../shared/constants/access-control.constant';
 import { UserType } from '../../domain/constants/user-type.constant';
 import { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
-import { ResolveAuthenticatedUserUseCase } from './resolve-authenticated-user.use-case';
-import { ValidateJwtPayloadUseCase } from './validate-jwt-payload.use-case';
+import { ResolveAuthenticatedUserUseCase } from '../../application/use-cases/resolve-authenticated-user.use-case';
+import { ValidateJwtPayloadUseCase } from '../../application/use-cases/validate-jwt-payload.use-case';
 
 describe('ValidateJwtPayloadUseCase', () => {
   let useCase: ValidateJwtPayloadUseCase;

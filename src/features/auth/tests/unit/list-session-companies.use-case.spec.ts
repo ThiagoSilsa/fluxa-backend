@@ -6,7 +6,7 @@ import {
   UserCompanyRepository,
   USER_COMPANY_REPOSITORY,
 } from '../../domain/repositories/user-company.repository';
-import { ListSessionCompaniesUseCase } from './list-session-companies.use-case';
+import { ListSessionCompaniesUseCase } from '../../application/use-cases/list-session-companies.use-case';
 
 describe('ListSessionCompaniesUseCase', () => {
   let useCase: ListSessionCompaniesUseCase;

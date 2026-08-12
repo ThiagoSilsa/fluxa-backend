@@ -10,8 +10,8 @@ import {
   AuthRepository,
   AUTH_REPOSITORY,
 } from '../../domain/repositories/auth.repository';
-import { LoginInputDto } from '../dto/login-input.dto';
-import { LoginUseCase } from './login.use-case';
+import { LoginInputDto } from '../../application/dto/login-input.dto';
+import { LoginUseCase } from '../../application/use-cases/login.use-case';
 
 describe('LoginUseCase', () => {
   let useCase: LoginUseCase;

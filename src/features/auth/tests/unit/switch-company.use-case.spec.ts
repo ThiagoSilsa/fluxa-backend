@@ -10,8 +10,8 @@ import {
   AuthRepository,
   AUTH_REPOSITORY,
 } from '../../domain/repositories/auth.repository';
-import { SwitchCompanyInputDto } from '../dto/switch-company-input.dto';
-import { SwitchCompanyUseCase } from './switch-company.use-case';
+import { SwitchCompanyInputDto } from '../../application/dto/switch-company-input.dto';
+import { SwitchCompanyUseCase } from '../../application/use-cases/switch-company.use-case';
 
 describe('SwitchCompanyUseCase', () => {
   let useCase: SwitchCompanyUseCase;
