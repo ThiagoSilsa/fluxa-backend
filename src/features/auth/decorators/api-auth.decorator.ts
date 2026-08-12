@@ -1,5 +1,10 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { LoginDto } from '../presentation/http/dto/login.dto';
 import { SwitchCompanyDto } from '../presentation/http/dto/switch-company.dto';
 
@@ -32,6 +37,7 @@ export function ApiLogin(): MethodDecorator {
  */
 export function ApiListSessionCompanies(): MethodDecorator {
   return applyDecorators(
+    ApiBearerAuth(),
     ApiOperation({
       summary: 'Lista as empresas da pessoa (seletor da sessão)',
       description:
@@ -48,6 +54,7 @@ export function ApiListSessionCompanies(): MethodDecorator {
  */
 export function ApiValidateToken(): MethodDecorator {
   return applyDecorators(
+    ApiBearerAuth(),
     ApiOperation({
       summary: 'Valida a sessão atual e devolve o ator',
       description:
@@ -65,6 +72,7 @@ export function ApiValidateToken(): MethodDecorator {
  */
 export function ApiSwitchCompany(): MethodDecorator {
   return applyDecorators(
+    ApiBearerAuth(),
     ApiOperation({
       summary: 'Troca a empresa da sessão sem repetir senha',
       description:
