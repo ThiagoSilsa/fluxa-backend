@@ -5,8 +5,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtTokenSignUseCase } from '../../../../shared/security/jwt-token-sign.use-case';
 import { PasswordVerifyUseCase } from '../../../../shared/security/password-verify.use-case';
+import { UserLoggedInEvent } from '../events/user-logged-in.event';
 import { AuthUserEntity } from '../../domain/entities/auth-user.entity';
 import { AUTH_REPOSITORY } from '../../domain/repositories/auth.repository';
 import type { AuthRepository } from '../../domain/repositories/auth.repository';
@@ -45,6 +47,7 @@ export class LoginUseCase {
     private readonly passwordVerify: PasswordVerifyUseCase,
     private readonly jwtTokenSign: JwtTokenSignUseCase,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -102,6 +105,17 @@ export class LoginUseCase {
       companyId: candidate.companyId,
       email: candidate.email,
     });
+
+    // Evento de sessão (ADR 0003) — emissão não bloqueia a resposta.
+    this.eventEmitter.emit(
+      UserLoggedInEvent.eventName,
+      new UserLoggedInEvent(
+        candidate.id,
+        candidate.companyId,
+        input.ipAddress,
+        input.userAgent,
+      ),
+    );
 
     const expiresInRaw =
       this.configService.get<string>('JWT_EXPIRES_IN') ?? '28800s';

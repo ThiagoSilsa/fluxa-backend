@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtTokenSignUseCase } from '../../../../shared/security/jwt-token-sign.use-case';
 import { PasswordVerifyUseCase } from '../../../../shared/security/password-verify.use-case';
 import { UserType } from '../../domain/constants/user-type.constant';
@@ -29,6 +30,10 @@ describe('LoginUseCase', () => {
   const jwtSignMock = {
     execute: jest.fn(),
   } as jest.Mocked<Pick<JwtTokenSignUseCase, 'execute'>>;
+
+  const eventEmitterMock = {
+    emit: jest.fn(),
+  };
 
   const somarCandidate: AuthUserEntity = {
     id: '30000000-0000-0000-0000-000000000001',
@@ -72,6 +77,10 @@ describe('LoginUseCase', () => {
         {
           provide: ConfigService,
           useValue: { get: jest.fn().mockReturnValue('28800s') },
+        },
+        {
+          provide: EventEmitter2,
+          useValue: eventEmitterMock,
         },
       ],
     }).compile();
@@ -140,6 +149,41 @@ describe('LoginUseCase', () => {
     );
 
     expect(result).toMatchObject({ accessToken: 'token.jwt' });
+  });
+
+  it('emite user.logged_in com o contexto no login bem-sucedido (ADR 0003)', async () => {
+    authRepoMock.findUsersByEmail.mockResolvedValue([somarCandidate]);
+
+    await useCase.execute(
+      new LoginInputDto(
+        'admin@somar.local',
+        'senha',
+        undefined,
+        '10.0.0.1',
+        'jest-agent',
+      ),
+    );
+
+    expect(eventEmitterMock.emit).toHaveBeenCalledWith(
+      'user.logged_in',
+      expect.objectContaining({
+        userId: somarCandidate.id,
+        companyId: somarCandidate.companyId,
+        ipAddress: '10.0.0.1',
+        userAgent: 'jest-agent',
+      }),
+    );
+  });
+
+  it('não emite user.logged_in no caso requiresCompanyChoice (ADR 0003)', async () => {
+    authRepoMock.findUsersByEmail.mockResolvedValue([
+      somarCandidate,
+      secondCompanyCandidate,
+    ]);
+
+    await useCase.execute(new LoginInputDto('admin@somar.local', 'senha'));
+
+    expect(eventEmitterMock.emit).not.toHaveBeenCalled();
   });
 
   it('entra na empresa escolhida quando companyId é informado', async () => {

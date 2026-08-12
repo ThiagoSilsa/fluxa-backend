@@ -14,6 +14,7 @@ import { ValidateJwtPayloadUseCase } from './application/use-cases/validate-jwt-
 import { ValidateSessionUseCase } from './application/use-cases/validate-session.use-case';
 import { AUTH_REPOSITORY } from './domain/repositories/auth.repository';
 import { USER_COMPANY_REPOSITORY } from './domain/repositories/user-company.repository';
+import { SessionAuditListener } from './infrastructure/listeners/session-audit.listener';
 import { authProviders } from './infrastructure/persistence/providers/auth.providers';
 import { userCompanyProviders } from './infrastructure/persistence/providers/user-company.providers';
 import { CompanyOrmEntity } from './infrastructure/persistence/typeorm/company.orm-entity';
@@ -70,6 +71,7 @@ import { AuthController } from './presentation/http/controllers/auth.controller'
     JwtTokenVerifyUseCase,
     PasswordHashUseCase,
     PasswordVerifyUseCase,
+    SessionAuditListener,
   ],
   controllers: [AuthController],
   exports: [

@@ -3,6 +3,7 @@ import {
   StartedPostgreSqlContainer,
 } from '@testcontainers/postgresql';
 import { INestApplication } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -138,6 +139,25 @@ describe('Auth (e2e) — multi-empresa (ADR 0002)', () => {
       expect(Array.isArray(res.body.permissions)).toBe(true);
     });
 
+    it('login emite user.logged_in (ADR 0003)', async () => {
+      const emitter = app.get(EventEmitter2);
+      const spy = jest.spyOn(emitter, 'emit');
+
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })
+        .expect(200);
+
+      expect(spy).toHaveBeenCalledWith(
+        'user.logged_in',
+        expect.objectContaining({
+          userId: ADMIN_USER_ID,
+          companyId: SOMAR_COMPANY_ID,
+        }),
+      );
+      spy.mockRestore();
+    });
+
     it('GET /auth/validate sem token → 401', async () => {
       await request(app.getHttpServer()).get('/auth/validate').expect(401);
     });
@@ -250,6 +270,34 @@ describe('Auth (e2e) — multi-empresa (ADR 0002)', () => {
 
       expect(res.body.accessToken).toBeDefined();
       expect(res.body.user.companyId).toBeUndefined(); // user não expõe companyId — é da sessão
+    });
+
+    it('switch-company emite user.company_switched + user.logged_in (ADR 0003)', async () => {
+      const emitter = app.get(EventEmitter2);
+      const spy = jest.spyOn(emitter, 'emit');
+
+      await request(app.getHttpServer())
+        .post('/auth/switch-company')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ companyId: SECOND_COMPANY_ID })
+        .expect(200);
+
+      expect(spy).toHaveBeenCalledWith(
+        'user.company_switched',
+        expect.objectContaining({
+          userId: ADMIN_USER_ID,
+          fromCompanyId: SOMAR_COMPANY_ID,
+          toCompanyId: SECOND_COMPANY_ID,
+        }),
+      );
+      expect(spy).toHaveBeenCalledWith(
+        'user.logged_in',
+        expect.objectContaining({
+          userId: ADMIN_USER_ID,
+          companyId: SECOND_COMPANY_ID,
+        }),
+      );
+      spy.mockRestore();
     });
 
     it('revalidação por requisição: desativar o vínculo derruba a sessão', async () => {

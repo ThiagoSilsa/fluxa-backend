@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtTokenSignUseCase } from '../../../../shared/security/jwt-token-sign.use-case';
 import { UserType } from '../../domain/constants/user-type.constant';
 import { AuthUserEntity } from '../../domain/entities/auth-user.entity';
@@ -22,6 +23,10 @@ describe('SwitchCompanyUseCase', () => {
   const jwtSignMock = {
     execute: jest.fn(),
   } as jest.Mocked<Pick<JwtTokenSignUseCase, 'execute'>>;
+
+  const eventEmitterMock = {
+    emit: jest.fn(),
+  };
 
   const actor: AuthenticatedUserEntity = {
     id: '30000000-0000-0000-0000-000000000001',
@@ -65,6 +70,10 @@ describe('SwitchCompanyUseCase', () => {
         {
           provide: ConfigService,
           useValue: { get: jest.fn().mockReturnValue('28800s') },
+        },
+        {
+          provide: EventEmitter2,
+          useValue: eventEmitterMock,
         },
       ],
     }).compile();
@@ -115,5 +124,37 @@ describe('SwitchCompanyUseCase', () => {
     await expect(
       useCase.execute(actor, new SwitchCompanyInputDto(targetCompanyId)),
     ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('emite user.company_switched e user.logged_in ao trocar de empresa (ADR 0003)', async () => {
+    authRepoMock.findUserInCompany.mockResolvedValue(targetCandidate);
+
+    await useCase.execute(actor, new SwitchCompanyInputDto(targetCompanyId));
+
+    expect(eventEmitterMock.emit).toHaveBeenCalledWith(
+      'user.company_switched',
+      expect.objectContaining({
+        userId: actor.id,
+        fromCompanyId: actor.companyId,
+        toCompanyId: targetCompanyId,
+      }),
+    );
+    expect(eventEmitterMock.emit).toHaveBeenCalledWith(
+      'user.logged_in',
+      expect.objectContaining({
+        userId: actor.id,
+        companyId: targetCompanyId,
+      }),
+    );
+  });
+
+  it('não emite eventos quando não há vínculo (ADR 0003)', async () => {
+    authRepoMock.findUserInCompany.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(actor, new SwitchCompanyInputDto(targetCompanyId)),
+    ).rejects.toThrow(UnauthorizedException);
+
+    expect(eventEmitterMock.emit).not.toHaveBeenCalled();
   });
 });
