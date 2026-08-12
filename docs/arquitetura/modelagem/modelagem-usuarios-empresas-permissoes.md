@@ -3,6 +3,7 @@
 > Modelagem do banco para o **escopo de tenant, usuários e RBAC** do SOMAR, incluindo as tabelas de **suporte operacional** (`device`, `import_job`) e a **auditoria** (versão completa, planejada).
 > Implementada pela migration `0001` (RBAC) e parcialmente pela `0005` (device/import), conforme [ADR 0001](../adr/0001-migrations-seeds-iniciais.md).
 > A **identidade multi-empresa** (tabela `user_company` e remoção de `company_id`/`type`/`is_active` de `user`) foi implementada pela migration `0006`, conforme [ADR 0002 — A pessoa é a identidade e a empresa é um vínculo](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md).
+> O **endurecimento do login** (`user.last_login_at`, migration `0008`) foi implementado conforme [ADR 0003 — Endurecimento do login: rate limiting, contexto de sessão e eventos](../adr/0003-endurecimento-do-login-rate-limiting-contexto-e-eventos.md).
 > Regras de negócio deste escopo: [regras-negocio-usuarios-empresas-permissoes.md](../produto/regras-negocio-usuarios-empresas-permissoes.md).
 
 ## Escopo
@@ -11,7 +12,7 @@ Tabelas do domínio de tenant, usuários e RBAC, mais o suporte operacional:
 
 | Domínio lógico              | Tabelas                                                                | Migração                             |
 | --------------------------- | ---------------------------------------------------------------------- | ------------------------------------ |
-| Tenant e usuários           | `company`, `user`, `user_company` (vínculo)                            | `0001` + `0006`                      |
+| Tenant e usuários           | `company`, `user`, `user_company` (vínculo)                            | `0001` + `0006` + `0008`             |
 | RBAC                        | `role`, `permission` (catálogo global), `role_permission`, `user_role` | `0001`                               |
 | Suporte operacional         | `device` (app do porteiro/sync), `import_job` (importação)             | `0005`                               |
 | Auditoria (versão completa) | `audit_log`                                                            | `0007` (planejada, não implementada) |
@@ -70,6 +71,7 @@ erDiagram
 | `document`                  | varchar(32) NULL                   | `UQ_user_document UNIQUE (document)` — global (NULLs permitidos)         |
 | `observation`               | text NULL                          |                                                                          |
 | `photo_url`                 | varchar(512) NULL                  |                                                                          |
+| `last_login_at`             | timestamptz NULL                   | último login (ADR 0003, migration `0008`; falha do update não bloqueia)  |
 | `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now() |                                                                          |
 
 > `type` e `is_active` **saem de `user`** e passam para o vínculo `user_company` (o que muda por empresa mora no vínculo).
@@ -238,8 +240,9 @@ Seeds em `src/shared/database/typeorm/seeds/` (DML idempotente — ver [ADR 0001
 
 - [ADR 0001 — Migrations e seeds iniciais](../adr/0001-migrations-seeds-iniciais.md)
 - [ADR 0002 — A pessoa é a identidade e a empresa é um vínculo](../adr/0002-a-pessoa-e-a-identidade-e-a-empresa-e-um-vinculo.md)
+- [ADR 0003 — Endurecimento do login: rate limiting, contexto de sessão e eventos](../adr/0003-endurecimento-do-login-rate-limiting-contexto-e-eventos.md)
 - [Regras de negócio — Usuários, empresas e permissões](../produto/regras-negocio-usuarios-empresas-permissoes.md)
 - [Modelagem — Controle de veículos](./modelagem-controle-veiculos.md)
-- Migrations: `src/shared/database/typeorm/migrations/0001-create-initial-multi-tenant-rbac-schema.ts`, `0005-create-request-device-import-schema.ts`, `0006-create-user-company-schema.ts`
+- Migrations: `src/shared/database/typeorm/migrations/0001-create-initial-multi-tenant-rbac-schema.ts`, `0005-create-request-device-import-schema.ts`, `0006-create-user-company-schema.ts`, `0008-add-last-login-at-to-user.ts` (planejada)
 - Seeds: `src/shared/database/typeorm/seeds/0001-seed-initial-permissions.ts`, `0002-seed-default-company-roles-admin-vehicle-types.ts`
 - Planejamento original do schema: `planejamento/planejamento-backend/planejamento-back-end.md`
