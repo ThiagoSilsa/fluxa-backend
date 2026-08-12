@@ -45,7 +45,7 @@ export class AuthTypeormRepository implements AuthRepository {
     const candidates: AuthUserEntity[] = [];
     for (const user of users) {
       for (const link of user.companies ?? []) {
-        candidates.push(this.toCandidate(user, link));
+        candidates.push(this.toDomain(user, link));
       }
     }
     return candidates;
@@ -69,7 +69,7 @@ export class AuthTypeormRepository implements AuthRepository {
     if (!link) {
       return null;
     }
-    return this.toCandidate(link.user, link);
+    return this.toDomain(link.user, link);
   }
 
   /**
@@ -143,7 +143,7 @@ export class AuthTypeormRepository implements AuthRepository {
    * @param link Vínculo pessoa ↔ empresa (ORM).
    * @returns Candidato de autenticação.
    */
-  private toCandidate(
+  private toDomain(
     user: UserOrmEntity,
     link: UserCompanyOrmEntity,
   ): AuthUserEntity {

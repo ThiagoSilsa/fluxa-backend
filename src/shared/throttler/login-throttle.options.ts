@@ -21,8 +21,8 @@ export const LOGIN_THROTTLE_ERROR_MESSAGE =
  * com fallback para o IP quando o body não trouxer e-mail (requisições
  * malformadas não escapam do limite por origem).
  *
- * @param req Request HTTP cru (Express) — tipado como `Record<string, any>`
- * porque é o tipo exigido pela assinatura `ThrottlerGetTrackerFunction`.
+ * @param req Request HTTP cru (Express) — tipo exigido pela assinatura
+ * `ThrottlerGetTrackerFunction` do `@nestjs/throttler`.
  * @returns Chave de rastreamento (e-mail em minúsculas ou IP/`unknown`).
  */
 export const loginEmailTracker: ThrottlerGetTrackerFunction = (req) => {

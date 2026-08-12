@@ -3,8 +3,10 @@ import { AUTH_REPOSITORY } from '../../../domain/repositories/auth.repository';
 import { AuthTypeormRepository } from '../typeorm/auth-typeorm.repository';
 
 /**
- * Registro DI do `AuthRepository` (token → implementação TypeORM).
+ * Registro DI do `AuthRepository` (token → implementação TypeORM via
+ * `useExisting` — AGENTS.md §4).
  */
 export const authProviders: Provider[] = [
-  { provide: AUTH_REPOSITORY, useClass: AuthTypeormRepository },
+  AuthTypeormRepository,
+  { provide: AUTH_REPOSITORY, useExisting: AuthTypeormRepository },
 ];

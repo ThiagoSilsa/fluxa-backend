@@ -14,9 +14,9 @@ import { JwtAuthGuard } from '../../../../../shared/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../../../../shared/guards/jwt-auth.guard';
 import { LoginInputDto } from '../../../application/dto/login-input.dto';
 import { SwitchCompanyInputDto } from '../../../application/dto/switch-company-input.dto';
-import { AuthCompanyEntity } from '../../../domain/entities/auth-company.entity';
-import { AuthenticatedUserEntity } from '../../../domain/entities/authenticated-user.entity';
-import {
+import type { AuthCompanyEntity } from '../../../domain/entities/auth-company.entity';
+import type { AuthenticatedUserEntity } from '../../../domain/entities/authenticated-user.entity';
+import type {
   LoginCompanyChoiceResponse,
   LoginSessionResponse,
 } from '../../../application/types/login.type';

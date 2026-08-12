@@ -3,8 +3,13 @@ import { USER_COMPANY_REPOSITORY } from '../../../domain/repositories/user-compa
 import { UserCompanyTypeormRepository } from '../typeorm/user-company-typeorm.repository';
 
 /**
- * Registro DI do `UserCompanyRepository` (token → implementação TypeORM).
+ * Registro DI do `UserCompanyRepository` (token → implementação TypeORM via
+ * `useExisting` — AGENTS.md §4).
  */
 export const userCompanyProviders: Provider[] = [
-  { provide: USER_COMPANY_REPOSITORY, useClass: UserCompanyTypeormRepository },
+  UserCompanyTypeormRepository,
+  {
+    provide: USER_COMPANY_REPOSITORY,
+    useExisting: UserCompanyTypeormRepository,
+  },
 ];

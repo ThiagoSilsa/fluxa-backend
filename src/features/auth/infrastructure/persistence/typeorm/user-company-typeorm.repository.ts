@@ -30,7 +30,7 @@ export class UserCompanyTypeormRepository implements UserCompanyRepository {
     });
     return links
       .filter((link) => link.company?.isActive === true)
-      .map((link) => this.toEntity(link))
+      .map((link) => this.toDomain(link))
       .sort((a, b) => a.companyName.localeCompare(b.companyName));
   }
 
@@ -72,7 +72,7 @@ export class UserCompanyTypeormRepository implements UserCompanyRepository {
    * @param link Vínculo pessoa ↔ empresa (ORM).
    * @returns Vínculo de domínio.
    */
-  private toEntity(link: UserCompanyOrmEntity): UserCompanyEntity {
+  private toDomain(link: UserCompanyOrmEntity): UserCompanyEntity {
     return {
       id: link.id,
       userId: link.userId,
