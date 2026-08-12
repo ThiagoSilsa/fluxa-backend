@@ -15,6 +15,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api', app, document);
 
+  // CORS liberado em desenvolvimento (frontend Vite em http://localhost:3001).
+  // TODO: Restringir origens via variável de ambiente (ex.: CORS_ORIGINS) quando houver deploy.
+  app.enableCors();
+
   await app.listen(process.env.PORT ?? 3000);
 }
 // TODO: Restringir o Swagger a ambientes não-produtivos (NODE_ENV !== 'production') quando houver deploy.
