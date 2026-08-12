@@ -29,6 +29,7 @@ import {
 } from '../../../decorators/api-auth.decorator';
 import { LoginDto } from '../dto/login.dto';
 import { SwitchCompanyDto } from '../dto/switch-company.dto';
+import { ThrottleLogin } from '../../../../../shared/throttler/throttle-login.decorator';
 
 /**
  * Controller de autenticação.
@@ -47,11 +48,15 @@ export class AuthController {
   /**
    * Autentica o usuário e devolve a sessão (ou a lista de empresas).
    *
+   * Rota pública protegida por rate limiting (ADR 0003): 20 tentativas/min
+   * por IP e 10/min por e-mail, com 429 genérico no excesso.
+   *
    * @param dto Credenciais (email, senha) e empresa escolhida (opcional).
    * @returns Sessão JWT ou `requiresCompanyChoice` (multi-empresa).
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ThrottleLogin()
   @ApiLogin()
   public async login(
     @Body() dto: LoginDto,

@@ -4,6 +4,7 @@ import { APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './features/auth/auth.module';
 import { buildTypeOrmOptions } from './shared/database/typeorm/config/typeorm.config';
+import { ThrottlerConfigModule } from './shared/throttler/throttler-config.module';
 import { validateEnvironment } from './shared/validators/environment.validator';
 
 @Module({
@@ -15,6 +16,7 @@ import { validateEnvironment } from './shared/validators/environment.validator';
     TypeOrmModule.forRootAsync({
       useFactory: () => buildTypeOrmOptions(),
     }),
+    ThrottlerConfigModule,
     AuthModule,
   ],
   providers: [
