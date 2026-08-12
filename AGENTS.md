@@ -8,7 +8,7 @@
 - Banco principal: **PostgreSQL** (ORM: TypeORM)
 - Fila/cache: **Redis** (BullMQ) + Socket.IO
 - Gerenciador de pacotes: **npm** (sempre rode `npm run lint` antes de terminar)
-- Testes: rode `npm run test:unit -- --testPathPatterns="<feature>"` com o padrão do módulo alterado (ex.: `auth`, `access-control`, `vehicles`, `access`). **Nunca** rode o `npm test` completo sem que seja explicitamente pedido.
+- Testes: rode `npm run test:unit -- --testPathPatterns="<feature>"` para unitários (ou `npm run test:integration` para a camada de integração, com Docker ligado). **Nunca** rode o `npm test` completo (unit + integração) sem que seja explicitamente pedido.
 
 ## 2. Arquitetura NestJS e convenções
 
@@ -56,6 +56,7 @@
 - **Código transversal** vai para `src/shared/` (não pertence a nenhuma feature): `constants/`, `database/`, `decorators/`, `dto/`, `filters/`, `guards/`, `interceptors/`, `pipes/`, `queue/`, `security/`, `spreadsheet/`, `throttler/`, `types/`, `utils/`, `validators/`.
 
 ## 3. Estilo de código e regras
+
 - **Tarefas Futuras**: Sempre adicionar um "TODO: <Tarefa Futura>" No código.
 - **Nomenclatura de arquivos**: minúsculas, kebab-case separado por pontos (ex.: `register-entry.use-case.ts`, `auth.controller.ts`).
 - **Estrutura de resposta**: nunca retorne entidades cruas do banco. Use serialização ou mapeamentos explícitos para a forma de resposta desejada.
@@ -139,12 +140,14 @@
 
 ## 5. Requisitos de teste
 
-- **Testes unitários**: todo use case deve ter um `.spec.ts` correspondente cobrindo o método público e todos os casos de borda (sucesso, validação, not-found, etc.).
+- **Três camadas**: unitários (`src/features/<feature>/tests/unit/*.spec.ts`), integração (`src/features/<feature>/tests/integration/*.integration.spec.ts`) e e2e (`test/*.e2e-spec.ts`).
+- **Testes unitários**: todo use case deve ter um `.spec.ts` correspondente cobrindo o método público e todos os casos de borda (sucesso, validação, not-found, etc.). Ficam em `tests/unit/`, **nunca** junto do código.
 - **Mocks de repositório**: use `jest.fn()` e `jest.Mocked<>` com os Symbol tokens dos repositórios: `{ provide: VEHICLES_REPOSITORY, useValue: mockRepo }`.
 - **Setup de teste**: use `Test.createTestingModule()` do `@nestjs/testing` para criar o módulo de teste.
 - **Nunca** bata no banco em testes unitários.
-- **Testes de integração**: use `supertest` para chamadas HTTP, `createIntegrationContext()` para seed e **Testcontainers** para um PostgreSQL real. Configure `jest.setTimeout(120000)` para testes de integração longos.
-- **Comando**: rode `npm run test:unit -- --testPathPatterns="<feature>"` para verificar conformidade. Não rode o `npm test` completo sem ser explicitamente pedido.
+- **Testes de integração**: rodam sob `test/jest-integration.json` (`npm run test:integration`); cada arquivo sobe o próprio Postgres via Testcontainers (`src/test/support/postgres-test-container.ts`). Monte a aplicação num contexto compartilhado por feature (ex.: `auth-integration-context.ts`) com migrations/seeds reais + `AppModule`, e use `supertest` para chamadas HTTP, `resetThrottle()` no `beforeEach` (rate limiting do login) e `jest.setTimeout(120000)`.
+- **Suporte compartilhado** (`src/test/support/`): `postgres-test-container.ts`, `login-and-get-token.ts`, `reset-throttle.ts`, `type-guards.ts` — reutilize antes de duplicar.
+- **Comandos**: `npm run test:unit -- --testPathPatterns="<feature>"` para unitários; `npm run test:integration` para integração (requer Docker); `npm run test:e2e` para e2e. `npm test` roda unit + integração em sequência (requer Docker) — não rode sem ser pedido.
 
 ## 6. Guards e permissões
 
