@@ -18,4 +18,4 @@ async function bootstrap() {
   await app.listen(process.env.PORT ?? 3000);
 }
 // TODO: Restringir o Swagger a ambientes não-produtivos (NODE_ENV !== 'production') quando houver deploy.
-bootstrap();
+void bootstrap();
