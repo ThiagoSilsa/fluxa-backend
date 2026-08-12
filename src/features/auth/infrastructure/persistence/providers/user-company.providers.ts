@@ -1,5 +1,10 @@
+// NestJS
 import { Provider } from '@nestjs/common';
+
+// Repository
 import { USER_COMPANY_REPOSITORY } from '../../../domain/repositories/user-company.repository';
+
+// TypeORM
 import { UserCompanyTypeormRepository } from '../typeorm/user-company-typeorm.repository';
 
 /**

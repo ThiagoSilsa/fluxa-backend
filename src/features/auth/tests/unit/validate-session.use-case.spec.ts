@@ -1,6 +1,13 @@
+// Shared
 import { PermissionCode } from '../../../../shared/constants/access-control.constant';
+
+// Constants
 import { UserType } from '../../domain/constants/user-type.constant';
+
+// Types
 import type { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
+
+// Use-cases
 import { ValidateSessionUseCase } from '../../application/use-cases/validate-session.use-case';
 
 /**

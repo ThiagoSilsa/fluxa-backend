@@ -1,3 +1,4 @@
+// NestJS
 import {
   IsEmail,
   IsOptional,
@@ -5,6 +6,8 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
+
+// Shared
 import { UUID_ANY_VERSION_PATTERN } from '../../../../../shared/validators/uuid.pattern';
 
 /**

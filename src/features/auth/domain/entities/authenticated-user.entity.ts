@@ -1,4 +1,7 @@
+// Shared
 import { PermissionCode } from '../../../../shared/constants/access-control.constant';
+
+// Constants
 import { UserType } from '../constants/user-type.constant';
 
 /**

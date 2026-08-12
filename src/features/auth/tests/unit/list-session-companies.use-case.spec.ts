@@ -1,11 +1,18 @@
+// NestJS
 import { Test } from '@nestjs/testing';
+
+// Constants
 import { UserType } from '../../domain/constants/user-type.constant';
-import { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
-import { UserCompanyEntity } from '../../domain/entities/user-company.entity';
-import {
-  UserCompanyRepository,
-  USER_COMPANY_REPOSITORY,
-} from '../../domain/repositories/user-company.repository';
+
+// Types
+import type { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
+import type { UserCompanyEntity } from '../../domain/entities/user-company.entity';
+import type { UserCompanyRepository } from '../../domain/repositories/user-company.repository';
+
+// Repository
+import { USER_COMPANY_REPOSITORY } from '../../domain/repositories/user-company.repository';
+
+// Use-cases
 import { ListSessionCompaniesUseCase } from '../../application/use-cases/list-session-companies.use-case';
 
 describe('ListSessionCompaniesUseCase', () => {

@@ -1,3 +1,4 @@
+// NestJS
 import {
   Inject,
   Injectable,
@@ -6,19 +7,31 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+
+// Shared
 import { JwtTokenSignUseCase } from '../../../../shared/security/jwt-token-sign.use-case';
 import { PasswordVerifyUseCase } from '../../../../shared/security/password-verify.use-case';
+
+// Events
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
-import { AuthUserEntity } from '../../domain/entities/auth-user.entity';
+
+// Repository
 import { AUTH_REPOSITORY } from '../../domain/repositories/auth.repository';
-import type { AuthRepository } from '../../domain/repositories/auth.repository';
+
+// DTO
 import { LoginInputDto } from '../dto/login-input.dto';
-import {
+
+// Types
+import type { AuthUserEntity } from '../../domain/entities/auth-user.entity';
+import type { AuthRepository } from '../../domain/repositories/auth.repository';
+import type {
   LoginCompanyChoiceResponse,
   LoginCompanyOption,
   LoginSessionResponse,
   ResolveChosenResult,
 } from '../types/login.type';
+
+// Utils
 import { parseExpiresInToSeconds } from '../utils/jwt-expires-in.util';
 
 /**

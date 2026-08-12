@@ -1,5 +1,8 @@
+// NestJS
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import request from 'supertest';
+
+// Support
 import {
   AUTH_SEEDED,
   AuthIntegrationContext,

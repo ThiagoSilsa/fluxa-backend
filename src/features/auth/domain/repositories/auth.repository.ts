@@ -1,5 +1,8 @@
+// Shared
 import { PermissionCode } from '../../../../shared/constants/access-control.constant';
-import { AuthUserEntity } from '../entities/auth-user.entity';
+
+// Types
+import type { AuthUserEntity } from '../entities/auth-user.entity';
 
 /**
  * Symbol token de injeção do `AuthRepository`.

@@ -1,7 +1,16 @@
+// NestJS
 import { Test } from '@nestjs/testing';
+
+// Shared
 import { PermissionCode } from '../../../../shared/constants/access-control.constant';
+
+// Constants
 import { UserType } from '../../domain/constants/user-type.constant';
-import { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
+
+// Types
+import type { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
+
+// Use-cases
 import { ResolveAuthenticatedUserUseCase } from '../../application/use-cases/resolve-authenticated-user.use-case';
 import { ValidateJwtPayloadUseCase } from '../../application/use-cases/validate-jwt-payload.use-case';
 

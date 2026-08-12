@@ -1,6 +1,9 @@
+// NestJS
 import { Injectable } from '@nestjs/common';
-import { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
-import { ValidateSessionResponse } from '../types/login.type';
+
+// Types
+import type { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
+import type { ValidateSessionResponse } from '../types/login.type';
 
 /**
  * Devolve os dados da sessão atual — endpoint `GET /auth/validate` (ADR 0003).

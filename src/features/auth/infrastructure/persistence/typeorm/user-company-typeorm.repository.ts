@@ -1,8 +1,13 @@
+// NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserCompanyEntity } from '../../../domain/entities/user-company.entity';
-import { UserCompanyRepository } from '../../../domain/repositories/user-company.repository';
+
+// Types
+import type { UserCompanyEntity } from '../../../domain/entities/user-company.entity';
+import type { UserCompanyRepository } from '../../../domain/repositories/user-company.repository';
+
+// TypeORM
 import { UserCompanyOrmEntity } from './user-company.orm-entity';
 
 /**

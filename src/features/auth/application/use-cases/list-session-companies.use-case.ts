@@ -1,7 +1,12 @@
+// NestJS
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { AuthCompanyEntity } from '../../domain/entities/auth-company.entity';
-import type { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
+
+// Repository
 import { USER_COMPANY_REPOSITORY } from '../../domain/repositories/user-company.repository';
+
+// Types
+import type { AuthCompanyEntity } from '../../domain/entities/auth-company.entity';
+import type { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
 import type { UserCompanyRepository } from '../../domain/repositories/user-company.repository';
 
 /**

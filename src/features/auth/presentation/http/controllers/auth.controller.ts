@@ -1,3 +1,4 @@
+// NestJS
 import {
   Body,
   Controller,
@@ -9,31 +10,41 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
+
+// Shared
 import { JwtAuthGuard } from '../../../../../shared/guards/jwt-auth.guard';
-import type { AuthenticatedRequest } from '../../../../../shared/guards/jwt-auth.guard';
-import { LoginInputDto } from '../../../application/dto/login-input.dto';
-import { SwitchCompanyInputDto } from '../../../application/dto/switch-company-input.dto';
-import type { AuthCompanyEntity } from '../../../domain/entities/auth-company.entity';
-import type { AuthenticatedUserEntity } from '../../../domain/entities/authenticated-user.entity';
-import type {
-  LoginCompanyChoiceResponse,
-  LoginSessionResponse,
-} from '../../../application/types/login.type';
+import { ThrottleLogin } from '../../../../../shared/throttler/throttle-login.decorator';
+
+// Use-cases
 import { ListSessionCompaniesUseCase } from '../../../application/use-cases/list-session-companies.use-case';
 import { LoginUseCase } from '../../../application/use-cases/login.use-case';
 import { SwitchCompanyUseCase } from '../../../application/use-cases/switch-company.use-case';
+import { ValidateSessionUseCase } from '../../../application/use-cases/validate-session.use-case';
+
+// DTO
+import { LoginInputDto } from '../../../application/dto/login-input.dto';
+import { SwitchCompanyInputDto } from '../../../application/dto/switch-company-input.dto';
+import { LoginDto } from '../dto/login.dto';
+import { SwitchCompanyDto } from '../dto/switch-company.dto';
+
+// Decorators
 import {
   ApiListSessionCompanies,
   ApiLogin,
   ApiSwitchCompany,
   ApiValidateToken,
 } from '../../../decorators/api-auth.decorator';
-import { LoginDto } from '../dto/login.dto';
-import { SwitchCompanyDto } from '../dto/switch-company.dto';
-import { ThrottleLogin } from '../../../../../shared/throttler/throttle-login.decorator';
-import type { ValidateSessionResponse } from '../../../application/types/login.type';
-import { ValidateSessionUseCase } from '../../../application/use-cases/validate-session.use-case';
+
+// Types
+import type { Request } from 'express';
+import type { AuthenticatedRequest } from '../../../../../shared/guards/jwt-auth.guard';
+import type { AuthCompanyEntity } from '../../../domain/entities/auth-company.entity';
+import type { AuthenticatedUserEntity } from '../../../domain/entities/authenticated-user.entity';
+import type {
+  LoginCompanyChoiceResponse,
+  LoginSessionResponse,
+  ValidateSessionResponse,
+} from '../../../application/types/login.type';
 
 /**
  * Controller de autenticação.

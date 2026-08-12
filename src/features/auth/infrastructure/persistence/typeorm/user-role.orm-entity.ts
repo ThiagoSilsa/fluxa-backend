@@ -1,3 +1,4 @@
+// NestJS
 import {
   Column,
   CreateDateColumn,
@@ -7,6 +8,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+
+// Entities
 import { RoleOrmEntity } from './role.orm-entity';
 import { UserOrmEntity } from './user.orm-entity';
 

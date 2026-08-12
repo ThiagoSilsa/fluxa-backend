@@ -1,6 +1,11 @@
+// NestJS
 import { Logger } from '@nestjs/common';
+
+// Events
 import { UserCompanySwitchedEvent } from '../../application/events/user-company-switched.event';
 import { UserLoggedInEvent } from '../../application/events/user-logged-in.event';
+
+// Infrastructure
 import { SessionAuditListener } from '../../infrastructure/listeners/session-audit.listener';
 
 /**

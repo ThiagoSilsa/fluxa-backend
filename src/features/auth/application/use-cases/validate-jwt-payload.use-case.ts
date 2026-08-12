@@ -1,6 +1,11 @@
+// NestJS
 import { Injectable, Logger } from '@nestjs/common';
-import { JwtPayload } from '../../../../shared/security/jwt.payload';
-import { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
+
+// Types
+import type { JwtPayload } from '../../../../shared/security/jwt.payload';
+import type { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
+
+// Use-cases
 import { ResolveAuthenticatedUserUseCase } from './resolve-authenticated-user.use-case';
 
 /**

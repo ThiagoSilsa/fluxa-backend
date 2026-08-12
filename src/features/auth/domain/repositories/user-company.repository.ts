@@ -1,4 +1,5 @@
-import { UserCompanyEntity } from '../entities/user-company.entity';
+// Types
+import type { UserCompanyEntity } from '../entities/user-company.entity';
 
 /**
  * Symbol token de injeção do `UserCompanyRepository`.

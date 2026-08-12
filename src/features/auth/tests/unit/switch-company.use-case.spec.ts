@@ -1,16 +1,27 @@
+// NestJS
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+
+// Shared
 import { JwtTokenSignUseCase } from '../../../../shared/security/jwt-token-sign.use-case';
+
+// Constants
 import { UserType } from '../../domain/constants/user-type.constant';
-import { AuthUserEntity } from '../../domain/entities/auth-user.entity';
-import { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
-import {
-  AuthRepository,
-  AUTH_REPOSITORY,
-} from '../../domain/repositories/auth.repository';
+
+// Types
+import type { AuthUserEntity } from '../../domain/entities/auth-user.entity';
+import type { AuthenticatedUserEntity } from '../../domain/entities/authenticated-user.entity';
+import type { AuthRepository } from '../../domain/repositories/auth.repository';
+
+// Repository
+import { AUTH_REPOSITORY } from '../../domain/repositories/auth.repository';
+
+// DTO
 import { SwitchCompanyInputDto } from '../../application/dto/switch-company-input.dto';
+
+// Use-cases
 import { SwitchCompanyUseCase } from '../../application/use-cases/switch-company.use-case';
 
 describe('SwitchCompanyUseCase', () => {

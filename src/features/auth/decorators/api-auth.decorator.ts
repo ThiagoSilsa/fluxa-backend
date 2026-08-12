@@ -1,3 +1,4 @@
+// NestJS
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -5,6 +6,8 @@ import {
   ApiOperation,
   ApiResponse,
 } from '@nestjs/swagger';
+
+// DTO
 import { LoginDto } from '../presentation/http/dto/login.dto';
 import { SwitchCompanyDto } from '../presentation/http/dto/switch-company.dto';
 

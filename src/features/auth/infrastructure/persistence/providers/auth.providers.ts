@@ -1,5 +1,10 @@
+// NestJS
 import { Provider } from '@nestjs/common';
+
+// Repository
 import { AUTH_REPOSITORY } from '../../../domain/repositories/auth.repository';
+
+// TypeORM
 import { AuthTypeormRepository } from '../typeorm/auth-typeorm.repository';
 
 /**

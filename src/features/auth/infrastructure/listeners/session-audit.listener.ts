@@ -1,5 +1,8 @@
+// NestJS
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+
+// Events
 import { UserCompanySwitchedEvent } from '../../application/events/user-company-switched.event';
 import { UserLoggedInEvent } from '../../application/events/user-logged-in.event';
 

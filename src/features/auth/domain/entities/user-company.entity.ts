@@ -1,3 +1,4 @@
+// Constants
 import { UserType } from '../constants/user-type.constant';
 
 /**

@@ -1,9 +1,16 @@
+// NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+
+// Shared
 import { PermissionCode } from '../../../../../shared/constants/access-control.constant';
-import { AuthUserEntity } from '../../../domain/entities/auth-user.entity';
-import { AuthRepository } from '../../../domain/repositories/auth.repository';
+
+// Types
+import type { AuthUserEntity } from '../../../domain/entities/auth-user.entity';
+import type { AuthRepository } from '../../../domain/repositories/auth.repository';
+
+// TypeORM
 import { RolePermissionOrmEntity } from './role-permission.orm-entity';
 import { UserCompanyOrmEntity } from './user-company.orm-entity';
 import { UserRoleOrmEntity } from './user-role.orm-entity';
