@@ -7,7 +7,9 @@ import { JwtTokenVerifyUseCase } from '../../shared/security/jwt-token-verify.us
 import { PasswordHashUseCase } from '../../shared/security/password-hash.use-case';
 import { PasswordVerifyUseCase } from '../../shared/security/password-verify.use-case';
 import { LoginUseCase } from './application/use-cases/login.use-case';
+import { ListSessionCompaniesUseCase } from './application/use-cases/list-session-companies.use-case';
 import { ResolveAuthenticatedUserUseCase } from './application/use-cases/resolve-authenticated-user.use-case';
+import { SwitchCompanyUseCase } from './application/use-cases/switch-company.use-case';
 import { ValidateJwtPayloadUseCase } from './application/use-cases/validate-jwt-payload.use-case';
 import { AUTH_REPOSITORY } from './domain/repositories/auth.repository';
 import { USER_COMPANY_REPOSITORY } from './domain/repositories/user-company.repository';
@@ -60,6 +62,8 @@ import { AuthController } from './presentation/http/controllers/auth.controller'
     ResolveAuthenticatedUserUseCase,
     ValidateJwtPayloadUseCase,
     LoginUseCase,
+    ListSessionCompaniesUseCase,
+    SwitchCompanyUseCase,
     JwtTokenSignUseCase,
     JwtTokenVerifyUseCase,
     PasswordHashUseCase,
@@ -72,6 +76,8 @@ import { AuthController } from './presentation/http/controllers/auth.controller'
     ResolveAuthenticatedUserUseCase,
     ValidateJwtPayloadUseCase,
     LoginUseCase,
+    ListSessionCompaniesUseCase,
+    SwitchCompanyUseCase,
     JwtTokenSignUseCase,
     JwtTokenVerifyUseCase,
     PasswordHashUseCase,

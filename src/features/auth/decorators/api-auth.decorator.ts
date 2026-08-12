@@ -1,6 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { LoginDto } from '../presentation/http/dto/login.dto';
+import { SwitchCompanyDto } from '../presentation/http/dto/switch-company.dto';
 
 /**
  * Decorator Swagger do endpoint `POST /auth/login`.
@@ -23,5 +24,41 @@ export function ApiLogin(): MethodDecorator {
       description: 'Login ok — sessão JWT ou requiresCompanyChoice.',
     }),
     ApiResponse({ status: 401, description: 'Credenciais inválidas.' }),
+  );
+}
+
+/**
+ * Decorator Swagger do endpoint `GET /auth/companies`.
+ */
+export function ApiListSessionCompanies(): MethodDecorator {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Lista as empresas da pessoa (seletor da sessão)',
+      description:
+        'Devolve apenas vínculos ativos (com empresa ativa), ordenados pelo ' +
+        'nome — alimenta o seletor de empresa do frontend.',
+    }),
+    ApiResponse({ status: 200, description: 'Lista de empresas ativas.' }),
+    ApiResponse({ status: 401, description: 'Token inválido/sem vínculo.' }),
+  );
+}
+
+/**
+ * Decorator Swagger do endpoint `POST /auth/switch-company`.
+ */
+export function ApiSwitchCompany(): MethodDecorator {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Troca a empresa da sessão sem repetir senha',
+      description:
+        'Valida o vínculo na emissão e devolve um token novo com o novo ' +
+        'companyId (ADR 0002).',
+    }),
+    ApiBody({ type: SwitchCompanyDto }),
+    ApiResponse({ status: 200, description: 'Nova sessão JWT.' }),
+    ApiResponse({
+      status: 401,
+      description: 'Sem vínculo ativo com a empresa.',
+    }),
   );
 }
