@@ -1,0 +1,148 @@
+name: Bug Report
+description: Reporte um problema, erro ou comportamento inesperado
+title: '[Bug] '
+labels: ['bug']
+type: 'Bug'
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 📋 Sobre este template
+
+        Preencha os campos abaixo com o máximo de detalhes possível. Quanto mais claro for o relato, mais rápido o time consegue reproduzir e corrigir o problema.
+
+        ---
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐞 Descrição do problema
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 📝 Resumo
+      description: Descreva o problema em uma ou duas frases, de forma objetiva.
+      placeholder: |
+        Exemplo:
+        Ao aplicar um filtro por período, a listagem de tarefas exibe resultados incorretos ou não retorna nada.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: ✅ Comportamento esperado
+      description: Descreva o que deveria acontecer.
+      placeholder: |
+        Exemplo:
+        A listagem deveria exibir apenas as tarefas dentro do período selecionado.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: ❌ Comportamento atual
+      description: Descreva o que realmente acontece, incluindo mensagens de erro, se houver.
+      placeholder: |
+        Exemplo:
+        A listagem retorna vazia mesmo existindo tarefas no período, e é exibida a mensagem "Nenhum resultado encontrado".
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: 🔁 Passos para reproduzir
+      description: Liste os passos necessários para reproduzir o problema, na ordem em que devem ser executados.
+      placeholder: |
+        1. Acesse a tela de listagem de tarefas
+        2. Clique no filtro de datas e selecione o período de 01/01/2026 a 31/01/2026
+        3. Clique em "Aplicar"
+        4. Observe que a lista fica vazia
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 📎 Evidências (opcional)
+      description: Cole prints, vídeos, logs ou trechos de erro que ajudem a identificar o problema.
+      placeholder: |
+        - Print da tela com o erro
+        - Log do console do navegador
+        - Trecho do log do servidor
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🖥️ Ambiente
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 🌐 Ambiente
+      description: Em qual ambiente o problema foi identificado?
+      options:
+        - Produção
+        - Homologação
+        - Desenvolvimento
+      default: 0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 🚦 Severidade
+      description: Qual o nível de impacto do problema para os usuários?
+      options:
+        - Crítico (bloqueia o uso da aplicação)
+        - Alto (impede uma funcionalidade principal)
+        - Médio (funcionalidade com falha, mas com contorno)
+        - Baixo (falha cosmética ou de baixo impacto)
+      default: 0
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🧭 Análise
+
+        As informações abaixo ajudam o time a investigar a causa. Preencha apenas o que for aplicável.
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 💥 Impacto
+      description: Descreva quem e o que é afetado pelo problema, e a frequência com que ocorre.
+      placeholder: |
+        Exemplo:
+        Afeta todos os usuários que utilizam o filtro por período na listagem de tarefas. Ocorre em 100% das tentativas.
+    validations:
+      required: false
+
+  - type: textarea
+    id: possible_cause
+    attributes:
+      label: 🔍 Possível causa (opcional)
+      description: Se você já investigou, compartilhe pistas sobre a causa provável.
+      placeholder: |
+        Exemplo:
+        Suspeito que a consulta no backend não esteja convertendo o formato da data antes de comparar com o banco.
+    validations:
+      required: false
+
+  - type: input
+    id: related_issue
+    attributes:
+      label: 🔗 Issues relacionadas (opcional)
+      description: Links para issues, PRs ou discussões relacionadas a este problema.
+      placeholder: 'Ex.: #12, #34'
+    validations:
+      required: false
