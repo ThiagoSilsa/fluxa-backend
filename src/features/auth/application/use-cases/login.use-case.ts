@@ -33,6 +33,7 @@ import type {
 
 // Utils
 import { parseExpiresInToSeconds } from '../utils/jwt-expires-in.util';
+import { normalizeEmail } from '../../../../shared/utils/email.util';
 
 /**
  * Use case de login multi-empresa (ADR 0002).
@@ -75,8 +76,11 @@ export class LoginUseCase {
   public async execute(
     input: LoginInputDto,
   ): Promise<LoginSessionResponse | LoginCompanyChoiceResponse> {
+    // O e-mail é normalizado (trim + lowercase) antes da busca — o UNIQUE de
+    // `user.email` é case-sensitive (Fase 0 da feature `users`).
+    const email = normalizeEmail(input.email);
     const candidates = (
-      await this.authRepository.findUsersByEmail(input.email)
+      await this.authRepository.findUsersByEmail(email)
     ).filter((candidate) => candidate.isActive && candidate.companyIsActive);
 
     if (candidates.length === 0) {

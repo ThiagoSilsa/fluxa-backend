@@ -11,8 +11,8 @@ import type { AuthUserEntity } from '../../../domain/entities/auth-user.entity';
 import type { AuthRepository } from '../../../domain/repositories/auth.repository';
 
 // TypeORM
-import { UserCompanyOrmEntity } from './user-company.orm-entity';
-import { UserOrmEntity } from './user.orm-entity';
+import { UserCompanyOrmEntity } from '../../../../users/infrastructure/persistence/typeorm/user-company.orm-entity';
+import { UserOrmEntity } from '../../../../users/infrastructure/persistence/typeorm/user.orm-entity';
 import { RolePermissionOrmEntity } from '../../../../../features/roles/infrastructure/persistence/typeorm/role-permission.orm-entity';
 import { UserRoleOrmEntity } from '../../../../../features/roles/infrastructure/persistence/typeorm/user-role.orm-entity';
 

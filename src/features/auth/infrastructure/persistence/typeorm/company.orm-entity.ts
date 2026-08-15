@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 
 // Entities
-import { UserCompanyOrmEntity } from './user-company.orm-entity';
+import { UserCompanyOrmEntity } from '../../../../users/infrastructure/persistence/typeorm/user-company.orm-entity';
 
 /**
  * Empresa (tenant) — tabela `company`.

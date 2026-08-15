@@ -10,10 +10,10 @@ import {
 } from 'typeorm';
 
 // Constants
-import { UserType } from '../../../domain/constants/user-type.constant';
+import { UserType } from '../../../../auth/domain/constants/user-type.constant';
 
 // Entities
-import { CompanyOrmEntity } from './company.orm-entity';
+import { CompanyOrmEntity } from '../../../../auth/infrastructure/persistence/typeorm/company.orm-entity';
 import { UserOrmEntity } from './user.orm-entity';
 
 /**
