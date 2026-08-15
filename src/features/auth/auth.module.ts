@@ -27,12 +27,12 @@ import { SessionAuditListener } from './infrastructure/listeners/session-audit.l
 import { authProviders } from './infrastructure/persistence/providers/auth.providers';
 import { userCompanyProviders } from './infrastructure/persistence/providers/user-company.providers';
 import { CompanyOrmEntity } from './infrastructure/persistence/typeorm/company.orm-entity';
-import { PermissionOrmEntity } from './infrastructure/persistence/typeorm/permission.orm-entity';
-import { RolePermissionOrmEntity } from './infrastructure/persistence/typeorm/role-permission.orm-entity';
-import { RoleOrmEntity } from './infrastructure/persistence/typeorm/role.orm-entity';
 import { UserCompanyOrmEntity } from './infrastructure/persistence/typeorm/user-company.orm-entity';
-import { UserRoleOrmEntity } from './infrastructure/persistence/typeorm/user-role.orm-entity';
 import { UserOrmEntity } from './infrastructure/persistence/typeorm/user.orm-entity';
+import { PermissionOrmEntity } from '../roles/infrastructure/persistence/typeorm/permission.orm-entity';
+import { RolePermissionOrmEntity } from '../roles/infrastructure/persistence/typeorm/role-permission.orm-entity';
+import { RoleOrmEntity } from '../roles/infrastructure/persistence/typeorm/role.orm-entity';
+import { UserRoleOrmEntity } from '../roles/infrastructure/persistence/typeorm/user-role.orm-entity';
 
 // Presentation
 import { AuthController } from './presentation/http/controllers/auth.controller';

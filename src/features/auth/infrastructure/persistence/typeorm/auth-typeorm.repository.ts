@@ -11,10 +11,10 @@ import type { AuthUserEntity } from '../../../domain/entities/auth-user.entity';
 import type { AuthRepository } from '../../../domain/repositories/auth.repository';
 
 // TypeORM
-import { RolePermissionOrmEntity } from './role-permission.orm-entity';
 import { UserCompanyOrmEntity } from './user-company.orm-entity';
-import { UserRoleOrmEntity } from './user-role.orm-entity';
 import { UserOrmEntity } from './user.orm-entity';
+import { RolePermissionOrmEntity } from '../../../../../features/roles/infrastructure/persistence/typeorm/role-permission.orm-entity';
+import { UserRoleOrmEntity } from '../../../../../features/roles/infrastructure/persistence/typeorm/user-role.orm-entity';
 
 /**
  * Implementação TypeORM do `AuthRepository`.

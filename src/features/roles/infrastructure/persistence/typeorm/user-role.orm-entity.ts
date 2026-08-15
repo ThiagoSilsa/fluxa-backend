@@ -11,7 +11,7 @@ import {
 
 // Entities
 import { RoleOrmEntity } from './role.orm-entity';
-import { UserOrmEntity } from './user.orm-entity';
+import { UserOrmEntity } from '../../../../../features/auth/infrastructure/persistence/typeorm/user.orm-entity';
 
 /**
  * Cargos de cada usuário — tabela `user_role` (escopada por empresa).

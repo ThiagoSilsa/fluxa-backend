@@ -10,7 +10,7 @@ import {
 
 // Entities
 import { UserCompanyOrmEntity } from './user-company.orm-entity';
-import { UserRoleOrmEntity } from './user-role.orm-entity';
+import { UserRoleOrmEntity } from '../../../../../features/roles/infrastructure/persistence/typeorm/user-role.orm-entity';
 
 /**
  * Pessoa (identidade) — tabela `user`.
