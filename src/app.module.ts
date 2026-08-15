@@ -8,6 +8,7 @@ import { DepartmentsModule } from './features/departments/departments.module';
 import { EntrancesModule } from './features/entrances/entrances.module';
 import { RolesModule } from './features/roles/roles.module';
 import { UsersModule } from './features/users/users.module';
+import { VehiclesModule } from './features/vehicles/vehicles.module';
 import { buildTypeOrmOptions } from './shared/database/typeorm/config/typeorm.config';
 import { ThrottlerConfigModule } from './shared/throttler/throttler-config.module';
 import { validateEnvironment } from './shared/validators/environment.validator';
@@ -28,6 +29,7 @@ import { validateEnvironment } from './shared/validators/environment.validator';
     UsersModule,
     DepartmentsModule,
     EntrancesModule,
+    VehiclesModule,
   ],
   providers: [
     // Validação global de DTOs (sem tocar no main.ts — AGENTS.md).
