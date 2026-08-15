@@ -27,4 +27,12 @@ export interface PermissionRepository {
    * @returns `true` quando a permissão existe.
    */
   existsById(id: string): Promise<boolean>;
+
+  /**
+   * Busca uma permissão do catálogo global.
+   *
+   * @param id Id da permissão.
+   * @returns Permissão ou `null` se não existir.
+   */
+  findById(id: string): Promise<PermissionEntity | null>;
 }

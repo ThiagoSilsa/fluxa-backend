@@ -11,6 +11,7 @@ import {
 } from '@nestjs/swagger';
 
 // DTOs (apresentação)
+import { AssociatePermissionDto } from '../presentation/http/dto/associate-permission.dto';
 import { CreateRoleDto } from '../presentation/http/dto/create-role.dto';
 import { UpdateRoleDto } from '../presentation/http/dto/update-role.dto';
 
@@ -122,5 +123,64 @@ export function ApiListPermissions(): MethodDecorator {
     ApiResponse({ status: 200, description: 'Catálogo de permissões.' }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+  );
+}
+
+export function ApiAssociatePermission(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Associa uma permissão do catálogo a um cargo',
+      description:
+        'Exige MANAGE_ROLES. Cargo e permissão devem existir; vínculo não pode ser duplicado (unique company+role+permission).',
+    }),
+    ApiParam({ name: 'id', description: 'Id do cargo (UUID).' }),
+    ApiBody({ type: AssociatePermissionDto }),
+    ApiResponse({ status: 201, description: 'Permissão vinculada.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Cargo ou permissão não encontrado.',
+    }),
+    ApiResponse({ status: 409, description: 'Vínculo já existente.' }),
+  );
+}
+
+export function ApiRemovePermission(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Remove a associação de uma permissão a um cargo',
+      description: 'Exige MANAGE_ROLES. Vínculo ausente retorna 404.',
+    }),
+    ApiParam({ name: 'id', description: 'Id do cargo (UUID).' }),
+    ApiParam({ name: 'permissionId', description: 'Id da permissão (UUID).' }),
+    ApiResponse({ status: 204, description: 'Vínculo removido.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Cargo ou vínculo não encontrado.',
+    }),
+  );
+}
+
+export function ApiListRolePermissions(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Lista as permissões de um cargo + catálogo disponível',
+      description:
+        'Exige MANAGE_ROLES. Devolve as permissões vinculadas e o catálogo global disponível (para a web montar os checkboxes).',
+    }),
+    ApiParam({ name: 'id', description: 'Id do cargo (UUID).' }),
+    ApiResponse({
+      status: 200,
+      description: 'Permissões vinculadas + disponíveis.',
+    }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({ status: 404, description: 'Cargo não encontrado.' }),
   );
 }

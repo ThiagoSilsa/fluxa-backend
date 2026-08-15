@@ -47,6 +47,17 @@ export class PermissionsTypeormRepository implements PermissionRepository {
   }
 
   /**
+   * Busca uma permissão do catálogo global.
+   *
+   * @param id Id da permissão.
+   * @returns Permissão ou `null` se não existir.
+   */
+  public async findById(id: string): Promise<PermissionEntity | null> {
+    const orm = await this.permissionRepo.findOne({ where: { id } });
+    return orm ? this.toDomain(orm) : null;
+  }
+
+  /**
    * Mapeia a ORM entity para a entidade de domínio.
    *
    * @param orm Registro ORM.

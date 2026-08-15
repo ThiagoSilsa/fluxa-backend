@@ -13,11 +13,14 @@ import { RolePermissionOrmEntity } from './infrastructure/persistence/typeorm/ro
 import { RoleOrmEntity } from './infrastructure/persistence/typeorm/role.orm-entity';
 
 // Use cases
+import { AssociatePermissionToRoleUseCase } from './application/use-cases/associate-permission-to-role.use-case';
 import { CreateRoleUseCase } from './application/use-cases/create-role.use-case';
 import { DeactivateRoleUseCase } from './application/use-cases/deactivate-role.use-case';
 import { GetRoleUseCase } from './application/use-cases/get-role.use-case';
 import { ListPermissionsUseCase } from './application/use-cases/list-permissions.use-case';
+import { ListRolePermissionsUseCase } from './application/use-cases/list-role-permissions.use-case';
 import { ListRolesUseCase } from './application/use-cases/list-roles.use-case';
+import { RemovePermissionFromRoleUseCase } from './application/use-cases/remove-permission-from-role.use-case';
 import { UpdateRoleUseCase } from './application/use-cases/update-role.use-case';
 
 // Presentation
@@ -47,6 +50,9 @@ import { RolesController } from './presentation/http/controllers/roles.controlle
     UpdateRoleUseCase,
     DeactivateRoleUseCase,
     ListPermissionsUseCase,
+    AssociatePermissionToRoleUseCase,
+    RemovePermissionFromRoleUseCase,
+    ListRolePermissionsUseCase,
   ],
   controllers: [RolesController, PermissionsController],
   exports: [ROLE_REPOSITORY, PERMISSION_REPOSITORY],
