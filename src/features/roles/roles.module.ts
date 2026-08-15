@@ -2,6 +2,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+// Modules
+import { AuthModule } from '../auth/auth.module';
+
 // Repositories
 import { PERMISSION_REPOSITORY } from './domain/repositories/permission.repository';
 import { ROLE_REPOSITORY } from './domain/repositories/role.repository';
@@ -36,6 +39,9 @@ import { RolesController } from './presentation/http/controllers/roles.controlle
  */
 @Module({
   imports: [
+    // Fornece os use cases de JWT/validação usados pelos guards compartilhados
+    // (`JwtAuthGuard`, `PermissionsGuard`) aplicados nos controllers.
+    AuthModule,
     TypeOrmModule.forFeature([
       RoleOrmEntity,
       PermissionOrmEntity,
