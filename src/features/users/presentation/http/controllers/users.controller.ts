@@ -2,11 +2,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -25,21 +27,28 @@ import type { AuthenticatedRequest } from '../../../../../shared/guards/jwt-auth
 import type { AuthenticatedUserEntity } from '../../../../auth/domain/entities/authenticated-user.entity';
 
 // DTOs (apresentação)
+import { ChangePasswordDto } from '../dto/change-password.dto';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { EmailStatusQueryDto } from '../dto/email-status.query.dto';
 import { ListUsersQueryDto } from '../dto/list-users.query.dto';
+import { UpdateUserDto } from '../dto/update-user.dto';
 
 // DTOs (aplicação)
+import { ChangePasswordInputDto } from '../../../application/dto/change-password-input.dto';
 import { CreateUserInputDto } from '../../../application/dto/create-user-input.dto';
 import { EmailStatusInputDto } from '../../../application/dto/email-status-input.dto';
 import { GetUserInputDto } from '../../../application/dto/get-user-input.dto';
 import { ListUsersInputDto } from '../../../application/dto/list-users-input.dto';
+import { UpdateUserInputDto } from '../../../application/dto/update-user-input.dto';
 
 // Use cases
+import { ChangePasswordUseCase } from '../../../application/use-cases/change-password.use-case';
 import { CreateUserUseCase } from '../../../application/use-cases/create-user.use-case';
+import { DeactivateUserUseCase } from '../../../application/use-cases/deactivate-user.use-case';
 import { EmailStatusUseCase } from '../../../application/use-cases/email-status.use-case';
 import { GetUserUseCase } from '../../../application/use-cases/get-user.use-case';
 import { ListUsersUseCase } from '../../../application/use-cases/list-users.use-case';
+import { UpdateUserUseCase } from '../../../application/use-cases/update-user.use-case';
 
 // Types de resposta
 import type {
@@ -51,10 +60,13 @@ import type {
 
 // Decorators Swagger da feature
 import {
+  ApiChangePassword,
   ApiCreateUser,
+  ApiDeactivateUser,
   ApiEmailStatus,
   ApiGetUser,
   ApiListUsers,
+  ApiUpdateUser,
 } from '../../../decorators/api-users.decorator';
 
 /**
@@ -74,6 +86,9 @@ export class UsersController {
     private readonly listUsersUseCase: ListUsersUseCase,
     private readonly getUserUseCase: GetUserUseCase,
     private readonly emailStatusUseCase: EmailStatusUseCase,
+    private readonly updateUserUseCase: UpdateUserUseCase,
+    private readonly deactivateUserUseCase: DeactivateUserUseCase,
+    private readonly changePasswordUseCase: ChangePasswordUseCase,
   ) {}
 
   /**
@@ -164,6 +179,76 @@ export class UsersController {
     return this.getUserUseCase.execute(
       this.requireUser(request),
       new GetUserInputDto(id),
+    );
+  }
+
+  /**
+   * Edita parcialmente um usuário da empresa (dados da pessoa + vínculo).
+   *
+   * @param request Requisição autenticada.
+   * @param id Id da pessoa.
+   * @param dto Campos a atualizar.
+   * @returns Usuário atualizado.
+   */
+  @Patch(':id')
+  @ApiUpdateUser()
+  public updateUser(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserDto,
+  ): Promise<UserResponse> {
+    return this.updateUserUseCase.execute(
+      this.requireUser(request),
+      new UpdateUserInputDto(
+        id,
+        dto.name,
+        dto.email,
+        dto.phone,
+        dto.document,
+        dto.observation,
+        dto.type,
+        dto.isActive,
+      ),
+    );
+  }
+
+  /**
+   * Desativa a participação do usuário na empresa (soft — ADR 0005 §4).
+   *
+   * @param request Requisição autenticada.
+   * @param id Id da pessoa.
+   * @returns Usuário com o vínculo desativado.
+   */
+  @Delete(':id')
+  @ApiDeactivateUser()
+  public deactivateUser(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<UserResponse> {
+    return this.deactivateUserUseCase.execute(
+      this.requireUser(request),
+      new GetUserInputDto(id),
+    );
+  }
+
+  /**
+   * Troca a senha de um usuário (provisório — `MANAGE_USERS`).
+   *
+   * @param request Requisição autenticada.
+   * @param id Id da pessoa.
+   * @param dto Nova senha (mínimo 6 caracteres).
+   */
+  @Patch(':id/password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiChangePassword()
+  public async changePassword(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<void> {
+    await this.changePasswordUseCase.execute(
+      this.requireUser(request),
+      new ChangePasswordInputDto(id, dto.newPassword),
     );
   }
 

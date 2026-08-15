@@ -8,6 +8,7 @@ import type { UserCompanyEntity } from '../../../domain/entities/user-company.en
 import type {
   CreateUserCompanyRepositoryData,
   ListUsersRepositoryFilters,
+  UpdateUserCompanyRepositoryData,
   UserCompanyRepository,
   UserCompanyWithUserEntity,
 } from '../../../domain/repositories/user-company.repository';
@@ -164,6 +165,31 @@ export class UserCompanyTypeormRepository implements UserCompanyRepository {
       type: data.type,
       isActive: data.isActive,
     });
+    const saved = await this.userCompanyRepo.save(orm);
+    return this.toDomain(saved);
+  }
+
+  /**
+   * Atualiza o vínculo (`type`/`is_active`).
+   *
+   * @param id Id do vínculo.
+   * @param data Campos a atualizar.
+   * @returns Vínculo atualizado ou `null` se não existir.
+   */
+  public async updateById(
+    id: string,
+    data: UpdateUserCompanyRepositoryData,
+  ): Promise<UserCompanyEntity | null> {
+    const orm = await this.userCompanyRepo.findOne({ where: { id } });
+    if (!orm) {
+      return null;
+    }
+    if (data.type !== undefined) {
+      orm.type = data.type;
+    }
+    if (data.isActive !== undefined) {
+      orm.isActive = data.isActive;
+    }
     const saved = await this.userCompanyRepo.save(orm);
     return this.toDomain(saved);
   }

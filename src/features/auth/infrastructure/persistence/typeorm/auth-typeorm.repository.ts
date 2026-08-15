@@ -155,6 +155,24 @@ export class AuthTypeormRepository implements AuthRepository {
   }
 
   /**
+   * Quantidade de usuários com cargo `is_admin` ativo na empresa.
+   *
+   * @param companyId Id da empresa da sessão.
+   * @returns Número de usuários distintos com cargo `is_admin` ativo.
+   */
+  public async countAdminsByCompanyId(companyId: string): Promise<number> {
+    const rows = await this.userRoleRepo
+      .createQueryBuilder('ur')
+      .innerJoin('ur.role', 'r')
+      .where('ur.company_id = :companyId', { companyId })
+      .andWhere('r.is_admin = true')
+      .andWhere('r.is_active = true')
+      .select('DISTINCT ur.user_id', 'user_id')
+      .getRawMany<{ user_id: string }>();
+    return rows.length;
+  }
+
+  /**
    * Registra o momento do último login da pessoa (ADR 0003).
    *
    * @param userId Id da pessoa.

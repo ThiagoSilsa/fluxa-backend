@@ -14,10 +14,13 @@ import { UserCompanyOrmEntity } from './infrastructure/persistence/typeorm/user-
 import { UserOrmEntity } from './infrastructure/persistence/typeorm/user.orm-entity';
 
 // Use cases
+import { ChangePasswordUseCase } from './application/use-cases/change-password.use-case';
 import { CreateUserUseCase } from './application/use-cases/create-user.use-case';
+import { DeactivateUserUseCase } from './application/use-cases/deactivate-user.use-case';
 import { EmailStatusUseCase } from './application/use-cases/email-status.use-case';
 import { GetUserUseCase } from './application/use-cases/get-user.use-case';
 import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
+import { UpdateUserUseCase } from './application/use-cases/update-user.use-case';
 
 // Presentation
 import { UsersController } from './presentation/http/controllers/users.controller';
@@ -41,6 +44,9 @@ import { UsersController } from './presentation/http/controllers/users.controlle
     ListUsersUseCase,
     GetUserUseCase,
     EmailStatusUseCase,
+    UpdateUserUseCase,
+    DeactivateUserUseCase,
+    ChangePasswordUseCase,
   ],
   controllers: [UsersController],
   exports: [USER_REPOSITORY],

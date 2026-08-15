@@ -150,4 +150,17 @@ export interface UserCompanyRepository {
    * @returns Vínculo criado.
    */
   create(data: CreateUserCompanyRepositoryData): Promise<UserCompanyEntity>;
+
+  /**
+   * Atualiza o vínculo (`type`/`is_active`) — edição/desativação da feature
+   * `users`. Desativar é ato da empresa sobre a participação (ADR 0002 §3).
+   *
+   * @param id Id do vínculo.
+   * @param data Campos a atualizar.
+   * @returns Vínculo atualizado ou `null` se não existir.
+   */
+  updateById(
+    id: string,
+    data: UpdateUserCompanyRepositoryData,
+  ): Promise<UserCompanyEntity | null>;
 }
