@@ -1,3 +1,6 @@
+// class-transformer
+import { Transform } from 'class-transformer';
+
 // class-validator
 import {
   IsEmail,
@@ -8,6 +11,9 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+
+// Shared
+import { normalizeEmail } from '../../../../../shared/utils/email.util';
 
 // Constants
 import { UserType } from '../../../../auth/domain/constants/user-type.constant';
@@ -26,6 +32,11 @@ export class CreateUserDto {
   @MaxLength(255)
   name?: string;
 
+  // Normaliza (trim + lowercase) antes de validar — o UNIQUE de `user.email`
+  // é case-sensitive (Fase 0).
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? normalizeEmail(value) : value,
+  )
   @IsEmail()
   email!: string;
 

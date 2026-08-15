@@ -1,3 +1,6 @@
+// class-transformer
+import { Transform } from 'class-transformer';
+
 // class-validator
 import {
   IsBoolean,
@@ -8,6 +11,9 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+
+// Shared
+import { normalizeEmail } from '../../../../../shared/utils/email.util';
 
 // Constants
 import { UserType } from '../../../../auth/domain/constants/user-type.constant';
@@ -23,6 +29,10 @@ export class UpdateUserDto {
   @MaxLength(255)
   name?: string;
 
+  // Normaliza (trim + lowercase) antes de validar — Fase 0.
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? normalizeEmail(value) : value,
+  )
   @IsOptional()
   @IsEmail()
   email?: string;

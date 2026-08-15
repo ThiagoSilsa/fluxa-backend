@@ -12,6 +12,7 @@ import {
 } from '@nestjs/swagger';
 
 // DTOs (apresentação)
+import { AssignRoleDto } from '../presentation/http/dto/assign-role.dto';
 import { ChangePasswordDto } from '../presentation/http/dto/change-password.dto';
 import { CreateUserDto } from '../presentation/http/dto/create-user.dto';
 import { UpdateUserDto } from '../presentation/http/dto/update-user.dto';
@@ -164,6 +165,70 @@ export function ApiChangePassword(): MethodDecorator {
     ApiResponse({
       status: 404,
       description: 'Usuário sem vínculo ativo com a empresa.',
+    }),
+  );
+}
+
+export function ApiAssignRole(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Atribui um cargo a um usuário',
+      description:
+        'Exige MANAGE_USERS. Cargo deve pertencer à empresa da sessão. Atribuir cargo is_admin ou gerenciar cargo de usuário admin exige ator admin → 403. Duplicidade → 409.',
+    }),
+    ApiParam({ name: 'userId', description: 'Id da pessoa (UUID).' }),
+    ApiBody({ type: AssignRoleDto }),
+    ApiResponse({ status: 201, description: 'Cargo atribuído.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Usuário ou cargo não encontrado.',
+    }),
+    ApiResponse({ status: 409, description: 'Usuário já possui o cargo.' }),
+  );
+}
+
+export function ApiListUserRoles(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Lista os cargos de um usuário',
+      description:
+        'Exige MANAGE_USERS. Escopo pela empresa da sessão; usuário sem vínculo → 404.',
+    }),
+    ApiParam({ name: 'userId', description: 'Id da pessoa (UUID).' }),
+    ApiResponse({ status: 200, description: 'Cargos do usuário.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Usuário sem vínculo com a empresa.',
+    }),
+  );
+}
+
+export function ApiRemoveRole(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Remove um cargo de um usuário',
+      description:
+        'Exige MANAGE_USERS. Remover cargo is_admin ou gerenciar cargo de usuário admin exige ator admin → 403. Remover o cargo do último admin ativo → 409.',
+    }),
+    ApiParam({ name: 'userId', description: 'Id da pessoa (UUID).' }),
+    ApiParam({ name: 'roleId', description: 'Id do cargo (UUID).' }),
+    ApiResponse({ status: 204, description: 'Cargo removido.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Usuário, cargo ou vínculo não encontrado.',
+    }),
+    ApiResponse({
+      status: 409,
+      description: 'Não é possível remover o último administrador ativo.',
     }),
   );
 }
