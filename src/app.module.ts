@@ -4,6 +4,8 @@ import { APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './features/auth/auth.module';
+import { DepartmentsModule } from './features/departments/departments.module';
+import { EntrancesModule } from './features/entrances/entrances.module';
 import { RolesModule } from './features/roles/roles.module';
 import { UsersModule } from './features/users/users.module';
 import { buildTypeOrmOptions } from './shared/database/typeorm/config/typeorm.config';
@@ -24,6 +26,8 @@ import { validateEnvironment } from './shared/validators/environment.validator';
     AuthModule,
     RolesModule,
     UsersModule,
+    DepartmentsModule,
+    EntrancesModule,
   ],
   providers: [
     // Validação global de DTOs (sem tocar no main.ts — AGENTS.md).
