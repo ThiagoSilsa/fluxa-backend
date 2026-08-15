@@ -24,6 +24,7 @@ describe('ValidateSessionUseCase', () => {
     email: 'admin@somar.local',
     name: 'Administrador',
     type: UserType.EMPLOYEE,
+    isAdmin: true,
     roleCodes: ['Administração'],
     permissions: [PermissionCode.MANAGE_COMPANY, PermissionCode.REGISTER_ENTRY],
   };
@@ -41,6 +42,7 @@ describe('ValidateSessionUseCase', () => {
       email: actor.email,
       name: actor.name,
       type: actor.type,
+      isAdmin: actor.isAdmin,
       roleCodes: actor.roleCodes,
       permissions: actor.permissions,
     });

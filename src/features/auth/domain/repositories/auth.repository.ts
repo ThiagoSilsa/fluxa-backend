@@ -63,6 +63,21 @@ export interface AuthRepository {
   ): Promise<PermissionCode[]>;
 
   /**
+   * Se a pessoa tem cargo `is_admin` ativo na empresa da sessão.
+   *
+   * `is_admin` concede acesso total à administração (ADR 0004): o ator
+   * ignora as verificações de permissão no `PermissionsGuard`.
+   *
+   * @param userId Id da pessoa.
+   * @param companyId Id da empresa da sessão.
+   * @returns `true` quando há cargo ativo com `is_admin = true`.
+   */
+  findHasAdminRoleByUserIdAndCompanyId(
+    userId: string,
+    companyId: string,
+  ): Promise<boolean>;
+
+  /**
    * Registra o momento do último login da pessoa (`user.last_login_at`).
    *
    * Chamado pelo `LoginUseCase` de forma **não-bloqueante** (ADR 0003): a

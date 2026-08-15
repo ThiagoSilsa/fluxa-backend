@@ -134,6 +134,27 @@ export class AuthTypeormRepository implements AuthRepository {
   }
 
   /**
+   * Se a pessoa tem cargo `is_admin` ativo na empresa da sessão.
+   *
+   * @param userId Id da pessoa.
+   * @param companyId Id da empresa da sessão.
+   * @returns `true` quando há cargo ativo com `is_admin = true`.
+   */
+  public async findHasAdminRoleByUserIdAndCompanyId(
+    userId: string,
+    companyId: string,
+  ): Promise<boolean> {
+    const userRoles = await this.userRoleRepo.find({
+      where: { userId, companyId },
+      relations: { role: true },
+    });
+    return userRoles.some(
+      (userRole) =>
+        userRole.role?.isActive === true && userRole.role.isAdmin === true,
+    );
+  }
+
+  /**
    * Registra o momento do último login da pessoa (ADR 0003).
    *
    * @param userId Id da pessoa.

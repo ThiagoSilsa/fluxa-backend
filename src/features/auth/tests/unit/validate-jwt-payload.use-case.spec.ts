@@ -27,6 +27,7 @@ describe('ValidateJwtPayloadUseCase', () => {
     email: 'admin@somar.local',
     name: 'Administrador',
     type: UserType.EMPLOYEE,
+    isAdmin: true,
     roleCodes: ['Administração'],
     permissions: [PermissionCode.MANAGE_USERS],
   };

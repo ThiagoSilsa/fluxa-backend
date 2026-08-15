@@ -27,6 +27,7 @@ export class ValidateSessionUseCase {
       email: actor.email,
       name: actor.name,
       type: actor.type,
+      isAdmin: actor.isAdmin,
       roleCodes: actor.roleCodes,
       permissions: actor.permissions,
     };

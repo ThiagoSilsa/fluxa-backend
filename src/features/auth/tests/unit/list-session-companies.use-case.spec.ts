@@ -28,6 +28,7 @@ describe('ListSessionCompaniesUseCase', () => {
     email: 'admin@somar.local',
     name: 'Administrador',
     type: UserType.EMPLOYEE,
+    isAdmin: true,
     roleCodes: ['Administração'],
     permissions: [],
   };

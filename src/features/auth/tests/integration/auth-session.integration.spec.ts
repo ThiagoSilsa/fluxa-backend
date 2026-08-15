@@ -36,6 +36,8 @@ describe('Auth integration — sessão: validate + companies (Testcontainers)', 
     });
     expect(Array.isArray(res.body.roleCodes)).toBe(true);
     expect(Array.isArray(res.body.permissions)).toBe(true);
+    // Admin seedado tem cargo `Administração` (is_admin = true) — ADR 0004.
+    expect(res.body.isAdmin).toBe(true);
   });
 
   it('GET /auth/validate sem token → 401', async () => {
