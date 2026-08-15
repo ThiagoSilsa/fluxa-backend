@@ -42,7 +42,7 @@
 
 25. `permission` é um **catálogo global** do sistema (sem `company_id`); o vínculo com a empresa ocorre via `role_permission`.
 26. **Cargos (`role`)** são por empresa; cada cargo pode ser marcado como `is_admin` (acesso total à administração).
-27. **Permissões são granulares** (`role_permission`): um cargo possui um conjunto de permissões; um usuário pode ter vários cargos (`user_role`).
+27. **Permissões são granulares** (`role_permission`): um cargo possui um conjunto de permissões; **um usuário tem no máximo um cargo por empresa** (`user_role` — unique `(company_id, user_id)`, ADR 0005).
 28. **Escalabilidade não engessada**: a administração pode **mudar cargos, permissões e a visualização de seus usuários** — o mapeamento inicial é um ponto de partida, não um contrato rígido.
 29. **Acesso por papel**: os papéis são **Porteiro**, **Segurança**, **Administração** e **Presidência** — cada um com permissões específicas.
 30. No código, permissões são referenciadas pelo enum `PermissionCode` (nunca strings hardcoded), aplicadas via `JwtAuthGuard` + `PermissionsGuard`.

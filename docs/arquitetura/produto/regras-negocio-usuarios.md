@@ -48,11 +48,13 @@
 
 ## 6. Cargos do usuário (`user_role`)
 
-27. Cargos do usuário são gerenciados por endpoints próprios (`POST`/`GET`/`DELETE /users/:id/roles`).
-28. Só são aceitos cargos da **empresa da sessão** (cross-tenant → 4xx); duplicidade impedida pelo unique `(company_id, user_id, role_id)`.
-29. Remover o cargo `is_admin` do **último usuário com cargo `is_admin` ativo** da empresa → **409** (mesma invariante da seção 5).
-30. O cargo `is_admin` **é do sistema** — não é editável por nenhum usuário (criar/editar/desativar o cargo é proibido pelo ADR 0004 §4); dele se gerencia **apenas a atribuição** (`user_role`).
-31. **Governança**: atribuir **ou retirar** cargo `is_admin` de um usuário exige **ator com cargo `is_admin` ativo** na empresa da sessão → **403**; gerenciar cargos de um usuário com cargo `is_admin` ativo também exige ator `is_admin` → **403**.
+27. **Um usuário tem no máximo UM cargo por empresa** — unique `(company_id, user_id)` (migration `0009`). Atribuir um segundo cargo ao mesmo usuário na mesma empresa → **409**.
+28. Cargos do usuário são gerenciados por endpoints próprios (`POST`/`GET`/`DELETE /users/:id/roles`) **e** pelo `roleId` aceito em `POST /users` e `PATCH /users/:id` — criar/vincular já com cargo e trocar o cargo no mesmo payload (replace do cargo único).
+29. Só são aceitos cargos da **empresa da sessão** (cross-tenant → 4xx).
+30. Remover o cargo `is_admin` do **último usuário com cargo `is_admin` ativo** da empresa → **409** (mesma invariante da seção 5).
+31. O cargo `is_admin` **é do sistema** — não é editável por nenhum usuário (criar/editar/desativar o cargo é proibido pelo ADR 0004 §4); dele se gerencia **apenas a atribuição** (`user_role`).
+32. **Governança**: atribuir **ou retirar** cargo `is_admin` de um usuário exige **ator com cargo `is_admin` ativo** na empresa da sessão → **403**; gerenciar cargos de um usuário com cargo `is_admin` ativo também exige ator `is_admin` → **403**.
+33. A listagem e o detalhe de usuários devolvem o **resumo do cargo** (`role: { userRoleId, roleId, roleName, isAdmin } | null`) — enriquecido em lote, sem N+1.
 
 ## 7. Troca de senha (provisória)
 

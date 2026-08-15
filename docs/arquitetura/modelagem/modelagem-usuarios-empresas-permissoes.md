@@ -139,7 +139,7 @@ Uniques: `UQ_role_permission_company_role_permission UNIQUE (company_id, role_id
 | `role_id`                   | uuid NOT NULL                      | FK → `role(id)`                 |
 | `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now() |                                 |
 
-Uniques: `UQ_user_role_company_user_role UNIQUE (company_id, user_id, role_id)` — evita cargo repetido no usuário.
+Uniques: `UQ_user_role_company_user UNIQUE (company_id, user_id)` — **um usuário tem no máximo um cargo por empresa** (migration `0009`; substitui o unique anterior `(company_id, user_id, role_id)`).
 
 > Já é escopado por empresa. Com o ADR 0002, a resolução de papéis/permissões continua por `(user_id, company_id)` — papéis **nunca vazam entre empresas**.
 
