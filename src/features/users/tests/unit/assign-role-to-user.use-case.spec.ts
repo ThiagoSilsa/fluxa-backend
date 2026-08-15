@@ -44,9 +44,11 @@ describe('AssignRoleToUserUseCase', () => {
   } as jest.Mocked<Pick<RoleRepository, 'findByIdAndCompanyId'>>;
 
   const userRoleRepoMock = {
-    exists: jest.fn(),
+    listByUserIdAndCompanyId: jest.fn(),
     create: jest.fn(),
-  } as jest.Mocked<Pick<UserRoleRepository, 'exists' | 'create'>>;
+  } as jest.Mocked<
+    Pick<UserRoleRepository, 'listByUserIdAndCompanyId' | 'create'>
+  >;
 
   const authRepoMock = {
     findHasAdminRoleByUserIdAndCompanyId: jest.fn(),
@@ -105,7 +107,7 @@ describe('AssignRoleToUserUseCase', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     authRepoMock.findHasAdminRoleByUserIdAndCompanyId.mockResolvedValue(false);
-    userRoleRepoMock.exists.mockResolvedValue(false);
+    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([]);
     userRoleRepoMock.create.mockResolvedValue(undefined);
 
     const module = await Test.createTestingModule({
@@ -164,10 +166,20 @@ describe('AssignRoleToUserUseCase', () => {
     expect(userRoleRepoMock.create).not.toHaveBeenCalled();
   });
 
-  it('lança Conflict quando o usuário já possui o cargo', async () => {
+  it('lança Conflict quando o usuário já possui um cargo na empresa', async () => {
     userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue(link);
     roleRepoMock.findByIdAndCompanyId.mockResolvedValue(porteiroRole);
-    userRoleRepoMock.exists.mockResolvedValue(true);
+    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([
+      {
+        userRoleId: '80000000-0000-0000-0000-000000000001',
+        userId: link.userId,
+        roleId: porteiroRole.id,
+        roleName: 'Porteiro',
+        roleIsAdmin: false,
+        roleIsActive: true,
+        createdAt: new Date('2026-08-15T00:00:00Z'),
+      },
+    ]);
 
     await expect(
       useCase.execute(

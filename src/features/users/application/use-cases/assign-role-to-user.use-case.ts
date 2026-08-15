@@ -91,13 +91,14 @@ export class AssignRoleToUserUseCase {
       );
     }
 
-    const exists = await this.userRoleRepository.exists(
+    // 1 cargo por empresa (ADR 0005 §5): o unique (company_id, user_id) garante
+    // no banco; aqui traduzimos o caso em 409 antes de tentar gravar.
+    const currentRoles = await this.userRoleRepository.listByUserIdAndCompanyId(
       input.userId,
-      input.roleId,
       actor.companyId,
     );
-    if (exists) {
-      throw new ConflictException('Usuário já possui este cargo.');
+    if (currentRoles.length > 0) {
+      throw new ConflictException('Usuário já possui um cargo nesta empresa.');
     }
 
     await this.userRoleRepository.create(

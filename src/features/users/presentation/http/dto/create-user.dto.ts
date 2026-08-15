@@ -8,12 +8,14 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 
 // Shared
 import { normalizeEmail } from '../../../../../shared/utils/email.util';
+import { UUID_ANY_VERSION_PATTERN } from '../../../../../shared/validators/uuid.pattern';
 
 // Constants
 import { UserType } from '../../../../auth/domain/constants/user-type.constant';
@@ -63,4 +65,9 @@ export class CreateUserDto {
 
   @IsEnum(UserType)
   type!: UserType;
+
+  /** Cargo a vincular já na criação (1 cargo por empresa — ADR 0005 §5). */
+  @IsOptional()
+  @Matches(UUID_ANY_VERSION_PATTERN)
+  roleId?: string;
 }

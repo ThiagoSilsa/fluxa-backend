@@ -4,16 +4,41 @@ import { UserType } from '../../../auth/domain/constants/user-type.constant';
 // Types
 import type { UserCompanyWithUserEntity } from '../../../auth/domain/repositories/user-company.repository';
 import type { UserEntity } from '../../domain/entities/user.entity';
-import type { CreateUserResponse, UserResponse } from '../dto/user-response';
+import type { UserRoleWithRoleEntity } from '../../domain/entities/user-role.entity';
+import type {
+  CreateUserResponse,
+  UserResponse,
+  UserRoleSummaryResponse,
+} from '../dto/user-response';
+
+/**
+ * Converte um vínculo `user_role` (com dados do cargo) no resumo de resposta.
+ *
+ * @param role Vínculo com dados do cargo.
+ * @returns Resumo do cargo.
+ */
+export function toRoleSummary(
+  role: UserRoleWithRoleEntity,
+): UserRoleSummaryResponse {
+  return {
+    userRoleId: role.userRoleId,
+    roleId: role.roleId,
+    roleName: role.roleName,
+    isAdmin: role.roleIsAdmin,
+  };
+}
 
 /**
  * Mapeia pessoa + vínculo para o formato de resposta (listagem/detalhe).
  *
  * @param entity Pessoa + vínculo na empresa da sessão.
+ * @param role Vínculo `user_role` do usuário (opcional — enriquecido pelo
+ * caller; `null` quando o usuário não tem cargo).
  * @returns Resposta de usuário.
  */
 export function toUserResponse(
   entity: UserCompanyWithUserEntity,
+  role: UserRoleWithRoleEntity | null = null,
 ): UserResponse {
   return {
     id: entity.userId,
@@ -25,6 +50,7 @@ export function toUserResponse(
     photoUrl: entity.photoUrl,
     type: entity.type,
     isActive: entity.isActive,
+    role: role ? toRoleSummary(role) : null,
   };
 }
 
@@ -43,6 +69,7 @@ export function toCreatedUserResponse(
   type: UserType,
   isActive: boolean,
   createdUser: boolean,
+  role: UserRoleWithRoleEntity | null = null,
 ): CreateUserResponse {
   return {
     id: user.id,
@@ -54,6 +81,7 @@ export function toCreatedUserResponse(
     photoUrl: user.photoUrl,
     type,
     isActive,
+    role: role ? toRoleSummary(role) : null,
     createdUser,
   };
 }

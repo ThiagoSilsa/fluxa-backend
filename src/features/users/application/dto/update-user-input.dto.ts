@@ -27,5 +27,10 @@ export class UpdateUserInputDto {
     readonly type?: UserType,
     /** Ativo/inativo do vínculo (sujeito à invariante do último admin). */
     readonly isActive?: boolean,
+    /**
+     * Cargo do usuário na empresa (1 cargo por empresa — ADR 0005 §5).
+     * UUID → replace; `null` → remove o cargo; ausente → não altera.
+     */
+    readonly roleId?: string | null,
   ) {}
 }

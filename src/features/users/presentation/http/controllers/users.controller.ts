@@ -134,6 +134,7 @@ export class UsersController {
         dto.phone,
         dto.document,
         dto.observation,
+        dto.roleId,
       ),
     );
   }
@@ -208,6 +209,7 @@ export class UsersController {
         dto.observation,
         dto.type,
         dto.isActive,
+        dto.roleId,
       ),
     );
   }

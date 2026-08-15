@@ -1,5 +1,10 @@
 // NestJS
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { QueryFailedError } from 'typeorm';
 
@@ -13,12 +18,18 @@ import { UserType } from '../../../auth/domain/constants/user-type.constant';
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
+import type { RoleEntity } from '../../../roles/domain/entities/role.entity';
+import type { RoleRepository } from '../../../roles/domain/repositories/role.repository';
 import type { UserEntity } from '../../domain/entities/user.entity';
+import type { UserRoleWithRoleEntity } from '../../domain/entities/user-role.entity';
+import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
 import type { UserRepository } from '../../domain/repositories/user.repository';
 
 // Repositories
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
+import { ROLE_REPOSITORY } from '../../../roles/domain/repositories/role.repository';
 import { USER_REPOSITORY } from '../../domain/repositories/user.repository';
+import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
 
 // DTO
 import { CreateUserInputDto } from '../../application/dto/create-user-input.dto';
@@ -48,6 +59,17 @@ describe('CreateUserUseCase', () => {
     execute: jest.fn(),
   } as jest.Mocked<Pick<PasswordHashUseCase, 'execute'>>;
 
+  const roleRepoMock = {
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<Pick<RoleRepository, 'findByIdAndCompanyId'>>;
+
+  const userRoleRepoMock = {
+    listByUserIdAndCompanyId: jest.fn(),
+    create: jest.fn(),
+  } as jest.Mocked<
+    Pick<UserRoleRepository, 'listByUserIdAndCompanyId' | 'create'>
+  >;
+
   const actor: AuthenticatedUserEntity = {
     id: '30000000-0000-0000-0000-000000000001',
     companyId: '10000000-0000-0000-0000-000000000001',
@@ -57,6 +79,12 @@ describe('CreateUserUseCase', () => {
     isAdmin: true,
     roleCodes: ['Administração'],
     permissions: [PermissionCode.MANAGE_USERS],
+  };
+
+  const nonAdminActor: AuthenticatedUserEntity = {
+    ...actor,
+    id: '30000000-0000-0000-0000-000000000002',
+    isAdmin: false,
   };
 
   const existingPerson: UserEntity = {
@@ -82,11 +110,41 @@ describe('CreateUserUseCase', () => {
     document: null,
   };
 
+  const porteiroRole: RoleEntity = {
+    id: '20000000-0000-0000-0000-000000000004',
+    companyId: actor.companyId,
+    name: 'Porteiro',
+    description: null,
+    isAdmin: false,
+    isActive: true,
+    createdAt: new Date('2026-08-15T00:00:00Z'),
+    updatedAt: new Date('2026-08-15T00:00:00Z'),
+  };
+
+  const adminRole: RoleEntity = {
+    ...porteiroRole,
+    id: '20000000-0000-0000-0000-000000000001',
+    name: 'Administração',
+    isAdmin: true,
+  };
+
+  const porteiroRoleSummary: UserRoleWithRoleEntity = {
+    userRoleId: '80000000-0000-0000-0000-000000000001',
+    userId: newPerson.id,
+    roleId: porteiroRole.id,
+    roleName: 'Porteiro',
+    roleIsAdmin: false,
+    roleIsActive: true,
+    createdAt: new Date('2026-08-15T00:00:00Z'),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     passwordHashMock.execute.mockReturnValue('$2b$10$hashed');
     userCompanyRepoMock.existsByUserIdAndCompanyId.mockResolvedValue(false);
     userCompanyRepoMock.create.mockResolvedValue({} as never);
+    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([]);
+    userRoleRepoMock.create.mockResolvedValue();
 
     const module = await Test.createTestingModule({
       providers: [
@@ -96,6 +154,8 @@ describe('CreateUserUseCase', () => {
           provide: USER_COMPANY_REPOSITORY,
           useValue: userCompanyRepoMock,
         },
+        { provide: ROLE_REPOSITORY, useValue: roleRepoMock },
+        { provide: USER_ROLE_REPOSITORY, useValue: userRoleRepoMock },
         { provide: PasswordHashUseCase, useValue: passwordHashMock },
       ],
     }).compile();
@@ -128,6 +188,7 @@ describe('CreateUserUseCase', () => {
       companyId: actor.companyId,
       type: UserType.EMPLOYEE,
       isActive: true,
+      roleId: undefined,
     });
     expect(result).toEqual({
       id: newPerson.id,
@@ -139,8 +200,127 @@ describe('CreateUserUseCase', () => {
       photoUrl: null,
       type: UserType.EMPLOYEE,
       isActive: true,
+      role: null,
       createdUser: true,
     });
+  });
+
+  it('cria pessoa nova já com cargo (roleId na mesma transação)', async () => {
+    userRepoMock.findByEmail.mockResolvedValue(null);
+    userRepoMock.create.mockResolvedValue(newPerson);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(porteiroRole);
+    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([
+      porteiroRoleSummary,
+    ]);
+
+    const result = await useCase.execute(
+      actor,
+      new CreateUserInputDto(
+        'novo@somar.local',
+        UserType.EMPLOYEE,
+        'Novo Usuário',
+        'senha123',
+        undefined,
+        undefined,
+        undefined,
+        porteiroRole.id,
+      ),
+    );
+
+    expect(roleRepoMock.findByIdAndCompanyId).toHaveBeenCalledWith(
+      porteiroRole.id,
+      actor.companyId,
+    );
+    expect(userRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({ roleId: porteiroRole.id }),
+    );
+    expect(result.role).toEqual({
+      userRoleId: porteiroRoleSummary.userRoleId,
+      roleId: porteiroRole.id,
+      roleName: 'Porteiro',
+      isAdmin: false,
+    });
+    expect(result.createdUser).toBe(true);
+  });
+
+  it('vincula pessoa existente já com cargo (cria user_role após o vínculo)', async () => {
+    userRepoMock.findByEmail.mockResolvedValue(existingPerson);
+    userCompanyRepoMock.create.mockResolvedValue({} as never);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(porteiroRole);
+    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([
+      porteiroRoleSummary,
+    ]);
+
+    const result = await useCase.execute(
+      actor,
+      new CreateUserInputDto(
+        'maria@somar.local',
+        UserType.EMPLOYEE,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        porteiroRole.id,
+      ),
+    );
+
+    expect(userRoleRepoMock.create).toHaveBeenCalledWith(
+      existingPerson.id,
+      porteiroRole.id,
+      actor.companyId,
+    );
+    expect(result.role).toEqual({
+      userRoleId: porteiroRoleSummary.userRoleId,
+      roleId: porteiroRole.id,
+      roleName: 'Porteiro',
+      isAdmin: false,
+    });
+    expect(result.createdUser).toBe(false);
+  });
+
+  it('rejeita cargo fora da empresa da sessão (404)', async () => {
+    userRepoMock.findByEmail.mockResolvedValue(null);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        actor,
+        new CreateUserInputDto(
+          'novo@somar.local',
+          UserType.EMPLOYEE,
+          'Novo Usuário',
+          'senha123',
+          undefined,
+          undefined,
+          undefined,
+          porteiroRole.id,
+        ),
+      ),
+    ).rejects.toThrow(NotFoundException);
+    expect(userRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('rejeita atribuir cargo is_admin por ator não-admin (403)', async () => {
+    userRepoMock.findByEmail.mockResolvedValue(null);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(adminRole);
+
+    await expect(
+      useCase.execute(
+        nonAdminActor,
+        new CreateUserInputDto(
+          'novo@somar.local',
+          UserType.EMPLOYEE,
+          'Novo Usuário',
+          'senha123',
+          undefined,
+          undefined,
+          undefined,
+          adminRole.id,
+        ),
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(userRepoMock.create).not.toHaveBeenCalled();
   });
 
   it('normaliza o e-mail antes de buscar e criar', async () => {
@@ -200,6 +380,7 @@ describe('CreateUserUseCase', () => {
       photoUrl: null,
       type: UserType.VISITOR,
       isActive: true,
+      role: null,
       createdUser: false,
     });
     expect(passwordHashMock.execute).not.toHaveBeenCalled();

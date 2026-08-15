@@ -1,7 +1,7 @@
 // NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 // Types
 import type { UserRoleWithRoleEntity } from '../../../domain/entities/user-role.entity';
@@ -55,6 +55,30 @@ export class UserRoleTypeormRepository implements UserRoleRepository {
   ): Promise<UserRoleWithRoleEntity[]> {
     const rows = await this.userRoleRepo.find({
       where: { userId, companyId },
+      relations: { role: true },
+      order: { createdAt: 'ASC' },
+    });
+    return rows.map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Lista os cargos dos usuários na empresa (com dados do cargo) —
+   * enriquecimento em lote da listagem de usuários (evita N+1).
+   *
+   * @param userIds Ids das pessoas da página.
+   * @param companyId Empresa da sessão.
+   * @returns Vínculos `user_role` dos usuários informados.
+   */
+  public async listByUserIdsAndCompanyId(
+    userIds: string[],
+    companyId: string,
+  ): Promise<UserRoleWithRoleEntity[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.userRoleRepo.find({
+      where: { companyId, userId: In(userIds) },
       relations: { role: true },
       order: { createdAt: 'ASC' },
     });

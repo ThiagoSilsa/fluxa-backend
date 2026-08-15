@@ -13,6 +13,7 @@ jest.setTimeout(120000);
 describe('Users integration — CRUD (Testcontainers)', () => {
   let context: UsersIntegrationContext;
   let token: string;
+  let porteiroId: string | null;
 
   const createUser = (
     email: string,
@@ -37,6 +38,7 @@ describe('Users integration — CRUD (Testcontainers)', () => {
       USERS_SEEDED.ADMIN_EMAIL,
       USERS_SEEDED.ADMIN_PASSWORD,
     );
+    porteiroId = await context.findRoleIdByName('Porteiro');
   });
 
   afterAll(async () => {
@@ -57,6 +59,80 @@ describe('Users integration — CRUD (Testcontainers)', () => {
       createdUser: true,
     });
     expect(typeof res.body.id).toBe('string');
+  });
+
+  it('POST /users cria pessoa nova já com cargo (roleId)', async () => {
+    const res = await request(context.httpServer)
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Com Cargo',
+        email: 'comcargo@somar.local',
+        password: 'senha123',
+        type: 'EMPLOYEE',
+        roleId: porteiroId,
+      })
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      createdUser: true,
+      role: { roleId: porteiroId, roleName: 'Porteiro', isAdmin: false },
+    });
+
+    // O cargo aparece no detalhe e na listagem (resumo sem N+1).
+    const detail = await request(context.httpServer)
+      .get(`/users/${res.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(detail.body.role).toMatchObject({ roleId: porteiroId });
+
+    const list = await request(context.httpServer)
+      .get('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const found = list.body.data.find(
+      (user: { id: string }) => user.id === res.body.id,
+    );
+    expect(found.role).toMatchObject({
+      roleId: porteiroId,
+      roleName: 'Porteiro',
+    });
+  });
+
+  it('POST /users vincula pessoa existente já com cargo (roleId)', async () => {
+    const secondUserId = await context.seedUserInSecondCompany(
+      'maria-role@outra.local',
+    );
+
+    const res = await request(context.httpServer)
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        email: 'maria-role@outra.local',
+        type: 'EMPLOYEE',
+        roleId: porteiroId,
+      })
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      id: secondUserId,
+      createdUser: false,
+      role: { roleId: porteiroId, roleName: 'Porteiro', isAdmin: false },
+    });
+  });
+
+  it('POST /users com roleId fora da empresa → 404', async () => {
+    await request(context.httpServer)
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Sem Cargo',
+        email: 'semcargo@somar.local',
+        password: 'senha123',
+        type: 'EMPLOYEE',
+        roleId: 'ffffffff-0000-0000-0000-000000000000',
+      })
+      .expect(404);
   });
 
   it('POST /users vincula pessoa existente em outra empresa (createdUser false)', async () => {
@@ -103,6 +179,8 @@ describe('Users integration — CRUD (Testcontainers)', () => {
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(typeof res.body.count).toBe('number');
     expect(res.body.data.length).toBeGreaterThan(0);
+    // Cada item traz o resumo do cargo (null quando sem cargo).
+    expect(res.body.data[0]).toHaveProperty('role');
   });
 
   it('GET /users/:id detalha um usuário da empresa', async () => {

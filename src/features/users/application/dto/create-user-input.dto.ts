@@ -24,5 +24,7 @@ export class CreateUserInputDto {
     readonly document?: string,
     /** Observação (proibida no vínculo de pessoa existente). */
     readonly observation?: string,
+    /** Cargo a vincular já na criação (1 cargo por empresa — ADR 0005 §5). */
+    readonly roleId?: string,
   ) {}
 }

@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 // Repository
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
+import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
 
 // Mapper
 import { toUserResponse } from '../utils/user-response.mapper';
@@ -10,6 +11,7 @@ import { toUserResponse } from '../utils/user-response.mapper';
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
+import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
 import type { GetUserInputDto } from '../dto/get-user-input.dto';
 import type { UserResponse } from '../dto/user-response';
 
@@ -26,6 +28,8 @@ export class GetUserUseCase {
   constructor(
     @Inject(USER_COMPANY_REPOSITORY)
     private readonly userCompanyRepository: UserCompanyRepository,
+    @Inject(USER_ROLE_REPOSITORY)
+    private readonly userRoleRepository: UserRoleRepository,
   ) {}
 
   /**
@@ -47,6 +51,10 @@ export class GetUserUseCase {
     if (!link) {
       throw new NotFoundException('Usuário não encontrado.');
     }
-    return toUserResponse(link);
+    const role = await this.userRoleRepository.listByUserIdAndCompanyId(
+      input.id,
+      actor.companyId,
+    );
+    return toUserResponse(link, role[0] ?? null);
   }
 }

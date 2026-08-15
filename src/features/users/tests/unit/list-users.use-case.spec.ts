@@ -10,9 +10,11 @@ import { UserType } from '../../../auth/domain/constants/user-type.constant';
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
+import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
 
 // Repository
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
+import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
 
 // DTO
 import { ListUsersInputDto } from '../../application/dto/list-users-input.dto';
@@ -27,6 +29,10 @@ describe('ListUsersUseCase', () => {
     listByCompanyId: jest.fn(),
   } as jest.Mocked<Pick<UserCompanyRepository, 'listByCompanyId'>>;
 
+  const userRoleRepoMock = {
+    listByUserIdsAndCompanyId: jest.fn(),
+  } as jest.Mocked<Pick<UserRoleRepository, 'listByUserIdsAndCompanyId'>>;
+
   const actor: AuthenticatedUserEntity = {
     id: '30000000-0000-0000-0000-000000000001',
     companyId: '10000000-0000-0000-0000-000000000001',
@@ -40,6 +46,7 @@ describe('ListUsersUseCase', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    userRoleRepoMock.listByUserIdsAndCompanyId.mockResolvedValue([]);
     const module = await Test.createTestingModule({
       providers: [
         ListUsersUseCase,
@@ -47,6 +54,7 @@ describe('ListUsersUseCase', () => {
           provide: USER_COMPANY_REPOSITORY,
           useValue: userCompanyRepoMock,
         },
+        { provide: USER_ROLE_REPOSITORY, useValue: userRoleRepoMock },
       ],
     }).compile();
     useCase = module.get(ListUsersUseCase);
@@ -100,6 +108,7 @@ describe('ListUsersUseCase', () => {
           photoUrl: null,
           type: UserType.EMPLOYEE,
           isActive: true,
+          role: null,
         },
       ],
       count: 1,
@@ -127,5 +136,52 @@ describe('ListUsersUseCase', () => {
         offset: 20,
       },
     );
+  });
+
+  it('enriquece cada usuário com o resumo do cargo (em lote, sem N+1)', async () => {
+    userCompanyRepoMock.listByCompanyId.mockResolvedValue({
+      data: [
+        {
+          linkId: '70000000-0000-0000-0000-000000000001',
+          userId: '60000000-0000-0000-0000-000000000001',
+          name: 'Maria',
+          email: 'maria@somar.local',
+          phone: null,
+          document: null,
+          observation: null,
+          photoUrl: null,
+          type: UserType.EMPLOYEE,
+          isActive: true,
+        },
+      ],
+      count: 1,
+    });
+    userRoleRepoMock.listByUserIdsAndCompanyId.mockResolvedValue([
+      {
+        userRoleId: '80000000-0000-0000-0000-000000000001',
+        userId: '60000000-0000-0000-0000-000000000001',
+        roleId: '20000000-0000-0000-0000-000000000004',
+        roleName: 'Porteiro',
+        roleIsAdmin: false,
+        roleIsActive: true,
+        createdAt: new Date('2026-08-15T00:00:00Z'),
+      },
+    ]);
+
+    const result = await useCase.execute(
+      actor,
+      new ListUsersInputDto(undefined, undefined, undefined, 10, 0),
+    );
+
+    expect(userRoleRepoMock.listByUserIdsAndCompanyId).toHaveBeenCalledWith(
+      ['60000000-0000-0000-0000-000000000001'],
+      actor.companyId,
+    );
+    expect(result.data[0].role).toEqual({
+      userRoleId: '80000000-0000-0000-0000-000000000001',
+      roleId: '20000000-0000-0000-0000-000000000004',
+      roleName: 'Porteiro',
+      isAdmin: false,
+    });
   });
 });

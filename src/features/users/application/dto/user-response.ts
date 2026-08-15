@@ -5,6 +5,23 @@ import { UserType } from '../../../auth/domain/constants/user-type.constant';
 import type { ParameterDto } from '../../../../shared/dto/parameter.dto';
 
 /**
+ * Resumo do cargo do usuário na empresa (listagem/detalhe — ADR 0005 §5).
+ *
+ * Com o modelo de **um cargo por empresa**, o resumo é o cargo vigente do
+ * usuário (ou `null`). Evita N+1: a listagem enriquece em lote.
+ */
+export interface UserRoleSummaryResponse {
+  /** Id do vínculo `user_role`. */
+  userRoleId: string;
+  /** Id do cargo. */
+  roleId: string;
+  /** Nome do cargo. */
+  roleName: string;
+  /** Cargo de administração (acesso total — governança especial). */
+  isAdmin: boolean;
+}
+
+/**
  * Usuário no formato de resposta (pessoa + vínculo na empresa da sessão —
  * nunca a entidade crua do banco).
  */
@@ -27,6 +44,8 @@ export interface UserResponse {
   type: UserType;
   /** Se o vínculo com a empresa da sessão está ativo. */
   isActive: boolean;
+  /** Resumo do cargo vigente na empresa (1 cargo por empresa). */
+  role: UserRoleSummaryResponse | null;
 }
 
 /**

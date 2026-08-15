@@ -9,11 +9,14 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 // Shared
 import { normalizeEmail } from '../../../../../shared/utils/email.util';
+import { UUID_ANY_VERSION_PATTERN } from '../../../../../shared/validators/uuid.pattern';
 
 // Constants
 import { UserType } from '../../../../auth/domain/constants/user-type.constant';
@@ -59,4 +62,14 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  /**
+   * Cargo do usuário na empresa (1 cargo por empresa — ADR 0005 §5).
+   *
+   * UUID válido → troca o cargo (replace do cargo único); `null` → remove o
+   * cargo. Ausente → não altera o cargo.
+   */
+  @ValidateIf((_obj, value) => value !== null && value !== undefined)
+  @Matches(UUID_ANY_VERSION_PATTERN)
+  roleId?: string | null;
 }

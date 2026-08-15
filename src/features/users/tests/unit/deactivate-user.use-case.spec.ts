@@ -16,10 +16,12 @@ import { UserType } from '../../../auth/domain/constants/user-type.constant';
 import type { AuthRepository } from '../../../auth/domain/repositories/auth.repository';
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
+import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
 
 // Repositories
 import { AUTH_REPOSITORY } from '../../../auth/domain/repositories/auth.repository';
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
+import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
 
 // DTO
 import { GetUserInputDto } from '../../application/dto/get-user-input.dto';
@@ -46,6 +48,10 @@ describe('DeactivateUserUseCase', () => {
       'findHasAdminRoleByUserIdAndCompanyId' | 'countAdminsByCompanyId'
     >
   >;
+
+  const userRoleRepoMock = {
+    listByUserIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<Pick<UserRoleRepository, 'listByUserIdAndCompanyId'>>;
 
   const adminActor: AuthenticatedUserEntity = {
     id: '30000000-0000-0000-0000-000000000001',
@@ -89,6 +95,7 @@ describe('DeactivateUserUseCase', () => {
       type: link.type,
       isActive: false,
     });
+    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([]);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -98,6 +105,7 @@ describe('DeactivateUserUseCase', () => {
           useValue: userCompanyRepoMock,
         },
         { provide: AUTH_REPOSITORY, useValue: authRepoMock },
+        { provide: USER_ROLE_REPOSITORY, useValue: userRoleRepoMock },
       ],
     }).compile();
     useCase = module.get(DeactivateUserUseCase);

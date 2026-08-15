@@ -14,6 +14,7 @@ import type {
 // TypeORM
 import { UserCompanyOrmEntity } from './user-company.orm-entity';
 import { UserOrmEntity } from './user.orm-entity';
+import { UserRoleOrmEntity } from '../../../../roles/infrastructure/persistence/typeorm/user-role.orm-entity';
 
 /**
  * Implementação TypeORM do `UserRepository` (pessoas — identidade global).
@@ -90,6 +91,17 @@ export class UsersTypeormRepository implements UserRepository {
         isActive: data.isActive,
       });
       await manager.save(link);
+
+      // Cargo único por empresa (ADR 0005 §5): criado na MESMA transação
+      // quando `roleId` é informado — evita pessoa sem cargo após o create.
+      if (data.roleId) {
+        const userRole = manager.create(UserRoleOrmEntity, {
+          userId: savedUser.id,
+          companyId: data.companyId,
+          roleId: data.roleId,
+        });
+        await manager.save(userRole);
+      }
 
       return this.toDomain(savedUser);
     });

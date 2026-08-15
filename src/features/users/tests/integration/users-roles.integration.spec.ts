@@ -103,6 +103,25 @@ describe('Users integration — cargos do usuário (Testcontainers)', () => {
       .expect(409);
   });
 
+  it('segundo cargo (diferente) → 409 (um cargo por empresa)', async () => {
+    const created = await createUser(
+      'doiscargos@somar.local',
+      'Dois Cargos',
+    ).expect(201);
+
+    await request(context.httpServer)
+      .post(`/users/${created.body.id}/roles`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ roleId: porteiroId })
+      .expect(201);
+
+    await request(context.httpServer)
+      .post(`/users/${created.body.id}/roles`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ roleId: USERS_SEEDED.ADMIN_ROLE_ID })
+      .expect(409);
+  });
+
   it('remover o cargo is_admin do último admin ativo → 409 (invariante)', async () => {
     await request(context.httpServer)
       .delete(

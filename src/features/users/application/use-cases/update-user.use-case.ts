@@ -14,7 +14,9 @@ import { normalizeEmail } from '../../../../shared/utils/email.util';
 // Repositories
 import { AUTH_REPOSITORY } from '../../../auth/domain/repositories/auth.repository';
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
+import { ROLE_REPOSITORY } from '../../../roles/domain/repositories/role.repository';
 import { USER_REPOSITORY } from '../../domain/repositories/user.repository';
+import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
 
 // Mapper
 import { toUserResponse } from '../utils/user-response.mapper';
@@ -24,8 +26,11 @@ import type { AuthRepository } from '../../../auth/domain/repositories/auth.repo
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UpdateUserCompanyRepositoryData } from '../../../auth/domain/repositories/user-company.repository';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
+import type { RoleEntity } from '../../../roles/domain/entities/role.entity';
+import type { RoleRepository } from '../../../roles/domain/repositories/role.repository';
 import type { UpdateUserRepositoryData } from '../../domain/repositories/user.repository';
 import type { UserRepository } from '../../domain/repositories/user.repository';
+import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
 import type { UpdateUserInputDto } from '../dto/update-user-input.dto';
 import type { UserResponse } from '../dto/user-response';
 
@@ -51,6 +56,10 @@ export class UpdateUserUseCase {
     private readonly userCompanyRepository: UserCompanyRepository,
     @Inject(AUTH_REPOSITORY)
     private readonly authRepository: AuthRepository,
+    @Inject(ROLE_REPOSITORY)
+    private readonly roleRepository: RoleRepository,
+    @Inject(USER_ROLE_REPOSITORY)
+    private readonly userRoleRepository: UserRoleRepository,
   ) {}
 
   /**
@@ -94,6 +103,10 @@ export class UpdateUserUseCase {
     await this.updatePerson(input);
     await this.updateLink(link.linkId, input);
 
+    if (input.roleId !== undefined) {
+      await this.replaceRole(actor, input.id, input.roleId);
+    }
+
     const updated = await this.userCompanyRepository.findByUserIdAndCompanyId(
       input.id,
       actor.companyId,
@@ -101,7 +114,84 @@ export class UpdateUserUseCase {
     if (!updated) {
       throw new NotFoundException('Usuário não encontrado.');
     }
-    return toUserResponse(updated);
+    const role = await this.userRoleRepository.listByUserIdAndCompanyId(
+      input.id,
+      actor.companyId,
+    );
+    return toUserResponse(updated, role[0] ?? null);
+  }
+
+  /**
+   * Troca o cargo único do usuário na empresa (ADR 0005 §5).
+   *
+   * `roleId` nulo remove o cargo; UUID válido substitui o atual pelo novo.
+   * Aplica a mesma governança dos endpoints de cargo: cargo fora da empresa →
+   * 404; atribuir/retirar `is_admin` exige ator `is_admin` (403 — o alvo admin
+   * já é bloqueado no início do `execute`); remover `is_admin` do último admin
+   * ativo → 409.
+   *
+   * @param actor Ator autenticado (empresa da sessão).
+   * @param userId Id da pessoa.
+   * @param roleId Novo cargo (ou `null` para remover).
+   * @throws {NotFoundException} Cargo fora da empresa.
+   * @throws {ForbiddenException} Atribuir cargo `is_admin` sem ser admin.
+   * @throws {ConflictException} Remover o cargo do último admin ativo.
+   */
+  private async replaceRole(
+    actor: AuthenticatedUserEntity,
+    userId: string,
+    roleId: string | null,
+  ): Promise<void> {
+    const currentRoles = await this.userRoleRepository.listByUserIdAndCompanyId(
+      userId,
+      actor.companyId,
+    );
+    const current = currentRoles[0] ?? null;
+
+    // Nada a fazer quando o cargo já é o mesmo.
+    if (current && current.roleId === roleId) {
+      return;
+    }
+
+    // Removendo um cargo is_admin (troca ou remoção): a empresa não pode
+    // ficar sem nenhum administrador ativo.
+    if (current && current.roleIsAdmin) {
+      const admins = await this.authRepository.countAdminsByCompanyId(
+        actor.companyId,
+      );
+      if (admins <= 1) {
+        throw new ConflictException(
+          'Não é possível remover o último administrador ativo da empresa.',
+        );
+      }
+    }
+
+    let newRole: RoleEntity | null = null;
+    if (roleId !== null) {
+      newRole = await this.roleRepository.findByIdAndCompanyId(
+        roleId,
+        actor.companyId,
+      );
+      if (!newRole) {
+        throw new NotFoundException('Cargo não encontrado.');
+      }
+      if (newRole.isAdmin && !actor.isAdmin) {
+        throw new ForbiddenException(
+          'Apenas administradores podem atribuir cargos de administração.',
+        );
+      }
+    }
+
+    if (current) {
+      await this.userRoleRepository.remove(
+        userId,
+        current.roleId,
+        actor.companyId,
+      );
+    }
+    if (newRole) {
+      await this.userRoleRepository.create(userId, newRole.id, actor.companyId);
+    }
   }
 
   /**

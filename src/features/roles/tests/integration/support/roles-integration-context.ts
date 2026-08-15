@@ -15,6 +15,7 @@ import { CreateMovementAndOccupancySchema1760000000003 } from '../../../../../sh
 import { CreateRequestDeviceImportSchema1760000000004 } from '../../../../../shared/database/typeorm/migrations/0005-create-request-device-import-schema';
 import { CreateUserCompanySchema1760000000005 } from '../../../../../shared/database/typeorm/migrations/0006-create-user-company-schema';
 import { AddLastLoginAtToUser1760000000007 } from '../../../../../shared/database/typeorm/migrations/0008-add-last-login-at-to-user';
+import { UniqueUserRolePerUserCompany1760000000008 } from '../../../../../shared/database/typeorm/migrations/0009-unique-user-role-per-user-company';
 
 // Seeds
 import { SeedInitialPermissions1760001000000 } from '../../../../../shared/database/typeorm/seeds/0001-seed-initial-permissions';
@@ -90,6 +91,7 @@ export async function createRolesIntegrationContext(): Promise<RolesIntegrationC
       CreateRequestDeviceImportSchema1760000000004,
       CreateUserCompanySchema1760000000005,
       AddLastLoginAtToUser1760000000007,
+      UniqueUserRolePerUserCompany1760000000008,
       SeedInitialPermissions1760001000000,
       SeedDefaultCompanyRolesAdminVehicleTypes1760001000001,
     ],
@@ -201,7 +203,7 @@ async function seedUserWithRole(
   await dataSource.query(
     `INSERT INTO "user_role" ("id", "company_id", "user_id", "role_id")
      VALUES (gen_random_uuid(), $2, $1, $3)
-     ON CONFLICT ("company_id", "user_id", "role_id") DO NOTHING`,
+     ON CONFLICT ("company_id", "user_id") DO NOTHING`,
     [userId, ROLES_SEEDED.SOMAR_COMPANY_ID, roleId],
   );
 }

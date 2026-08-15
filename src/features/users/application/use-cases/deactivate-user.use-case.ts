@@ -11,6 +11,7 @@ import {
 // Repositories
 import { AUTH_REPOSITORY } from '../../../auth/domain/repositories/auth.repository';
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
+import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
 
 // Mapper
 import { toUserResponse } from '../utils/user-response.mapper';
@@ -19,6 +20,7 @@ import { toUserResponse } from '../utils/user-response.mapper';
 import type { AuthRepository } from '../../../auth/domain/repositories/auth.repository';
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
+import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
 import type { GetUserInputDto } from '../dto/get-user-input.dto';
 import type { UserResponse } from '../dto/user-response';
 
@@ -38,6 +40,8 @@ export class DeactivateUserUseCase {
     private readonly userCompanyRepository: UserCompanyRepository,
     @Inject(AUTH_REPOSITORY)
     private readonly authRepository: AuthRepository,
+    @Inject(USER_ROLE_REPOSITORY)
+    private readonly userRoleRepository: UserRoleRepository,
   ) {}
 
   /**
@@ -90,6 +94,10 @@ export class DeactivateUserUseCase {
       throw new NotFoundException('Usuário não encontrado.');
     }
 
-    return toUserResponse({ ...link, isActive: false });
+    const role = await this.userRoleRepository.listByUserIdAndCompanyId(
+      input.id,
+      actor.companyId,
+    );
+    return toUserResponse({ ...link, isActive: false }, role[0] ?? null);
   }
 }

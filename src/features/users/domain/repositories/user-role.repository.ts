@@ -36,6 +36,19 @@ export interface UserRoleRepository {
   ): Promise<UserRoleWithRoleEntity[]>;
 
   /**
+   * Lista os cargos dos usuários na empresa (com dados do cargo) —
+   * enriquecimento em lote da listagem de usuários (evita N+1).
+   *
+   * @param userIds Ids das pessoas da página.
+   * @param companyId Empresa da sessão.
+   * @returns Vínculos `user_role` dos usuários informados.
+   */
+  listByUserIdsAndCompanyId(
+    userIds: string[],
+    companyId: string,
+  ): Promise<UserRoleWithRoleEntity[]>;
+
+  /**
    * Atribui um cargo ao usuário na empresa.
    *
    * @param userId Id da pessoa.

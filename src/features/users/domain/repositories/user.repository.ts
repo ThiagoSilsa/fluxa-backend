@@ -30,6 +30,8 @@ export interface CreateUserRepositoryData {
   type: UserType;
   /** Vínculo ativo na criação. */
   isActive: boolean;
+  /** Cargo a vincular já na criação (1 cargo por empresa — ADR 0005 §5). */
+  roleId?: string;
 }
 
 /**

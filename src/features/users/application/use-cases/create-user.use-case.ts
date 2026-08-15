@@ -2,9 +2,11 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 
@@ -14,7 +16,9 @@ import { normalizeEmail } from '../../../../shared/utils/email.util';
 
 // Repositories
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
+import { ROLE_REPOSITORY } from '../../../roles/domain/repositories/role.repository';
 import { USER_REPOSITORY } from '../../domain/repositories/user.repository';
+import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
 
 // Mapper
 import { toCreatedUserResponse } from '../utils/user-response.mapper';
@@ -22,7 +26,11 @@ import { toCreatedUserResponse } from '../utils/user-response.mapper';
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
+import type { RoleEntity } from '../../../roles/domain/entities/role.entity';
+import type { RoleRepository } from '../../../roles/domain/repositories/role.repository';
 import type { UserEntity } from '../../domain/entities/user.entity';
+import type { UserRoleWithRoleEntity } from '../../domain/entities/user-role.entity';
+import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
 import type { CreateUserInputDto } from '../dto/create-user-input.dto';
 import type { CreateUserResponse } from '../dto/user-response';
 import type { UserRepository } from '../../domain/repositories/user.repository';
@@ -46,6 +54,10 @@ export class CreateUserUseCase {
     private readonly userRepository: UserRepository,
     @Inject(USER_COMPANY_REPOSITORY)
     private readonly userCompanyRepository: UserCompanyRepository,
+    @Inject(ROLE_REPOSITORY)
+    private readonly roleRepository: RoleRepository,
+    @Inject(USER_ROLE_REPOSITORY)
+    private readonly userRoleRepository: UserRoleRepository,
     private readonly passwordHash: PasswordHashUseCase,
   ) {}
 
@@ -101,6 +113,8 @@ export class CreateUserUseCase {
       }
     }
 
+    const role = await this.resolveRole(actor, input.roleId);
+
     try {
       const user = await this.userRepository.create({
         name: input.name as string,
@@ -112,8 +126,10 @@ export class CreateUserUseCase {
         companyId: actor.companyId,
         type: input.type,
         isActive: true,
+        roleId: role?.id,
       });
-      return toCreatedUserResponse(user, input.type, true, true);
+      const roleSummary = await this.fetchRoleSummary(user.id, actor.companyId);
+      return toCreatedUserResponse(user, input.type, true, true, roleSummary);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
         throw new ConflictException('E-mail ou documento já cadastrado.');
@@ -156,6 +172,8 @@ export class CreateUserUseCase {
       throw new ConflictException('Usuário já vinculado a esta empresa.');
     }
 
+    const role = await this.resolveRole(actor, input.roleId);
+
     try {
       await this.userCompanyRepository.create({
         userId: existing.id,
@@ -163,13 +181,88 @@ export class CreateUserUseCase {
         type: input.type,
         isActive: true,
       });
-      return toCreatedUserResponse(existing, input.type, true, false);
+
+      if (role) {
+        await this.userRoleRepository.create(
+          existing.id,
+          role.id,
+          actor.companyId,
+        );
+      }
+
+      const roleSummary = await this.fetchRoleSummary(
+        existing.id,
+        actor.companyId,
+      );
+      return toCreatedUserResponse(
+        existing,
+        input.type,
+        true,
+        false,
+        roleSummary,
+      );
     } catch (error) {
       if (this.isUniqueViolation(error)) {
         throw new ConflictException('Usuário já vinculado a esta empresa.');
       }
       throw error;
     }
+  }
+
+  /**
+   * Valida o cargo a vincular na criação (ADR 0005 §5).
+   *
+   * Cargo deve pertencer à empresa da sessão (senão 404); atribuir cargo
+   * `is_admin` exige ator `is_admin` (403). Sem `roleId`, retorna `null`.
+   *
+   * @param actor Ator autenticado (empresa da sessão).
+   * @param roleId Id do cargo (opcional).
+   * @returns Cargo validado ou `null`.
+   * @throws {NotFoundException} Cargo fora da empresa.
+   * @throws {ForbiddenException} Atribuir cargo `is_admin` sem ser admin.
+   */
+  private async resolveRole(
+    actor: AuthenticatedUserEntity,
+    roleId?: string,
+  ): Promise<RoleEntity | null> {
+    if (!roleId) {
+      return null;
+    }
+
+    const role = await this.roleRepository.findByIdAndCompanyId(
+      roleId,
+      actor.companyId,
+    );
+    if (!role) {
+      throw new NotFoundException('Cargo não encontrado.');
+    }
+
+    if (role.isAdmin && !actor.isAdmin) {
+      throw new ForbiddenException(
+        'Apenas administradores podem atribuir cargos de administração.',
+      );
+    }
+
+    return role;
+  }
+
+  /**
+   * Busca o resumo do cargo vigente do usuário na empresa (1 cargo por
+   * empresa) para incluir na resposta de criação.
+   *
+   * @param userId Id da pessoa.
+   * @param companyId Empresa da sessão.
+   * @returns Vínculo `user_role` (ou `null` quando sem cargo).
+   */
+  private async fetchRoleSummary(
+    userId: string,
+    companyId: string,
+  ): Promise<UserRoleWithRoleEntity | null> {
+    const roles = await this.userRoleRepository.listByUserIdAndCompanyId(
+      userId,
+      companyId,
+    );
+    return roles[0] ?? null;
   }
 
   /**
