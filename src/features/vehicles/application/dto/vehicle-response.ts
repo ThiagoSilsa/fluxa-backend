@@ -16,8 +16,23 @@ export interface VehicleTypeSummary {
 }
 
 /**
+ * Motorista no detalhe do veículo (detalhe agregado — ADR 0006 §11).
+ */
+export interface VehicleDriverResponse {
+  /** Id do vínculo. */
+  id: string;
+  /** Motorista (id + nome). */
+  user: { id: string; name: string };
+  /** Proprietário principal do veículo. */
+  isPrimary: boolean;
+  /** Autorizado a dirigir. */
+  canDrive: boolean;
+}
+
+/**
  * Veículo no formato de resposta (nunca a entidade crua do banco — AGENTS.md
  * §3). `isBlocked` é somente leitura (derivado do bloqueio — ADR 0006 §4).
+ * `department`/`drivers` aparecem apenas no **detalhe** (`GET /vehicles/:id`).
  */
 export interface VehicleResponse {
   /** Id do veículo. */
@@ -38,6 +53,10 @@ export interface VehicleResponse {
   vehicleTypeId: string;
   /** Tipo de veículo agregado (ou `null` se não resolvido). */
   vehicleType: VehicleTypeSummary | null;
+  /** Departamento padrão ativo (detalhe) — id + nome, ou `null`. */
+  department?: { id: string; name: string } | null;
+  /** Motoristas vinculados (detalhe). */
+  drivers?: VehicleDriverResponse[];
   /** Se o veículo está ativo. */
   isActive: boolean;
 }

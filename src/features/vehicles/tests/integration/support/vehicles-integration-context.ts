@@ -53,6 +53,7 @@ export interface VehiclesIntegrationContext {
   resetThrottle: () => void;
   seedUserWithRole: (email: string, roleId: string) => Promise<void>;
   seedUserWithPermissions: (email: string, codes: string[]) => Promise<void>;
+  findUserIdByEmail: (email: string) => Promise<string | null>;
   close: () => Promise<void>;
 }
 
@@ -114,6 +115,7 @@ export async function createVehiclesIntegrationContext(): Promise<VehiclesIntegr
       seedUserWithRole(dataSource, email, roleId),
     seedUserWithPermissions: (email, codes) =>
       seedUserWithPermissions(dataSource, email, codes),
+    findUserIdByEmail: (email) => findUserIdByEmail(dataSource, email),
     close: async () => {
       await app.close();
       if (dataSource.isInitialized) {
@@ -223,4 +225,23 @@ async function insertTestUser(
   );
 
   return userId as string;
+}
+
+/**
+ * Busca o id de um usuário pelo e-mail (para os testes de vínculos).
+ *
+ * @param dataSource Conexão com o banco de teste.
+ * @param email E-mail do usuário.
+ * @returns Id do usuário ou `null`.
+ */
+async function findUserIdByEmail(
+  dataSource: DataSource,
+  email: string,
+): Promise<string | null> {
+  const rows = await dataSource.query(
+    `SELECT "id" FROM "user" WHERE "email" = $1`,
+    [email],
+  );
+  const first = rows?.[0] as { id?: string } | undefined;
+  return first?.id ?? null;
 }

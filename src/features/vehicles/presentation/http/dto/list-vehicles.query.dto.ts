@@ -28,6 +28,10 @@ export class ListVehiclesQueryDto {
   vehicleTypeId?: string;
 
   @IsOptional()
+  @Matches(UUID_ANY_VERSION_PATTERN)
+  departmentId?: string;
+
+  @IsOptional()
   @Transform(({ value }: { value: unknown }) => {
     if (value === 'true') {
       return true;

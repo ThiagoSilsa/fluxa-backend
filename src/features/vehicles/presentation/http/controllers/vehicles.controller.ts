@@ -111,6 +111,7 @@ export class VehiclesController {
       new ListVehiclesInputDto(
         query.search,
         query.vehicleTypeId,
+        query.departmentId,
         query.freePass,
         query.isActive,
         query.limit,

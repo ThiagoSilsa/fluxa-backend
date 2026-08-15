@@ -7,6 +7,8 @@ export class ListVehiclesInputDto {
     readonly search?: string,
     /** Filtro por tipo de veículo. */
     readonly vehicleTypeId?: string,
+    /** Filtro por departamento padrão. */
+    readonly departmentId?: string,
     /** Filtro por livre acesso. */
     readonly freePass?: boolean,
     /** Filtro por estado ativo/inativo. */

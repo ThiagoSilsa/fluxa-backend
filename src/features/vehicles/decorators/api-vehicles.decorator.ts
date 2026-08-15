@@ -11,8 +11,11 @@ import {
 } from '@nestjs/swagger';
 
 // DTOs (apresentação)
+import { AssignDriverDto } from '../presentation/http/dto/assign-driver.dto';
 import { CreateVehicleDto } from '../presentation/http/dto/create-vehicle.dto';
 import { CreateVehicleTypeDto } from '../presentation/http/dto/create-vehicle-type.dto';
+import { SetVehicleDepartmentDto } from '../presentation/http/dto/set-vehicle-department.dto';
+import { UpdateDriverDto } from '../presentation/http/dto/update-driver.dto';
 import { UpdateVehicleDto } from '../presentation/http/dto/update-vehicle.dto';
 import { UpdateVehicleTypeDto } from '../presentation/http/dto/update-vehicle-type.dto';
 
@@ -208,5 +211,145 @@ export function ApiDeactivateVehicle(): MethodDecorator {
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
     ApiResponse({ status: 404, description: 'Veículo não encontrado.' }),
+  );
+}
+
+// ---- vehicle_department ----
+
+export function ApiGetVehicleDepartment(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Detalha o departamento padrão do veículo',
+      description:
+        'Exige MANAGE_VEHICLES. Devolve o vínculo ativo (com o departamento) ou 404 (veículo inexistente ou sem vínculo).',
+    }),
+    ApiParam({ name: 'vehicleId', description: 'Id do veículo (UUID).' }),
+    ApiResponse({ status: 200, description: 'Vínculo ativo.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Veículo não encontrado ou sem vínculo.',
+    }),
+  );
+}
+
+export function ApiSetVehicleDepartment(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary:
+        'Define o departamento padrão do veículo (upsert na linha única)',
+      description:
+        'Exige MANAGE_VEHICLES. PUT: cria/reativa/atualiza o vínculo único (ADR 0006 §8); departamento deve estar ativo (400).',
+    }),
+    ApiParam({ name: 'vehicleId', description: 'Id do veículo (UUID).' }),
+    ApiBody({ type: SetVehicleDepartmentDto }),
+    ApiResponse({ status: 200, description: 'Vínculo ativo.' }),
+    ApiResponse({ status: 400, description: 'Departamento inativo.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Veículo ou departamento não encontrado.',
+    }),
+  );
+}
+
+export function ApiRemoveVehicleDepartment(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Remove o departamento padrão do veículo (soft)',
+      description:
+        'Exige MANAGE_VEHICLES. DELETE desativa o vínculo (is_active=false) — o veículo fica sem departamento padrão; idempotente.',
+    }),
+    ApiParam({ name: 'vehicleId', description: 'Id do veículo (UUID).' }),
+    ApiResponse({ status: 204, description: 'Vínculo removido.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({ status: 404, description: 'Veículo não encontrado.' }),
+  );
+}
+
+// ---- user_vehicle (motoristas) ----
+
+export function ApiListVehicleDrivers(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Lista os motoristas de um veículo',
+      description:
+        'Exige MANAGE_VEHICLES. Devolve os vínculos com nome do motorista, is_primary e can_drive (primários primeiro).',
+    }),
+    ApiParam({ name: 'vehicleId', description: 'Id do veículo (UUID).' }),
+    ApiResponse({ status: 200, description: 'Vínculos do veículo.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({ status: 404, description: 'Veículo não encontrado.' }),
+  );
+}
+
+export function ApiAssignDriver(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Vincula um motorista ao veículo',
+      description:
+        'Exige MANAGE_VEHICLES. Motorista precisa de vínculo ativo na empresa (404); duplicado → 409; is_primary=true substitui o anterior (transação).',
+    }),
+    ApiParam({ name: 'vehicleId', description: 'Id do veículo (UUID).' }),
+    ApiBody({ type: AssignDriverDto }),
+    ApiResponse({ status: 201, description: 'Vínculo criado.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Veículo ou usuário não encontrado.',
+    }),
+    ApiResponse({ status: 409, description: 'Vínculo já existente.' }),
+  );
+}
+
+export function ApiUpdateVehicleDriver(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Ajusta o vínculo do motorista (is_primary/can_drive)',
+      description:
+        'Exige MANAGE_VEHICLES. PATCH sem remover+recriar; is_primary=true substitui o anterior (transação).',
+    }),
+    ApiParam({ name: 'vehicleId', description: 'Id do veículo (UUID).' }),
+    ApiParam({ name: 'userId', description: 'Id do motorista (UUID).' }),
+    ApiBody({ type: UpdateDriverDto }),
+    ApiResponse({ status: 200, description: 'Vínculo atualizado.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Veículo ou vínculo não encontrado.',
+    }),
+    ApiResponse({ status: 409, description: 'Concorrência no primário.' }),
+  );
+}
+
+export function ApiRemoveVehicleDriver(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Remove o motorista do veículo (delete físico)',
+      description:
+        'Exige MANAGE_VEHICLES. A tabela user_vehicle não tem is_active — a remoção é física (ADR 0006 §2).',
+    }),
+    ApiParam({ name: 'vehicleId', description: 'Id do veículo (UUID).' }),
+    ApiParam({ name: 'userId', description: 'Id do motorista (UUID).' }),
+    ApiResponse({ status: 204, description: 'Vínculo removido.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Veículo ou vínculo não encontrado.',
+    }),
   );
 }

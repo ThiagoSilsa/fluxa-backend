@@ -5,6 +5,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ParameterDto } from '../../../../shared/dto/parameter.dto';
 
 // Repositories
+import { DEPARTMENT_REPOSITORY } from '../../../departments/domain/repositories/department.repository';
 import { VEHICLE_TYPE_REPOSITORY } from '../../domain/repositories/vehicle-type.repository';
 import { VEHICLE_REPOSITORY } from '../../domain/repositories/vehicle.repository';
 
@@ -13,6 +14,7 @@ import { toVehicleResponse } from '../utils/vehicle-response.mapper';
 
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
+import type { DepartmentRepository } from '../../../departments/domain/repositories/department.repository';
 import type { VehicleTypeRepository } from '../../domain/repositories/vehicle-type.repository';
 import type { VehicleRepository } from '../../domain/repositories/vehicle.repository';
 import type { ListVehiclesInputDto } from '../dto/list-vehicles-input.dto';
@@ -35,6 +37,8 @@ export class ListVehiclesUseCase {
     private readonly vehicleRepository: VehicleRepository,
     @Inject(VEHICLE_TYPE_REPOSITORY)
     private readonly vehicleTypeRepository: VehicleTypeRepository,
+    @Inject(DEPARTMENT_REPOSITORY)
+    private readonly departmentRepository: DepartmentRepository,
   ) {}
 
   /**
@@ -51,6 +55,7 @@ export class ListVehiclesUseCase {
     const { data, count } = await this.vehicleRepository.list(actor.companyId, {
       search: input.search,
       vehicleTypeId: input.vehicleTypeId,
+      departmentId: input.departmentId,
       freePass: input.freePass,
       isActive: input.isActive,
       limit: input.limit,
@@ -68,25 +73,41 @@ export class ListVehiclesUseCase {
 
   /**
    * Monta os metadados de filtros da listagem — `allowed_values` dos tipos de
-   * veículo ativos para o filtro `vehicle_type_id`.
+   * veículo e departamentos **ativos** para os filtros `vehicle_type_id` e
+   * `department_id` (ADR 0006 §11).
    *
    * @param companyId Empresa da sessão.
-   * @returns Lista de parâmetros (vazia se não houver tipos ativos).
+   * @returns Lista de parâmetros (vazia se não houver catálogo ativo).
    */
   private async buildParameters(companyId: string): Promise<ParameterDto[]> {
-    const { data: types } = await this.vehicleTypeRepository.list(companyId, {
-      isActive: true,
-      limit: 100,
-      offset: 0,
-    });
+    const [types, departments] = await Promise.all([
+      this.vehicleTypeRepository.list(companyId, {
+        isActive: true,
+        limit: 100,
+        offset: 0,
+      }),
+      this.departmentRepository.list(companyId, {
+        isActive: true,
+        limit: 100,
+        offset: 0,
+      }),
+    ]);
 
     return [
       {
         key: 'vehicle_type_id',
         label: 'Tipo de veículo',
-        allowed_values: types.map((type) => ({
+        allowed_values: types.data.map((type) => ({
           id: type.id,
           name: type.name,
+        })),
+      },
+      {
+        key: 'department_id',
+        label: 'Departamento',
+        allowed_values: departments.data.map((department) => ({
+          id: department.id,
+          name: department.name,
         })),
       },
     ];

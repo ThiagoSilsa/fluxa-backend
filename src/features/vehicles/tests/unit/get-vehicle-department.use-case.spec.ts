@@ -14,25 +14,22 @@ import type { DepartmentEntity } from '../../../departments/domain/entities/depa
 import type { DepartmentRepository } from '../../../departments/domain/repositories/department.repository';
 import type { VehicleWithTypeEntity } from '../../domain/entities/vehicle.entity';
 import type { VehicleDepartmentEntity } from '../../domain/entities/vehicle-department.entity';
-import type { UserVehicleWithUserEntity } from '../../domain/entities/user-vehicle.entity';
-import type { VehicleRepository } from '../../domain/repositories/vehicle.repository';
 import type { VehicleDepartmentRepository } from '../../domain/repositories/vehicle-department.repository';
-import type { UserVehicleRepository } from '../../domain/repositories/user-vehicle.repository';
+import type { VehicleRepository } from '../../domain/repositories/vehicle.repository';
 
 // Repositories
 import { DEPARTMENT_REPOSITORY } from '../../../departments/domain/repositories/department.repository';
-import { USER_VEHICLE_REPOSITORY } from '../../domain/repositories/user-vehicle.repository';
 import { VEHICLE_DEPARTMENT_REPOSITORY } from '../../domain/repositories/vehicle-department.repository';
 import { VEHICLE_REPOSITORY } from '../../domain/repositories/vehicle.repository';
 
 // DTO
-import { GetVehicleInputDto } from '../../application/dto/get-vehicle-input.dto';
+import { GetVehicleDepartmentInputDto } from '../../application/dto/get-vehicle-department-input.dto';
 
 // Use case
-import { GetVehicleUseCase } from '../../application/use-cases/get-vehicle.use-case';
+import { GetVehicleDepartmentUseCase } from '../../application/use-cases/get-vehicle-department.use-case';
 
-describe('GetVehicleUseCase', () => {
-  let useCase: GetVehicleUseCase;
+describe('GetVehicleDepartmentUseCase', () => {
+  let useCase: GetVehicleDepartmentUseCase;
 
   const vehicleRepoMock = {
     findByIdAndCompanyId: jest.fn(),
@@ -48,10 +45,6 @@ describe('GetVehicleUseCase', () => {
     findByIdAndCompanyId: jest.fn(),
   } as jest.Mocked<Pick<DepartmentRepository, 'findByIdAndCompanyId'>>;
 
-  const userVehicleRepoMock = {
-    findByVehicleIdAndCompanyId: jest.fn(),
-  } as jest.Mocked<Pick<UserVehicleRepository, 'findByVehicleIdAndCompanyId'>>;
-
   const actor: AuthenticatedUserEntity = {
     id: '30000000-0000-0000-0000-000000000001',
     companyId: '10000000-0000-0000-0000-000000000001',
@@ -63,39 +56,27 @@ describe('GetVehicleUseCase', () => {
     permissions: [PermissionCode.MANAGE_VEHICLES],
   };
 
+  const vehicleId = '50000000-0000-0000-0000-000000000001';
+  const departmentId = '40000000-0000-0000-0000-000000000003';
+
   const vehicle: VehicleWithTypeEntity = {
-    id: '50000000-0000-0000-0000-000000000001',
+    id: vehicleId,
     plate: 'ABC1D23',
     companyId: actor.companyId,
-    model: 'Onix',
-    color: 'Prata',
+    model: null,
+    color: null,
     observation: null,
     isBlocked: false,
     freePass: false,
     vehicleTypeId: '40000000-0000-0000-0000-000000000001',
-    vehicleType: {
-      id: '40000000-0000-0000-0000-000000000001',
-      code: 'FROTA',
-      name: 'Frota',
-      isFleet: true,
-    },
-    isActive: true,
-    createdAt: new Date('2026-08-15T00:00:00Z'),
-    updatedAt: new Date('2026-08-15T00:00:00Z'),
-  };
-
-  const link: VehicleDepartmentEntity = {
-    id: '60000000-0000-0000-0000-000000000001',
-    companyId: actor.companyId,
-    vehicleId: vehicle.id,
-    departmentId: '40000000-0000-0000-0000-000000000003',
+    vehicleType: null,
     isActive: true,
     createdAt: new Date('2026-08-15T00:00:00Z'),
     updatedAt: new Date('2026-08-15T00:00:00Z'),
   };
 
   const department: DepartmentEntity = {
-    id: link.departmentId,
+    id: departmentId,
     companyId: actor.companyId,
     name: 'Recepção',
     description: null,
@@ -105,97 +86,68 @@ describe('GetVehicleUseCase', () => {
     updatedAt: new Date('2026-08-15T00:00:00Z'),
   };
 
-  const drivers: UserVehicleWithUserEntity[] = [
-    {
-      id: '60000000-0000-0000-0000-000000000002',
-      companyId: actor.companyId,
-      userId: '30000000-0000-0000-0000-000000000001',
-      vehicleId: vehicle.id,
-      isPrimary: true,
-      canDrive: true,
-      createdAt: new Date('2026-08-15T00:00:00Z'),
-      updatedAt: new Date('2026-08-15T00:00:00Z'),
-      user: {
-        id: '30000000-0000-0000-0000-000000000001',
-        name: 'Administrador',
-      },
-    },
-  ];
+  const link: VehicleDepartmentEntity = {
+    id: '60000000-0000-0000-0000-000000000001',
+    companyId: actor.companyId,
+    vehicleId,
+    departmentId,
+    isActive: true,
+    createdAt: new Date('2026-08-15T00:00:00Z'),
+    updatedAt: new Date('2026-08-15T00:00:00Z'),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
-        GetVehicleUseCase,
+        GetVehicleDepartmentUseCase,
         { provide: VEHICLE_REPOSITORY, useValue: vehicleRepoMock },
         {
           provide: VEHICLE_DEPARTMENT_REPOSITORY,
           useValue: vehicleDepartmentRepoMock,
         },
         { provide: DEPARTMENT_REPOSITORY, useValue: departmentRepoMock },
-        { provide: USER_VEHICLE_REPOSITORY, useValue: userVehicleRepoMock },
       ],
     }).compile();
-    useCase = module.get(GetVehicleUseCase);
+    useCase = module.get(GetVehicleDepartmentUseCase);
   });
 
-  it('detalha um veículo com o agregado (tipo + departamento padrão + motoristas)', async () => {
+  it('devolve o vínculo ativo com o departamento resolvido', async () => {
     vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
     vehicleDepartmentRepoMock.findActiveByVehicleIdAndCompanyId.mockResolvedValue(
       link,
     );
     departmentRepoMock.findByIdAndCompanyId.mockResolvedValue(department);
-    userVehicleRepoMock.findByVehicleIdAndCompanyId.mockResolvedValue(drivers);
 
     const result = await useCase.execute(
       actor,
-      new GetVehicleInputDto(vehicle.id),
+      new GetVehicleDepartmentInputDto(vehicleId),
     );
 
-    expect(vehicleRepoMock.findByIdAndCompanyId).toHaveBeenCalledWith(
-      vehicle.id,
-      actor.companyId,
-    );
     expect(result).toMatchObject({
-      id: vehicle.id,
-      plate: 'ABC1D23',
-      vehicleType: { code: 'FROTA' },
-      department: { id: department.id, name: 'Recepção' },
-      drivers: [
-        {
-          id: drivers[0].id,
-          user: { id: drivers[0].userId, name: 'Administrador' },
-          isPrimary: true,
-          canDrive: true,
-        },
-      ],
+      id: link.id,
+      vehicleId,
+      department: { id: departmentId, name: 'Recepção' },
+      isActive: true,
     });
   });
 
-  it('devolve department null e drivers vazio quando não há vínculos', async () => {
+  it('lança NotFoundException quando o veículo não existe na empresa', async () => {
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(actor, new GetVehicleDepartmentInputDto(vehicleId)),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('lança NotFoundException quando não há vínculo ativo', async () => {
     vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
     vehicleDepartmentRepoMock.findActiveByVehicleIdAndCompanyId.mockResolvedValue(
       null,
     );
-    userVehicleRepoMock.findByVehicleIdAndCompanyId.mockResolvedValue([]);
-
-    const result = await useCase.execute(
-      actor,
-      new GetVehicleInputDto(vehicle.id),
-    );
-
-    expect(result.department).toBeNull();
-    expect(result.drivers).toEqual([]);
-  });
-
-  it('lança NotFoundException quando o veículo não existe na empresa (cross-tenant incluso)', async () => {
-    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(null);
 
     await expect(
-      useCase.execute(
-        actor,
-        new GetVehicleInputDto('50000000-0000-0000-0000-000000000099'),
-      ),
+      useCase.execute(actor, new GetVehicleDepartmentInputDto(vehicleId)),
     ).rejects.toThrow(NotFoundException);
   });
 });

@@ -17,6 +17,8 @@ export interface ListVehiclesRepositoryFilters {
   search?: string;
   /** Filtra por tipo de veículo. */
   vehicleTypeId?: string;
+  /** Filtra por departamento padrão (via `vehicle_department` ativo). */
+  departmentId?: string;
   /** Filtra por livre acesso. */
   freePass?: boolean;
   /** Filtra por estado ativo/inativo. */

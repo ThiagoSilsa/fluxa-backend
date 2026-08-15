@@ -19,6 +19,7 @@ import type {
 } from '../../../domain/repositories/vehicle.repository';
 
 // TypeORM
+import { VehicleDepartmentOrmEntity } from './vehicle-department.orm-entity';
 import { VehicleOrmEntity } from './vehicle.orm-entity';
 
 /**
@@ -81,6 +82,20 @@ export class VehiclesTypeormRepository implements VehicleRepository {
       query.andWhere('vehicle.vehicle_type_id = :vehicleTypeId', {
         vehicleTypeId: filters.vehicleTypeId,
       });
+    }
+    if (filters.departmentId) {
+      query
+        .innerJoin(
+          VehicleDepartmentOrmEntity,
+          'vehicleDepartment',
+          'vehicleDepartment.vehicle_id = vehicle.id',
+        )
+        .andWhere('vehicleDepartment.department_id = :departmentId', {
+          departmentId: filters.departmentId,
+        })
+        .andWhere('vehicleDepartment.is_active = :vdActive', {
+          vdActive: true,
+        });
     }
     if (filters.freePass !== undefined) {
       query.andWhere('vehicle.free_pass = :freePass', {
