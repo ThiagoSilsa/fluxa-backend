@@ -81,7 +81,7 @@
 
 49. **Super admin** de múltiplas autarquias (gestão de autarquias) — versão completa.
 50. **Integração com Gmail/Google** para avisos à administração e disparo de relatórios — versão completa.
-51. **Recuperação de senha** multi-empresa (redefinição que vale para todos os vínculos do mesmo e-mail) — a decidir quando entrar no escopo.
+51. **Recuperação de senha** multi-empresa (redefinição que vale para todos os vínculos do mesmo e-mail) — a decidir quando entrar no escopo. **Até lá**, a troca de senha é feita de forma **provisória** por gestão (`MANAGE_USERS`), com efeito em todos os vínculos da pessoa — ver [ADR 0005](../adr/0005-sistema-de-usuarios.md) e [regras-negocio-usuarios.md](./regras-negocio-usuarios.md). Quando a recuperação de senha entrar no escopo, **nenhuma empresa** poderá trocar a senha do usuário.
 
 ## Referências
 
