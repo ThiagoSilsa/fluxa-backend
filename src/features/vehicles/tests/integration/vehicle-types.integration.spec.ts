@@ -119,16 +119,66 @@ describe('Vehicle types integration — CRUD de tipos de veículo (Testcontainer
     });
   });
 
-  it('DELETE desativa (soft) e PATCH reativa um tipo', async () => {
+  it('DELETE exclui fisicamente (204) e GET :id → 404', async () => {
     const created = await request(context.httpServer)
       .post('/vehicle-types')
       .set('Authorization', `Bearer ${token}`)
       .send({ code: 'legado', name: 'Legado' })
       .expect(201);
 
-    const deactivated = await request(context.httpServer)
+    await request(context.httpServer)
       .delete(`/vehicle-types/${created.body.id}`)
       .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    await request(context.httpServer)
+      .get(`/vehicle-types/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+  });
+
+  it('DELETE com veículos usando o tipo → 409 (bloqueio)', async () => {
+    const created = await request(context.httpServer)
+      .post('/vehicle-types')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ code: 'utilitario', name: 'Utilitário' })
+      .expect(201);
+
+    await request(context.httpServer)
+      .post('/vehicles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        plate: 'ABC1D23',
+        vehicleTypeId: created.body.id,
+        model: 'Utilitário de teste',
+      })
+      .expect(201);
+
+    const res = await request(context.httpServer)
+      .delete(`/vehicle-types/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(409);
+    expect(res.body.message).toContain('em uso por veículos');
+
+    // O tipo continua existindo (bloqueado, não removido).
+    const stillThere = await request(context.httpServer)
+      .get(`/vehicle-types/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(stillThere.body).toMatchObject({ code: 'UTILITARIO' });
+  });
+
+  it('PATCH isActive:false desativa e PATCH isActive:true reativa', async () => {
+    const created = await request(context.httpServer)
+      .post('/vehicle-types')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ code: 'desativavel', name: 'Desativável' })
+      .expect(201);
+
+    const deactivated = await request(context.httpServer)
+      .patch(`/vehicle-types/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ isActive: false })
       .expect(200);
     expect(deactivated.body).toMatchObject({ isActive: false });
 

@@ -100,8 +100,9 @@ describe('Vehicles integration — CRUD de veículos (Testcontainers)', () => {
       .send({ code: 'legado', name: 'Legado' })
       .expect(201);
     await request(context.httpServer)
-      .delete(`/vehicle-types/${created.body.id}`)
+      .patch(`/vehicle-types/${created.body.id}`)
       .set('Authorization', `Bearer ${token}`)
+      .send({ isActive: false })
       .expect(200);
 
     await request(context.httpServer)

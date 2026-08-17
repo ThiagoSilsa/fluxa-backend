@@ -13,6 +13,7 @@ import type {
 } from '../../../domain/repositories/vehicle-type.repository';
 
 // TypeORM
+import { VehicleOrmEntity } from './vehicle.orm-entity';
 import { VehicleTypeOrmEntity } from './vehicle-type.orm-entity';
 
 /**
@@ -148,13 +149,29 @@ export class VehicleTypesTypeormRepository implements VehicleTypeRepository {
   }
 
   /**
-   * Desativa um tipo da empresa (soft: `is_active = false`).
+   * Conta veículos da empresa que usam um tipo.
+   *
+   * @param vehicleTypeId Id do tipo.
+   * @param companyId Empresa da sessão.
+   * @returns Quantidade de veículos que referenciam o tipo.
+   */
+  public async countVehiclesByTypeIdAndCompanyId(
+    vehicleTypeId: string,
+    companyId: string,
+  ): Promise<number> {
+    return this.vehicleTypeRepo.manager.count(VehicleOrmEntity, {
+      where: { vehicleTypeId, companyId },
+    });
+  }
+
+  /**
+   * Exclui fisicamente um tipo da empresa.
    *
    * @param id Id do tipo.
    * @param companyId Empresa da sessão.
-   * @returns Tipo desativado ou `null` se não existir/não pertencer.
+   * @returns Tipo excluído ou `null` se não existir/não pertencer.
    */
-  public async deactivateByIdAndCompanyId(
+  public async deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<VehicleTypeEntity | null> {
@@ -165,9 +182,9 @@ export class VehicleTypesTypeormRepository implements VehicleTypeRepository {
       return null;
     }
 
-    orm.isActive = false;
-    const saved = await this.vehicleTypeRepo.save(orm);
-    return this.toDomain(saved);
+    const domain = this.toDomain(orm);
+    await this.vehicleTypeRepo.delete({ id, companyId });
+    return domain;
   }
 
   /**

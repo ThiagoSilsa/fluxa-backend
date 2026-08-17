@@ -10,14 +10,14 @@
 1. Os CRUDs de cadastros base exigem a permissão do catálogo (`MANAGE_VEHICLE_TYPES`, `MANAGE_DEPARTMENTS`, `MANAGE_ENTRANCES`, `MANAGE_VEHICLES`) — ou `is_admin` (bypass do ADR 0004).
 2. Tudo é escopado pela **empresa da sessão**: listar, detalhar, editar e desativar atuam sobre registros da empresa da sessão; referência de outro tenant → **404** (não revela existência).
 3. A leitura de cada catálogo está sob a própria permissão de gestão (autossuficiente). Perfis que criam veículos combinam `MANAGE_VEHICLES` + `MANAGE_VEHICLE_TYPES` (+ `MANAGE_DEPARTMENTS` se definem o departamento padrão) — composição feita na configuração de cargos.
-4. **Desativação em vez de delete físico**: `DELETE :id` em `vehicle_type`, `vehicle`, `department` e `entrance` desativa (`is_active = false`); reativar é `PATCH` com `is_active = true`. A exceção é o vínculo `user_vehicle` (sem `is_active` no modelo) — `DELETE` remove a linha fisicamente.
+4. **Desativação em vez de delete físico**: `DELETE :id` em `vehicle_type`, `vehicle`, `department` e `entrance` desativa (`is_active = false`); reativar é `PATCH` com `is_active = true`. **Exceções**: o vínculo `user_vehicle` (sem `is_active` no modelo) é removido fisicamente; e `vehicle_type` é **excluído fisicamente** (204) quando nenhum veículo da empresa o usa — com veículos referenciando (FK `vehicle.vehicle_type_id`), a exclusão é **bloqueada com 409** (a linha permanece; a suspensão reversível é PATCH com `is_active = false`).
 5. **Concorrência/unicidade** (placa por empresa, `code` de tipo por empresa, vínculo duplicado, segundo `is_primary`, segundo `vehicle_department`) → **409** estável, nunca 500 cru.
 
 ## 2. Tipos de veículo (`vehicle_type`)
 
 6. `POST`/`PATCH /vehicle-types`: `code` normalizado (`trim` + `uppercase`) e **único por empresa** → **409** em conflito.
 7. `is_fleet` é **classificação** editável (relatórios/frota em uso), não muda ocupação — todos os veículos ocupam vaga.
-8. Desativar um tipo **não** remove nem bloqueia os veículos que o usam: os vínculos permanecem e o tipo deixa apenas de ser selecionável para novos cadastros.
+8. Desativar um tipo **não** remove nem bloqueia os veículos que o usam: os vínculos permanecem e o tipo deixa apenas de ser selecionável para novos cadastros. **Excluir** (`DELETE /vehicle-types/:id`, 204) remove fisicamente o tipo **somente quando nenhum veículo da empresa o usa**; com veículos referenciando → **409** (bloqueio — a linha permanece).
 9. O seed já cria os tipos padrão `FROTA` (is_fleet) e `PARTICULAR` para a empresa SOMAR — o CRUD gerencia os demais.
 
 ## 3. Veículos (`vehicle`)

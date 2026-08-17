@@ -98,14 +98,26 @@ export interface VehicleTypeRepository {
   ): Promise<VehicleTypeEntity | null>;
 
   /**
-   * Desativa um tipo da empresa (soft: `is_active = false`) — não remove os
-   * veículos que o usam (ADR 0006 §6).
+   * Conta veículos da empresa que usam um tipo (para bloquear a exclusão
+   * física — FK `vehicle.vehicle_type_id`).
+   *
+   * @param vehicleTypeId Id do tipo.
+   * @param companyId Empresa da sessão.
+   * @returns Quantidade de veículos que referenciam o tipo.
+   */
+  countVehiclesByTypeIdAndCompanyId(
+    vehicleTypeId: string,
+    companyId: string,
+  ): Promise<number>;
+
+  /**
+   * Exclui fisicamente um tipo da empresa (sem veículos a referenciar).
    *
    * @param id Id do tipo.
    * @param companyId Empresa da sessão.
-   * @returns Tipo desativado ou `null` se não existir/não pertencer.
+   * @returns Tipo excluído ou `null` se não existir/não pertencer.
    */
-  deactivateByIdAndCompanyId(
+  deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<VehicleTypeEntity | null>;

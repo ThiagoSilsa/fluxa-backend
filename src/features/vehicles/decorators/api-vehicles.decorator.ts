@@ -95,19 +95,23 @@ export function ApiUpdateVehicleType(): MethodDecorator {
   );
 }
 
-export function ApiDeactivateVehicleType(): MethodDecorator {
+export function ApiDeleteVehicleType(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Desativa um tipo de veículo (soft)',
+      summary: 'Exclui um tipo de veículo (físico)',
       description:
-        'Exige MANAGE_VEHICLE_TYPES. Desativar não remove os veículos que o usam (ADR 0006 §6); reativar é PATCH com isActive=true.',
+        'Exige MANAGE_VEHICLE_TYPES. Exclusão física (204); bloqueada com 409 se houver veículos da empresa usando o tipo (FK vehicle.vehicle_type_id). Suspensão reversível continua via PATCH com isActive=false.',
     }),
     ApiParam({ name: 'id', description: 'Id do tipo (UUID).' }),
-    ApiResponse({ status: 200, description: 'Tipo desativado.' }),
+    ApiResponse({ status: 204, description: 'Tipo excluído.' }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
     ApiResponse({ status: 404, description: 'Tipo não encontrado.' }),
+    ApiResponse({
+      status: 409,
+      description: 'Tipo em uso por veículos — exclusão bloqueada.',
+    }),
   );
 }
 

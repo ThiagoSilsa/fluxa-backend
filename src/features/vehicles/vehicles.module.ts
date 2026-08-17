@@ -24,7 +24,7 @@ import { VehicleOrmEntity } from './infrastructure/persistence/typeorm/vehicle.o
 import { AssignDriverToVehicleUseCase } from './application/use-cases/assign-driver-to-vehicle.use-case';
 import { CreateVehicleTypeUseCase } from './application/use-cases/create-vehicle-type.use-case';
 import { CreateVehicleUseCase } from './application/use-cases/create-vehicle.use-case';
-import { DeactivateVehicleTypeUseCase } from './application/use-cases/deactivate-vehicle-type.use-case';
+import { DeleteVehicleTypeUseCase } from './application/use-cases/delete-vehicle-type.use-case';
 import { DeactivateVehicleUseCase } from './application/use-cases/deactivate-vehicle.use-case';
 import { GetVehicleDepartmentUseCase } from './application/use-cases/get-vehicle-department.use-case';
 import { GetVehicleTypeUseCase } from './application/use-cases/get-vehicle-type.use-case';
@@ -73,7 +73,7 @@ import { VehiclesController } from './presentation/http/controllers/vehicles.con
     ListVehicleTypesUseCase,
     GetVehicleTypeUseCase,
     UpdateVehicleTypeUseCase,
-    DeactivateVehicleTypeUseCase,
+    DeleteVehicleTypeUseCase,
     CreateVehicleUseCase,
     ListVehiclesUseCase,
     GetVehicleUseCase,

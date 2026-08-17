@@ -1,5 +1,5 @@
 // NestJS
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 // Shared
@@ -20,18 +20,21 @@ import { VEHICLE_TYPE_REPOSITORY } from '../../domain/repositories/vehicle-type.
 import { GetVehicleTypeInputDto } from '../../application/dto/get-vehicle-type-input.dto';
 
 // Use case
-import { DeactivateVehicleTypeUseCase } from '../../application/use-cases/deactivate-vehicle-type.use-case';
+import { DeleteVehicleTypeUseCase } from '../../application/use-cases/delete-vehicle-type.use-case';
 
-describe('DeactivateVehicleTypeUseCase', () => {
-  let useCase: DeactivateVehicleTypeUseCase;
+describe('DeleteVehicleTypeUseCase', () => {
+  let useCase: DeleteVehicleTypeUseCase;
 
   const vehicleTypeRepoMock = {
     findByIdAndCompanyId: jest.fn(),
-    deactivateByIdAndCompanyId: jest.fn(),
+    countVehiclesByTypeIdAndCompanyId: jest.fn(),
+    deleteByIdAndCompanyId: jest.fn(),
   } as jest.Mocked<
     Pick<
       VehicleTypeRepository,
-      'findByIdAndCompanyId' | 'deactivateByIdAndCompanyId'
+      | 'findByIdAndCompanyId'
+      | 'countVehiclesByTypeIdAndCompanyId'
+      | 'deleteByIdAndCompanyId'
     >
   >;
 
@@ -62,30 +65,39 @@ describe('DeactivateVehicleTypeUseCase', () => {
     jest.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
-        DeactivateVehicleTypeUseCase,
+        DeleteVehicleTypeUseCase,
         { provide: VEHICLE_TYPE_REPOSITORY, useValue: vehicleTypeRepoMock },
       ],
     }).compile();
-    useCase = module.get(DeactivateVehicleTypeUseCase);
+    useCase = module.get(DeleteVehicleTypeUseCase);
   });
 
-  it('desativa (soft) um tipo da empresa do ator', async () => {
+  it('exclui fisicamente um tipo sem veículos da empresa do ator', async () => {
     vehicleTypeRepoMock.findByIdAndCompanyId.mockResolvedValue(existing);
-    vehicleTypeRepoMock.deactivateByIdAndCompanyId.mockResolvedValue({
-      ...existing,
-      isActive: false,
-    });
+    vehicleTypeRepoMock.countVehiclesByTypeIdAndCompanyId.mockResolvedValue(0);
+    vehicleTypeRepoMock.deleteByIdAndCompanyId.mockResolvedValue(existing);
 
-    const result = await useCase.execute(
-      actor,
-      new GetVehicleTypeInputDto(existing.id),
-    );
+    await expect(
+      useCase.execute(actor, new GetVehicleTypeInputDto(existing.id)),
+    ).resolves.toBeUndefined();
 
-    expect(vehicleTypeRepoMock.deactivateByIdAndCompanyId).toHaveBeenCalledWith(
+    expect(
+      vehicleTypeRepoMock.countVehiclesByTypeIdAndCompanyId,
+    ).toHaveBeenCalledWith(existing.id, actor.companyId);
+    expect(vehicleTypeRepoMock.deleteByIdAndCompanyId).toHaveBeenCalledWith(
       existing.id,
       actor.companyId,
     );
-    expect(result.isActive).toBe(false);
+  });
+
+  it('lança ConflictException (409) quando há veículos usando o tipo', async () => {
+    vehicleTypeRepoMock.findByIdAndCompanyId.mockResolvedValue(existing);
+    vehicleTypeRepoMock.countVehiclesByTypeIdAndCompanyId.mockResolvedValue(2);
+
+    await expect(
+      useCase.execute(actor, new GetVehicleTypeInputDto(existing.id)),
+    ).rejects.toThrow(ConflictException);
+    expect(vehicleTypeRepoMock.deleteByIdAndCompanyId).not.toHaveBeenCalled();
   });
 
   it('lança NotFoundException quando o tipo não existe na empresa', async () => {
@@ -98,7 +110,18 @@ describe('DeactivateVehicleTypeUseCase', () => {
       ),
     ).rejects.toThrow(NotFoundException);
     expect(
-      vehicleTypeRepoMock.deactivateByIdAndCompanyId,
+      vehicleTypeRepoMock.countVehiclesByTypeIdAndCompanyId,
     ).not.toHaveBeenCalled();
+    expect(vehicleTypeRepoMock.deleteByIdAndCompanyId).not.toHaveBeenCalled();
+  });
+
+  it('lança NotFoundException quando a exclusão não encontra o tipo', async () => {
+    vehicleTypeRepoMock.findByIdAndCompanyId.mockResolvedValue(existing);
+    vehicleTypeRepoMock.countVehiclesByTypeIdAndCompanyId.mockResolvedValue(0);
+    vehicleTypeRepoMock.deleteByIdAndCompanyId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(actor, new GetVehicleTypeInputDto(existing.id)),
+    ).rejects.toThrow(NotFoundException);
   });
 });

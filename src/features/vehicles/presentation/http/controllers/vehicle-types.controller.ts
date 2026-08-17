@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -41,7 +43,7 @@ import { UpdateVehicleTypeInputDto } from '../../../application/dto/update-vehic
 
 // Use cases
 import { CreateVehicleTypeUseCase } from '../../../application/use-cases/create-vehicle-type.use-case';
-import { DeactivateVehicleTypeUseCase } from '../../../application/use-cases/deactivate-vehicle-type.use-case';
+import { DeleteVehicleTypeUseCase } from '../../../application/use-cases/delete-vehicle-type.use-case';
 import { GetVehicleTypeUseCase } from '../../../application/use-cases/get-vehicle-type.use-case';
 import { ListVehicleTypesUseCase } from '../../../application/use-cases/list-vehicle-types.use-case';
 import { UpdateVehicleTypeUseCase } from '../../../application/use-cases/update-vehicle-type.use-case';
@@ -55,7 +57,7 @@ import type {
 // Decorators Swagger da feature
 import {
   ApiCreateVehicleType,
-  ApiDeactivateVehicleType,
+  ApiDeleteVehicleType,
   ApiGetVehicleType,
   ApiListVehicleTypes,
   ApiUpdateVehicleType,
@@ -64,9 +66,10 @@ import {
 /**
  * CRUD de tipos de veículo (por empresa) — exige `MANAGE_VEHICLE_TYPES`.
  *
- * `code` é normalizado e único por empresa (ADR 0006 §6); a desativação é
- * soft (não remove veículos); o controller só valida entrada e delega para os
- * use cases.
+ * `code` é normalizado e único por empresa (ADR 0006 §6); o DELETE é físico
+ * (bloqueado com 409 se houver veículos usando o tipo) e a suspensão
+ * reversível é via `PATCH` com `isActive`; o controller só valida entrada e
+ * delega para os use cases.
  */
 @Controller('vehicle-types')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -77,7 +80,7 @@ export class VehicleTypesController {
     private readonly listVehicleTypesUseCase: ListVehicleTypesUseCase,
     private readonly getVehicleTypeUseCase: GetVehicleTypeUseCase,
     private readonly updateVehicleTypeUseCase: UpdateVehicleTypeUseCase,
-    private readonly deactivateVehicleTypeUseCase: DeactivateVehicleTypeUseCase,
+    private readonly deleteVehicleTypeUseCase: DeleteVehicleTypeUseCase,
   ) {}
 
   @Post()
@@ -148,12 +151,13 @@ export class VehicleTypesController {
   }
 
   @Delete(':id')
-  @ApiDeactivateVehicleType()
-  public deactivateVehicleType(
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiDeleteVehicleType()
+  public deleteVehicleType(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<VehicleTypeResponse> {
-    return this.deactivateVehicleTypeUseCase.execute(
+  ): Promise<void> {
+    return this.deleteVehicleTypeUseCase.execute(
       this.requireUser(request),
       new GetVehicleTypeInputDto(id),
     );
