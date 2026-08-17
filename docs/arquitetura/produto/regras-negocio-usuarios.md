@@ -7,18 +7,18 @@
 
 ## 1. Acesso e escopo
 
-1. O CRUD de usuários (criar, listar, detalhar, editar, desativar), o vínculo de cargos (`user_role`) e a troca de senha exigem `MANAGE_USERS` (ou `is_admin` — bypass do ADR 0004).
+1. O CRUD de usuários (criar, listar, detalhar, editar, excluir), o vínculo de cargos (`user_role`) e a troca de senha exigem `MANAGE_USERS` (ou `is_admin` — bypass do ADR 0004).
 2. Tudo é escopado pela **empresa da sessão**: listar/detalhar/editar/desativar atuam sobre usuários **com vínculo** `user_company` na empresa da sessão — nunca via `user.company_id` (coluna não existe, ADR 0002).
 3. **E-mail normalizado** (`lowercase` + `trim`) em login, `email-status`, criação e edição — o `UNIQUE (email)` do Postgres é case-sensitive e não pode permitir duas pessoas que só diferem por caixa.
 4. **Política de senha**: mínimo de **6 caracteres** (aplica à criação e à troca de senha).
-5. **Gestão de administradores é exclusiva de administradores**: qualquer operação (editar, desativar, atribuir/retirar cargos, trocar senha) sobre um usuário com cargo `is_admin` ativo na empresa da sessão exige que o **ator tenha cargo `is_admin` ativo** → **403**.
+5. **Gestão de administradores é exclusiva de administradores**: qualquer operação (editar, excluir, atribuir/retirar cargos, trocar senha) sobre um usuário com cargo `is_admin` ativo na empresa da sessão exige que o **ator tenha cargo `is_admin` ativo** → **403**.
 
 ## 2. Criar usuário (já vinculado)
 
 6. `POST /users` cria o usuário **e já o vincula** à empresa do ator (uma operação).
 7. A pessoa é buscada por **e-mail** (identidade global, normalizado).
 8. **Pessoa nova** → cria `user` + `user_company` (`type` do body, `is_active = true`); **senha obrigatória**.
-9. **Pessoa já existe em outra empresa** → cria **apenas** o `user_company` da empresa do ator. O body **não pode** conter `name`, `phone`, `document`, `observation` ou `password` → **400** (`'Não é possível alterar dados da pessoa ao vincular um usuário existente.'`) — dados da pessoa e senha não são alterados no vínculo.
+9. **Pessoa já existe em outra empresa** → cria **apenas** o `user_company` da empresa do ator. O body **não pode** conter `name`, `phone`, `document` ou `password` → **400** (`'Não é possível alterar dados da pessoa ao vincular um usuário existente.'`) — dados da pessoa e senha não são alterados no vínculo.
 10. **Já existe vínculo** com a empresa do ator (ativo ou inativo) → **409** (`'Usuário já vinculado a esta empresa.'`).
 11. `document` informado e pertencente a outra pessoa → **409** (`'Documento já cadastrado.'`).
 12. `type` é **obrigatório** no body (`EMPLOYEE`/`VISITOR`) — a gestão pode criar visitantes diretamente, além do fluxo de solicitação de acesso.
@@ -33,17 +33,17 @@
 ## 4. Edição de usuário (PATCH)
 
 17. A edição é **parcial** (PATCH): só os campos enviados mudam.
-18. **Dados da pessoa** (`name`, `phone`, `document`, `observation`, `email`) são editáveis e **refletem em todas as empresas** onde a pessoa participa (são da pessoa — ADR 0002).
+18. **Dados da pessoa** (`name`, `phone`, `document`, `email`) são editáveis e **refletem em todas as empresas** onde a pessoa participa (são da pessoa — ADR 0002).
 19. Trocar `email` para um endereço já usado em outra empresa (ou por outra pessoa) → **409** (`'E-mail já cadastrado.'`); o mesmo vale para `document` → **409** (`'Documento já cadastrado.'`) — unicidade global sem erro cru de banco.
 20. **Dados do vínculo** (`type`, `is_active`) são da empresa da sessão e **não afetam** as demais empresas.
 21. **Senha não é editada via PATCH** — há fluxo próprio (troca de senha, seção 7).
 22. `is_active = false` via PATCH está sujeito à **invariante do último administrador** (seção 5) — desativar o último admin por edição também é 409.
 
-## 5. Desativar usuário
+## 5. Excluir e desativar usuário
 
-23. `DELETE /users/:id` (ou edição do vínculo) **desativa a participação** (`user_company.is_active = false`) — não exclui a pessoa nem remove dados pessoais (ADR 0002 §3).
+23. `DELETE /users/:id` **exclui a participação** na empresa da sessão — em uma transação remove o cargo (`user_role`) e o vínculo (`user_company`). Se for a **última empresa** da pessoa **sem histórico operacional** (movements, access_requests, bloqueios, importações etc.), **remove também a pessoa** (`user`); caso contrário a pessoa **permanece** (tem outra empresa ou histórico preservado). A exclusão é **irreversível**.
 24. Pessoa sem nenhum vínculo ativo não entra em lugar nenhum.
-25. **Invariante**: não é possível **desativar o vínculo do último usuário com cargo `is_admin` ativo** da empresa → **409** (`'Não é possível remover o último administrador ativo da empresa.'`).
+25. **Invariante**: não é possível **excluir o vínculo do último usuário com cargo `is_admin` ativo** da empresa → **409** (`'Não é possível remover o último administrador ativo da empresa.'`).
 26. **Reativar**: `PATCH` com `is_active = true` (edição do vínculo) — caminho explícito de reativação.
 
 ## 6. Cargos do usuário (`user_role`)

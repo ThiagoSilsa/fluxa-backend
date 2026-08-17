@@ -23,8 +23,8 @@ A feature `users` expõe o CRUD de usuários (`POST`/`GET`/`GET :id`/`PATCH`/`DE
 
 `POST /users` cria o usuário **e já o vincula** à empresa do ator em uma única operação:
 
-- **Pessoa não existe** (busca por `email` — identidade global): cria `user` (`name`, `email`, senha bcrypt, `phone?`, `document?`, `observation?`) **e** `user_company` (`company_id` da sessão, `type` do body, `is_active = true`) na mesma transação;
-- **Pessoa já existe em outra empresa**: **não cria** `user` novo — apenas cria o `user_company` da empresa do ator. O body **não pode** conter dados da pessoa nem senha: `name`, `phone`, `document`, `observation` ou `password` presentes → **400** (`'Não é possível alterar dados da pessoa ao vincular um usuário existente.'`) — esses dados são da pessoa (ADR 0002), não da empresa, e a **senha não é alterada** no vínculo;
+- **Pessoa não existe** (busca por `email` — identidade global): cria `user` (`name`, `email`, senha bcrypt, `phone?`, `document?`) **e** `user_company` (`company_id` da sessão, `type` do body, `is_active = true`) na mesma transação;
+- **Pessoa já existe em outra empresa**: **não cria** `user` novo — apenas cria o `user_company` da empresa do ator. O body **não pode** conter dados da pessoa nem senha: `name`, `phone`, `document` ou `password` presentes → **400** (`'Não é possível alterar dados da pessoa ao vincular um usuário existente.'`) — esses dados são da pessoa (ADR 0002), não da empresa, e a **senha não é alterada** no vínculo;
 - **`type`** é aceito no body (`EMPLOYEE`/`VISITOR`) — a gestão pode criar visitantes diretamente, além do fluxo de solicitação de acesso;
 - **Já existe vínculo** entre a pessoa e a empresa do ator (ativo ou inativo): **409** (`'Usuário já vinculado a esta empresa.'`) — reativar é operação de edição do vínculo, não de criação;
 - **Senha**: obrigatória quando a pessoa é nova; **proibida** quando a pessoa já existe (vincular não troca senha — envio → 400);
@@ -42,17 +42,19 @@ A feature `users` expõe o CRUD de usuários (`POST`/`GET`/`GET :id`/`PATCH`/`DE
 
 `PATCH /users/:id` é **parcial** (só os campos enviados mudam) e exige vínculo do alvo com a empresa da sessão (senão → 404):
 
-- **Dados da pessoa** (`name`, `phone`, `document`, `observation`, `email`) são editáveis e **refletem em todas as empresas** onde a pessoa participa (são da pessoa — ADR 0002). A troca de `email` para um endereço já usado em outra empresa (ou por outra pessoa) → **409** (`'E-mail já cadastrado.'`); o mesmo vale para `document` → **409** (`'Documento já cadastrado.'`) — unicidade global preservada sem depender do erro cru do banco (lacuna existente em sistemas de referência);
+- **Dados da pessoa** (`name`, `phone`, `document`, `email`) são editáveis e **refletem em todas as empresas** onde a pessoa participa (são da pessoa — ADR 0002). A troca de `email` para um endereço já usado em outra empresa (ou por outra pessoa) → **409** (`'E-mail já cadastrado.'`); o mesmo vale para `document` → **409** (`'Documento já cadastrado.'`) — unicidade global preservada sem depender do erro cru do banco (lacuna existente em sistemas de referência);
 - **Dados do vínculo** (`type`, `is_active`) são da empresa da sessão e **não afetam** as demais empresas;
 - **Senha não é editada via PATCH** — há fluxo próprio (troca de senha, seção 6);
 - `is_active = false` via PATCH está sujeito à **invariante do último administrador** (seção 4) — desativar o último admin por edição também é 409;
 - **Usuário com cargo `is_admin` ativo** só pode ser editado por ator com cargo `is_admin` ativo → **403**.
 
-### 4. Desativar usuário é desativar o vínculo (com invariante do último administrador)
+### 4. Excluir usuário é excluir a participação (com invariante do último administrador)
 
-`DELETE /users/:id` (ou a edição do vínculo) **desativa a participação** (`user_company.is_active = false`), conforme ADR 0002 §3 — não exclui a pessoa nem remove dados pessoais. Uma pessoa sem nenhum vínculo ativo não entra em lugar nenhum.
+`DELETE /users/:id` **exclui a participação** da empresa da sessão — em uma transação remove o cargo (`user_role`) e o vínculo (`user_company`). Se for a **última empresa** da pessoa (nenhum outro vínculo restante) **e a pessoa não tiver histórico operacional** (movements, access_requests, bloqueios, importações etc.), **remove também a pessoa** (`user`). Quando a pessoa tem outra empresa ou histórico, ela **permanece** — sem vínculo na empresa excluída (no caso de última empresa com histórico, sem vínculo em nenhuma). A exclusão é **irreversível**.
 
-**Invariante**: não é possível **desativar o vínculo do último usuário com cargo `is_admin` ativo** na empresa da sessão → **409** (`'Não é possível remover o último administrador ativo da empresa.'`). Assim como o cargo `is_admin` é imutável pelo CRUD (ADR 0004 §4), a administração da empresa não pode ficar órfã. Além disso, desativar **qualquer** usuário com cargo `is_admin` ativo exige ator com cargo `is_admin` ativo → **403**.
+A **desativação** (`PATCH` com `is_active = false`) continua disponível como suspensão **reversível** (reativa-se com `is_active = true`) — ver ADR 0002 §3.
+
+**Invariante**: não é possível **excluir o vínculo do último usuário com cargo `is_admin` ativo** na empresa da sessão → **409** (`'Não é possível remover o último administrador ativo da empresa.'`). Além disso, excluir **qualquer** usuário com cargo `is_admin` ativo exige ator com cargo `is_admin` ativo → **403**.
 
 ### 5. Vínculo de cargos por endpoints próprios
 

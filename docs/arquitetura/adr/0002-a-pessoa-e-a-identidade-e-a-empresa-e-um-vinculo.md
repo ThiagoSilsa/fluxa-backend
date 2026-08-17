@@ -29,7 +29,7 @@ A regra de negócio decidida: **o mesmo usuário pode ter mais de uma companhia 
 
 ### 3. O que muda por empresa mora no vínculo
 
-`user_company` carrega `type` (`EMPLOYEE`/`VISITOR`) e `is_active`. **Desativar um usuário é ato da empresa sobre a participação** — uma pessoa sem nenhum vínculo ativo não entra em lugar nenhum. Em `user` permanecem os dados da pessoa: `name`, `email`, `password`, `phone`, `document`, `observation`, `photo_url`.
+`user_company` carrega `type` (`EMPLOYEE`/`VISITOR`) e `is_active`. **Desativar um usuário é ato da empresa sobre a participação** — uma pessoa sem nenhum vínculo ativo não entra em lugar nenhum. Em `user` permanecem os dados da pessoa: `name`, `email`, `password`, `phone`, `document`, `photo_url`. **Excluir** (`DELETE /users/:id`) remove o vínculo da empresa (e a pessoa, quando é a última empresa dela **sem histórico operacional**) — ver ADR 0005 §4.
 
 ### 4. RBAC já é escopado por empresa — sem mudança de schema
 

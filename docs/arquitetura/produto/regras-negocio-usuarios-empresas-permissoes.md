@@ -17,8 +17,8 @@
 
 6. **Login** por **e-mail e senha** (da pessoa). A senha é armazenada como **hash (bcrypt)**, nunca texto puro.
 7. **O mesmo usuário pode ter mais de uma companhia vinculada** (`user_company`, `UNIQUE (user_id, company_id)`).
-8. O que muda por empresa mora no **vínculo**: `type` (`EMPLOYEE`/`VISITOR`) e `is_active`. **Desativar um usuário é ato da empresa sobre a participação** — uma pessoa sem nenhum vínculo ativo não entra em lugar nenhum.
-9. Dados pessoais (`name`, `email`, `password`, `phone`, `document`, `observation`, `photo_url`) são **da pessoa**: editar em uma empresa reflete em todas.
+8. O que muda por empresa mora no **vínculo**: `type` (`EMPLOYEE`/`VISITOR`) e `is_active`. **Desativar um usuário é ato da empresa sobre a participação** — uma pessoa sem nenhum vínculo ativo não entra em lugar nenhum. **Excluir** (`DELETE /users/:id`) remove o vínculo da empresa (e a pessoa, quando é a última empresa dela sem histórico operacional — ADR 0005 §4).
+9. Dados pessoais (`name`, `email`, `password`, `phone`, `document`, `photo_url`) são **da pessoa**: editar em uma empresa reflete em todas.
 10. Usuários criados via solicitação de acesso são do tipo **`VISITOR`** (no vínculo daquela empresa).
 11. **LGPD** (decisões em aberto em `planejamento/pendencias.md`): política de **retenção** e **acesso** de foto/documento/telefone, consentimento de visitantes, quem visualiza a foto do condutor, descarte de solicitações `REJECTED` com dados pessoais e direito de exclusão/atualização.
 

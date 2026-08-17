@@ -69,7 +69,6 @@ erDiagram
 | `password`                  | varchar(255) NOT NULL              | hash (bcrypt), nunca texto puro                                          |
 | `phone`                     | varchar(32) NULL                   |                                                                          |
 | `document`                  | varchar(32) NULL                   | `UQ_user_document UNIQUE (document)` — global (NULLs permitidos)         |
-| `observation`               | text NULL                          |                                                                          |
 | `photo_url`                 | varchar(512) NULL                  |                                                                          |
 | `last_login_at`             | timestamptz NULL                   | último login (ADR 0003, migration `0008`; falha do update não bloqueia)  |
 | `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now() |                                                                          |
