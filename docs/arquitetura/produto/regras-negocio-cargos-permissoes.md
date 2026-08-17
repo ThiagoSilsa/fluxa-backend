@@ -14,27 +14,28 @@
 ## 2. Cargos (`role`)
 
 4. **Cargos são por empresa** (`role.company_id`). Toda operação usa o `company_id` da sessão (nunca do body).
-5. O CRUD de cargos (criar, listar com paginação/filtro, detalhar, atualizar, desativar) exige `MANAGE_ROLES`.
+5. O CRUD de cargos (criar, listar com paginação/filtros, detalhar, atualizar com `isActive`, excluir) exige `MANAGE_ROLES`.
 6. **`is_admin` = acesso total**: um cargo marcado como `is_admin` concede acesso à administração independentemente das permissões listadas em `role_permission` (bypass no guard).
-7. **Cargos `is_admin` são protegidos — não é possível criar, editar ou excluir**:
+7. **Cargos `is_admin` são protegidos — não é possível criar, editar, desativar/reativar ou excluir**:
    - criar rejeita `is_admin: true`;
-   - editar rejeita alterar `is_admin` (em qualquer direção) e rejeita qualquer edição de um cargo que já é `is_admin`;
-   - desativar um cargo `is_admin` é rejeitado.
+   - editar rejeita alterar `is_admin` (em qualquer direção) e rejeita qualquer edição — inclusive `isActive` (desativar/reativar) — de um cargo que já é `is_admin`;
+   - desativar/reativar ou excluir um cargo `is_admin` é rejeitado.
 8. Cargos de administração são **responsabilidade do sistema**: criados por seed hoje; no futuro, criados **automaticamente ao criar uma empresa** (quando o painel administrativo com `super_admin` for implementado — fora do escopo atual).
-9. **Desativar um cargo não remove vínculos existentes** (`role_permission`, `user_role`): apenas impede novos usos — o cargo deixa de valer na resolução de permissões, mas o histórico permanece.
-10. Listagem de cargos no formato padrão `{ limit, offset, data, count, parameters? }`, com `is_admin` no retorno.
+9. **Desativar um cargo** (`PATCH` com `isActive: false`) **não remove vínculos existentes** (`role_permission`, `user_role`): apenas impede novos usos — o cargo deixa de valer na resolução de permissões, o histórico permanece e a desativação é **reversível** (`PATCH` com `isActive: true`). Cargos novos já nascem ativos.
+10. **Excluir fisicamente um cargo** (`DELETE /roles/:id`) é a **remoção definitiva**, em **cascata**: remove os vínculos em `role_permission` e **desvincula os usuários** (`user_role` — o resumo `role` do usuário passa a `null`). É **irreversível** — o frontend exige confirmação com aviso de que os usuários vinculados ficarão sem cargo. Proibida para cargos `is_admin`.
+11. Listagem de cargos no formato padrão `{ limit, offset, data, count, parameters? }`, com `is_admin` no retorno e **filtro opcional por `isActive`** (frontend: Todos/Ativos/Inativos).
 
 ## 3. Permissões por cargo (`role_permission`)
 
-11. Um cargo possui um conjunto de permissões por meio de `role_permission` (unique `(company_id, role_id, permission_id)` — sem duplicidade).
-12. Só são aceitas permissões do **catálogo global** (`permission`); permissão inexistente → erro 4xx.
-13. Associar/remover permissão e listar as permissões do cargo (com o catálogo disponível) exigem `MANAGE_ROLES`.
-14. O vínculo é sempre da **empresa da sessão**; um `role_id` de outra empresa é inacessível e vínculo cross-tenant é rejeitado.
+12. Um cargo possui um conjunto de permissões por meio de `role_permission` (unique `(company_id, role_id, permission_id)` — sem duplicidade).
+13. Só são aceitas permissões do **catálogo global** (`permission`); permissão inexistente → erro 4xx.
+14. Associar/remover permissão e listar as permissões do cargo (com o catálogo disponível) exigem `MANAGE_ROLES`.
+15. O vínculo é sempre da **empresa da sessão**; um `role_id` de outra empresa é inacessível e vínculo cross-tenant é rejeitado.
 
 ## 4. Multi-tenant
 
-15. Cargos e vínculos **nunca vazam entre empresas**: todas as consultas e validações são escopadas pelo `company_id` da sessão (nível de aplicação).
-16. O catálogo `permission` é global, mas o **vínculo** `role_permission` carrega o `company_id` da empresa da sessão.
+16. Cargos e vínculos **nunca vazam entre empresas**: todas as consultas e validações são escopadas pelo `company_id` da sessão (nível de aplicação).
+17. O catálogo `permission` é global, mas o **vínculo** `role_permission` carrega o `company_id` da empresa da sessão.
 
 ## Referências
 
