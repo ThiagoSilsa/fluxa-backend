@@ -37,7 +37,7 @@ import type { UserResponse } from '../dto/user-response';
 /**
  * Edição parcial de usuário (ADR 0005 §3).
  *
- * - **Dados da pessoa** (`name`, `email`, `phone`, `document`, `observation`)
+ * - **Dados da pessoa** (`name`, `email`, `phone`, `document`)
  *   refletem em todas as empresas onde a pessoa participa;
  * - **Dados do vínculo** (`type`, `is_active`) afetam só a empresa da sessão;
  * - `email`/`document` conflitantes → 409 (unicidade global);
@@ -244,9 +244,6 @@ export class UpdateUserUseCase {
     }
     if (input.document !== undefined) {
       data.document = input.document;
-    }
-    if (input.observation !== undefined) {
-      data.observation = input.observation;
     }
 
     if (Object.keys(data).length > 0) {

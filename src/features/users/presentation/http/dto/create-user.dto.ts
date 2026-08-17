@@ -25,7 +25,7 @@ import { UserType } from '../../../../auth/domain/constants/user-type.constant';
  *
  * `name`/`password` são opcionais aqui porque o use case decide: pessoa nova
  * exige ambos; pessoa já existente **proíbe** ambos (e também
- * `phone`/`document`/`observation`) — ADR 0005 §2.
+ * `phone`/`document`) — ADR 0005 §2.
  */
 export class CreateUserDto {
   @IsOptional()
@@ -57,11 +57,6 @@ export class CreateUserDto {
   @IsString()
   @MaxLength(32)
   document?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  observation?: string;
 
   @IsEnum(UserType)
   type!: UserType;

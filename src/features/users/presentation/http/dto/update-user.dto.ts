@@ -51,11 +51,6 @@ export class UpdateUserDto {
   document?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  observation?: string;
-
-  @IsOptional()
   @IsEnum(UserType)
   type?: UserType;
 

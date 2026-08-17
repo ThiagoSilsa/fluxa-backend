@@ -19,7 +19,7 @@ import { UserRoleOrmEntity } from '../roles/infrastructure/persistence/typeorm/u
 import { AssignRoleToUserUseCase } from './application/use-cases/assign-role-to-user.use-case';
 import { ChangePasswordUseCase } from './application/use-cases/change-password.use-case';
 import { CreateUserUseCase } from './application/use-cases/create-user.use-case';
-import { DeactivateUserUseCase } from './application/use-cases/deactivate-user.use-case';
+import { DeleteUserUseCase } from './application/use-cases/delete-user.use-case';
 import { EmailStatusUseCase } from './application/use-cases/email-status.use-case';
 import { GetUserUseCase } from './application/use-cases/get-user.use-case';
 import { ListUserRolesUseCase } from './application/use-cases/list-user-roles.use-case';
@@ -57,7 +57,7 @@ import { UsersController } from './presentation/http/controllers/users.controlle
     GetUserUseCase,
     EmailStatusUseCase,
     UpdateUserUseCase,
-    DeactivateUserUseCase,
+    DeleteUserUseCase,
     ChangePasswordUseCase,
     AssignRoleToUserUseCase,
     RemoveRoleFromUserUseCase,

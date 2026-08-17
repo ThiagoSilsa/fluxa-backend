@@ -6,7 +6,7 @@ import { UserType } from '../../../auth/domain/constants/user-type.constant';
  *
  * `name`/`password` são opcionais aqui porque o use case decide conforme o
  * caso: pessoa nova exige ambos; pessoa já existente **proíbe** ambos (e
- * também `phone`/`document`/`observation`) — ADR 0005 §2.
+ * também `phone`/`document`) — ADR 0005 §2.
  */
 export class CreateUserInputDto {
   constructor(
@@ -22,8 +22,6 @@ export class CreateUserInputDto {
     readonly phone?: string,
     /** Documento (proibido no vínculo de pessoa existente). */
     readonly document?: string,
-    /** Observação (proibida no vínculo de pessoa existente). */
-    readonly observation?: string,
     /** Cargo a vincular já na criação (1 cargo por empresa — ADR 0005 §5). */
     readonly roleId?: string,
   ) {}

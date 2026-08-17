@@ -17,8 +17,6 @@ export interface UserEntity {
   phone: string | null;
   /** Documento (opcional, único global). */
   document: string | null;
-  /** Observação (opcional). */
-  observation: string | null;
   /** URL da foto (opcional). */
   photoUrl: string | null;
   /** Momento do último login. */

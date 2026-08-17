@@ -46,7 +46,6 @@ describe('EmailStatusUseCase', () => {
     passwordHash: '$2b$10$hash',
     phone: null,
     document: null,
-    observation: null,
     photoUrl: null,
     lastLoginAt: null,
     createdAt: new Date('2026-08-15T00:00:00Z'),

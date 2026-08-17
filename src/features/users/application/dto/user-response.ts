@@ -36,8 +36,6 @@ export interface UserResponse {
   phone: string | null;
   /** Documento (opcional). */
   document: string | null;
-  /** Observação (opcional). */
-  observation: string | null;
   /** URL da foto (opcional). */
   photoUrl: string | null;
   /** Tipo no vínculo (EMPLOYEE/VISITOR). */

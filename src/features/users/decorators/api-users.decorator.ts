@@ -119,19 +119,16 @@ export function ApiUpdateUser(): MethodDecorator {
   );
 }
 
-export function ApiDeactivateUser(): MethodDecorator {
+export function ApiDeleteUser(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Desativa a participação do usuário na empresa',
+      summary: 'Exclui a participação do usuário na empresa',
       description:
-        'Exige MANAGE_USERS. Soft: user_company.is_active = false (não exclui a pessoa). Último admin ativo → 409. Desativar admin exige ator admin → 403.',
+        'Exige MANAGE_USERS. Remove user_role e user_company da empresa; se for a última empresa da pessoa sem histórico operacional, remove também a pessoa. Último admin ativo → 409. Excluir admin exige ator admin → 403.',
     }),
     ApiParam({ name: 'id', description: 'Id da pessoa (UUID).' }),
-    ApiResponse({
-      status: 200,
-      description: 'Usuário com vínculo desativado.',
-    }),
+    ApiResponse({ status: 204, description: 'Participação excluída.' }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
     ApiResponse({

@@ -80,7 +80,6 @@ describe('AssignRoleToUserUseCase', () => {
     email: 'maria@somar.local',
     phone: null,
     document: null,
-    observation: null,
     photoUrl: null,
     type: UserType.EMPLOYEE,
     isActive: true,

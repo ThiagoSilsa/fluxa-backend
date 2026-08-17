@@ -23,7 +23,6 @@ export interface CreateUserRepositoryData {
   passwordHash: string;
   phone: string | null;
   document: string | null;
-  observation: string | null;
   /** Empresa do vínculo a criar junto (sempre a da sessão). */
   companyId: string;
   /** Tipo no vínculo (EMPLOYEE/VISITOR). */
@@ -42,7 +41,6 @@ export interface UpdateUserRepositoryData {
   email?: string;
   phone?: string | null;
   document?: string | null;
-  observation?: string | null;
 }
 
 /**
@@ -107,4 +105,22 @@ export interface UserRepository {
    * @returns Promise resolvida quando a senha é gravada.
    */
   updatePasswordById(id: string, passwordHash: string): Promise<void>;
+
+  /**
+   * Exclui a participação do usuário na empresa — em uma transação remove o
+   * cargo (`user_role`) e o vínculo (`user_company`). Se for a **última
+   * empresa** da pessoa (nenhum outro vínculo restante) **e a pessoa não tiver
+   * histórico operacional**, exclui também a pessoa (`user`).
+   *
+   * @param userId Id da pessoa.
+   * @param companyId Empresa da sessão.
+   * @param linkId Id do vínculo `user_company` a remover.
+   * @returns `true` se a pessoa também foi excluída; `false` se a pessoa
+   * permanece (tem outra empresa ou histórico operacional).
+   */
+  removeCompanyLink(
+    userId: string,
+    companyId: string,
+    linkId: string,
+  ): Promise<boolean>;
 }

@@ -28,8 +28,6 @@ export interface UserCompanyWithUserEntity {
   phone: string | null;
   /** Documento (opcional, único global). */
   document: string | null;
-  /** Observação (opcional). */
-  observation: string | null;
   /** URL da foto (opcional). */
   photoUrl: string | null;
   /** Tipo no vínculo (EMPLOYEE/VISITOR). */

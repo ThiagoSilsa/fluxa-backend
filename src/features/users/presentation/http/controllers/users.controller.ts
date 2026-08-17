@@ -44,7 +44,7 @@ import { UpdateUserInputDto } from '../../../application/dto/update-user-input.d
 // Use cases
 import { ChangePasswordUseCase } from '../../../application/use-cases/change-password.use-case';
 import { CreateUserUseCase } from '../../../application/use-cases/create-user.use-case';
-import { DeactivateUserUseCase } from '../../../application/use-cases/deactivate-user.use-case';
+import { DeleteUserUseCase } from '../../../application/use-cases/delete-user.use-case';
 import { EmailStatusUseCase } from '../../../application/use-cases/email-status.use-case';
 import { GetUserUseCase } from '../../../application/use-cases/get-user.use-case';
 import { ListUsersUseCase } from '../../../application/use-cases/list-users.use-case';
@@ -62,7 +62,7 @@ import type {
 import {
   ApiChangePassword,
   ApiCreateUser,
-  ApiDeactivateUser,
+  ApiDeleteUser,
   ApiEmailStatus,
   ApiGetUser,
   ApiListUsers,
@@ -87,7 +87,7 @@ export class UsersController {
     private readonly getUserUseCase: GetUserUseCase,
     private readonly emailStatusUseCase: EmailStatusUseCase,
     private readonly updateUserUseCase: UpdateUserUseCase,
-    private readonly deactivateUserUseCase: DeactivateUserUseCase,
+    private readonly deleteUserUseCase: DeleteUserUseCase,
     private readonly changePasswordUseCase: ChangePasswordUseCase,
   ) {}
 
@@ -133,7 +133,6 @@ export class UsersController {
         dto.password,
         dto.phone,
         dto.document,
-        dto.observation,
         dto.roleId,
       ),
     );
@@ -206,7 +205,6 @@ export class UsersController {
         dto.email,
         dto.phone,
         dto.document,
-        dto.observation,
         dto.type,
         dto.isActive,
         dto.roleId,
@@ -215,19 +213,19 @@ export class UsersController {
   }
 
   /**
-   * Desativa a participação do usuário na empresa (soft — ADR 0005 §4).
+   * Exclui a participação do usuário na empresa (físico — ADR 0005 §4).
    *
    * @param request Requisição autenticada.
    * @param id Id da pessoa.
-   * @returns Usuário com o vínculo desativado.
    */
   @Delete(':id')
-  @ApiDeactivateUser()
-  public deactivateUser(
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiDeleteUser()
+  public async deleteUser(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<UserResponse> {
-    return this.deactivateUserUseCase.execute(
+  ): Promise<void> {
+    await this.deleteUserUseCase.execute(
       this.requireUser(request),
       new GetUserInputDto(id),
     );

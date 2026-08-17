@@ -11,53 +11,50 @@ import {
 // Repositories
 import { AUTH_REPOSITORY } from '../../../auth/domain/repositories/auth.repository';
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
-import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
-
-// Mapper
-import { toUserResponse } from '../utils/user-response.mapper';
+import { USER_REPOSITORY } from '../../domain/repositories/user.repository';
 
 // Types
 import type { AuthRepository } from '../../../auth/domain/repositories/auth.repository';
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
-import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
+import type { UserRepository } from '../../domain/repositories/user.repository';
 import type { GetUserInputDto } from '../dto/get-user-input.dto';
-import type { UserResponse } from '../dto/user-response';
 
 /**
- * Desativa a participação do usuário na empresa da sessão (soft — ADR 0005
- * §4): `user_company.is_active = false`. Não exclui a pessoa nem remove dados.
+ * Exclui a participação do usuário na empresa da sessão (físico — ADR 0005
+ * §4): remove o cargo (`user_role`) e o vínculo (`user_company`); se for a
+ * **última empresa** da pessoa **sem histórico operacional**, remove também a
+ * pessoa (`user`).
  *
- * **Invariante**: não é possível desativar o **último** usuário com cargo
+ * **Invariante**: não é possível excluir o **último** usuário com cargo
  * `is_admin` ativo → 409. **Gestão de admin é exclusiva de admin** → 403.
  */
 @Injectable()
-export class DeactivateUserUseCase {
-  private readonly logger = new Logger(DeactivateUserUseCase.name);
+export class DeleteUserUseCase {
+  private readonly logger = new Logger(DeleteUserUseCase.name);
 
   constructor(
+    @Inject(USER_REPOSITORY)
+    private readonly userRepository: UserRepository,
     @Inject(USER_COMPANY_REPOSITORY)
     private readonly userCompanyRepository: UserCompanyRepository,
     @Inject(AUTH_REPOSITORY)
     private readonly authRepository: AuthRepository,
-    @Inject(USER_ROLE_REPOSITORY)
-    private readonly userRoleRepository: UserRoleRepository,
   ) {}
 
   /**
-   * Desativa o vínculo do usuário com a empresa da sessão.
+   * Exclui a participação do usuário na empresa da sessão.
    *
    * @param actor Ator autenticado (empresa da sessão).
    * @param input Id da pessoa.
-   * @returns Usuário com o vínculo desativado.
    * @throws {NotFoundException} Usuário sem vínculo com a empresa.
-   * @throws {ForbiddenException} Desativação de usuário admin por não-admin.
-   * @throws {ConflictException} Desativação do último administrador ativo.
+   * @throws {ForbiddenException} Exclusão de usuário admin por não-admin.
+   * @throws {ConflictException} Exclusão do último administrador ativo.
    */
   public async execute(
     actor: AuthenticatedUserEntity,
     input: GetUserInputDto,
-  ): Promise<UserResponse> {
+  ): Promise<void> {
     const link = await this.userCompanyRepository.findByUserIdAndCompanyId(
       input.id,
       actor.companyId,
@@ -87,17 +84,10 @@ export class DeactivateUserUseCase {
       }
     }
 
-    const updated = await this.userCompanyRepository.updateById(link.linkId, {
-      isActive: false,
-    });
-    if (!updated) {
-      throw new NotFoundException('Usuário não encontrado.');
-    }
-
-    const role = await this.userRoleRepository.listByUserIdAndCompanyId(
+    await this.userRepository.removeCompanyLink(
       input.id,
       actor.companyId,
+      link.linkId,
     );
-    return toUserResponse({ ...link, isActive: false }, role[0] ?? null);
   }
 }

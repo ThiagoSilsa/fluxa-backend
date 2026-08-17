@@ -199,17 +199,63 @@ describe('Users integration — edição/desativação (Testcontainers)', () => 
     expect(on.body.isActive).toBe(true);
   });
 
-  it('DELETE /users/:id desativa (soft) um usuário comum', async () => {
+  it('DELETE /users/:id exclui a participação (204) e a pessoa (última empresa)', async () => {
     const created = await createUser('deleto@somar.local', 'Deleto').expect(
       201,
     );
 
-    const res = await request(context.httpServer)
+    await request(context.httpServer)
       .delete(`/users/${created.body.id}`)
       .set('Authorization', `Bearer ${token}`)
-      .expect(200);
+      .expect(204);
 
-    expect(res.body).toMatchObject({ id: created.body.id, isActive: false });
+    await request(context.httpServer)
+      .get(`/users/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+
+    // Última empresa da pessoa + sem histórico → a pessoa é removida.
+    const userRows = await context.dataSource.query(
+      `SELECT COUNT(*)::int AS total FROM "user" WHERE "id" = $1`,
+      [created.body.id],
+    );
+    expect(userRows[0].total).toBe(0);
+  });
+
+  it('DELETE remove só o vínculo quando a pessoa tem outra empresa', async () => {
+    const created = await createUser('multi@somar.local', 'Multi').expect(201);
+
+    // A pessoa passa a ter vínculo também na 2ª empresa.
+    await context.dataSource.query(
+      `INSERT INTO "company" ("id", "name", "is_active", "timezone")
+       VALUES ($1, 'Autarquia B', true, 'America/Sao_Paulo')
+       ON CONFLICT ("id") DO NOTHING`,
+      [USERS_SEEDED.SECOND_COMPANY_ID],
+    );
+    await context.dataSource.query(
+      `INSERT INTO "user_company" ("id", "user_id", "company_id", "type", "is_active")
+       VALUES (gen_random_uuid(), $1, $2, 'EMPLOYEE', true)`,
+      [created.body.id, USERS_SEEDED.SECOND_COMPANY_ID],
+    );
+
+    await request(context.httpServer)
+      .delete(`/users/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    // Pessoa permanece (tem outra empresa)...
+    const userRows = await context.dataSource.query(
+      `SELECT COUNT(*)::int AS total FROM "user" WHERE "id" = $1`,
+      [created.body.id],
+    );
+    expect(userRows[0].total).toBe(1);
+
+    // ...mas o vínculo da SOMAR foi removido.
+    const linkRows = await context.dataSource.query(
+      `SELECT COUNT(*)::int AS total FROM "user_company" WHERE "user_id" = $1 AND "company_id" = $2`,
+      [created.body.id, USERS_SEEDED.SOMAR_COMPANY_ID],
+    );
+    expect(linkRows[0].total).toBe(0);
   });
 
   it('DELETE do último admin ativo → 409 (invariante)', async () => {

@@ -41,9 +41,6 @@ export class UserOrmEntity {
   @Column({ type: 'varchar', length: 32, nullable: true, unique: true })
   document!: string | null;
 
-  @Column({ type: 'text', nullable: true })
-  observation!: string | null;
-
   @Column({ name: 'photo_url', type: 'varchar', length: 512, nullable: true })
   photoUrl!: string | null;
 

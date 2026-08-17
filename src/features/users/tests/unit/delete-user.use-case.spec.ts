@@ -13,31 +13,28 @@ import { PermissionCode } from '../../../../shared/constants/access-control.cons
 import { UserType } from '../../../auth/domain/constants/user-type.constant';
 
 // Types
-import type { AuthRepository } from '../../../auth/domain/repositories/auth.repository';
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
+import type { AuthRepository } from '../../../auth/domain/repositories/auth.repository';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
-import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
+import type { UserRepository } from '../../domain/repositories/user.repository';
 
 // Repositories
 import { AUTH_REPOSITORY } from '../../../auth/domain/repositories/auth.repository';
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
-import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
+import { USER_REPOSITORY } from '../../domain/repositories/user.repository';
 
 // DTO
 import { GetUserInputDto } from '../../application/dto/get-user-input.dto';
 
 // Use case
-import { DeactivateUserUseCase } from '../../application/use-cases/deactivate-user.use-case';
+import { DeleteUserUseCase } from '../../application/use-cases/delete-user.use-case';
 
-describe('DeactivateUserUseCase', () => {
-  let useCase: DeactivateUserUseCase;
+describe('DeleteUserUseCase', () => {
+  let useCase: DeleteUserUseCase;
 
   const userCompanyRepoMock = {
     findByUserIdAndCompanyId: jest.fn(),
-    updateById: jest.fn(),
-  } as jest.Mocked<
-    Pick<UserCompanyRepository, 'findByUserIdAndCompanyId' | 'updateById'>
-  >;
+  } as jest.Mocked<Pick<UserCompanyRepository, 'findByUserIdAndCompanyId'>>;
 
   const authRepoMock = {
     findHasAdminRoleByUserIdAndCompanyId: jest.fn(),
@@ -49,9 +46,9 @@ describe('DeactivateUserUseCase', () => {
     >
   >;
 
-  const userRoleRepoMock = {
-    listByUserIdAndCompanyId: jest.fn(),
-  } as jest.Mocked<Pick<UserRoleRepository, 'listByUserIdAndCompanyId'>>;
+  const userRepoMock = {
+    removeCompanyLink: jest.fn(),
+  } as jest.Mocked<Pick<UserRepository, 'removeCompanyLink'>>;
 
   const adminActor: AuthenticatedUserEntity = {
     id: '30000000-0000-0000-0000-000000000001',
@@ -66,8 +63,9 @@ describe('DeactivateUserUseCase', () => {
 
   const nonAdminActor: AuthenticatedUserEntity = {
     ...adminActor,
+    id: '30000000-0000-0000-0000-000000000002',
+    email: 'gestor@somar.local',
     isAdmin: false,
-    roleCodes: ['Gestor'],
   };
 
   const link = {
@@ -77,7 +75,6 @@ describe('DeactivateUserUseCase', () => {
     email: 'maria@somar.local',
     phone: '11999999999',
     document: '12345678900',
-    observation: null,
     photoUrl: null,
     type: UserType.EMPLOYEE,
     isActive: true,
@@ -85,56 +82,53 @@ describe('DeactivateUserUseCase', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    authRepoMock.findHasAdminRoleByUserIdAndCompanyId.mockResolvedValue(false);
-    authRepoMock.countAdminsByCompanyId.mockResolvedValue(2);
-    userCompanyRepoMock.updateById.mockResolvedValue({
-      id: link.linkId,
-      userId: link.userId,
-      companyId: adminActor.companyId,
-      companyName: 'SOMAR',
-      type: link.type,
-      isActive: false,
-    });
-    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([]);
-
     const module = await Test.createTestingModule({
       providers: [
-        DeactivateUserUseCase,
-        {
-          provide: USER_COMPANY_REPOSITORY,
-          useValue: userCompanyRepoMock,
-        },
+        DeleteUserUseCase,
+        { provide: USER_REPOSITORY, useValue: userRepoMock },
+        { provide: USER_COMPANY_REPOSITORY, useValue: userCompanyRepoMock },
         { provide: AUTH_REPOSITORY, useValue: authRepoMock },
-        { provide: USER_ROLE_REPOSITORY, useValue: userRoleRepoMock },
       ],
     }).compile();
-    useCase = module.get(DeactivateUserUseCase);
+    useCase = module.get(DeleteUserUseCase);
   });
 
-  it('desativa a participação (soft) sem excluir a pessoa', async () => {
+  it('exclui a participação (remove cargo, vínculo e, se última empresa, a pessoa)', async () => {
     userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue(link);
+    authRepoMock.findHasAdminRoleByUserIdAndCompanyId.mockResolvedValue(false);
+    userRepoMock.removeCompanyLink.mockResolvedValue(true);
 
-    const result = await useCase.execute(
-      adminActor,
-      new GetUserInputDto(link.userId),
+    await expect(
+      useCase.execute(adminActor, new GetUserInputDto(link.userId)),
+    ).resolves.toBeUndefined();
+
+    expect(userRepoMock.removeCompanyLink).toHaveBeenCalledWith(
+      link.userId,
+      adminActor.companyId,
+      link.linkId,
     );
-
-    expect(userCompanyRepoMock.updateById).toHaveBeenCalledWith(link.linkId, {
-      isActive: false,
-    });
-    expect(result).toEqual(expect.objectContaining({ isActive: false }));
   });
 
-  it('lança NotFound quando o usuário não tem vínculo com a empresa', async () => {
+  it('lança NotFoundException quando o usuário não tem vínculo com a empresa', async () => {
     userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue(null);
 
     await expect(
       useCase.execute(adminActor, new GetUserInputDto(link.userId)),
     ).rejects.toThrow(NotFoundException);
-    expect(userCompanyRepoMock.updateById).not.toHaveBeenCalled();
+    expect(userRepoMock.removeCompanyLink).not.toHaveBeenCalled();
   });
 
-  it('rejeita desativar o último admin ativo (409)', async () => {
+  it('lança ForbiddenException ao excluir usuário admin por não-admin', async () => {
+    userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue(link);
+    authRepoMock.findHasAdminRoleByUserIdAndCompanyId.mockResolvedValue(true);
+
+    await expect(
+      useCase.execute(nonAdminActor, new GetUserInputDto(link.userId)),
+    ).rejects.toThrow(ForbiddenException);
+    expect(userRepoMock.removeCompanyLink).not.toHaveBeenCalled();
+  });
+
+  it('lança ConflictException ao excluir o último admin ativo', async () => {
     userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue(link);
     authRepoMock.findHasAdminRoleByUserIdAndCompanyId.mockResolvedValue(true);
     authRepoMock.countAdminsByCompanyId.mockResolvedValue(1);
@@ -142,16 +136,6 @@ describe('DeactivateUserUseCase', () => {
     await expect(
       useCase.execute(adminActor, new GetUserInputDto(link.userId)),
     ).rejects.toThrow(ConflictException);
-    expect(userCompanyRepoMock.updateById).not.toHaveBeenCalled();
-  });
-
-  it('rejeita desativar usuário admin por não-admin (403)', async () => {
-    userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue(link);
-    authRepoMock.findHasAdminRoleByUserIdAndCompanyId.mockResolvedValue(true);
-
-    await expect(
-      useCase.execute(nonAdminActor, new GetUserInputDto(link.userId)),
-    ).rejects.toThrow(ForbiddenException);
-    expect(userCompanyRepoMock.updateById).not.toHaveBeenCalled();
+    expect(userRepoMock.removeCompanyLink).not.toHaveBeenCalled();
   });
 });

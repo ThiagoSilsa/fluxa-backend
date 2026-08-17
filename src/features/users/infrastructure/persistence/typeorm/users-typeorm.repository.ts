@@ -1,7 +1,7 @@
 // NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 
 // Types
 import type { UserEntity } from '../../../domain/entities/user.entity';
@@ -80,7 +80,6 @@ export class UsersTypeormRepository implements UserRepository {
         password: data.passwordHash,
         phone: data.phone,
         document: data.document,
-        observation: data.observation,
       });
       const savedUser = await manager.save(user);
 
@@ -136,9 +135,6 @@ export class UsersTypeormRepository implements UserRepository {
     if (data.document !== undefined) {
       orm.document = data.document;
     }
-    if (data.observation !== undefined) {
-      orm.observation = data.observation;
-    }
 
     const saved = await this.userRepo.save(orm);
     return this.toDomain(saved);
@@ -160,6 +156,94 @@ export class UsersTypeormRepository implements UserRepository {
   }
 
   /**
+   * Exclui a participação do usuário na empresa — em uma transação remove o
+   * cargo (`user_role`) e o vínculo (`user_company`). Se for a **última
+   * empresa** da pessoa (nenhum outro vínculo restante) **e a pessoa não tiver
+   * histórico operacional**, exclui também a pessoa (`user`).
+   *
+   * @param userId Id da pessoa.
+   * @param companyId Empresa da sessão.
+   * @param linkId Id do vínculo `user_company` a remover.
+   * @returns `true` se a pessoa também foi excluída; `false` se a pessoa
+   * permanece (tem outra empresa ou histórico operacional).
+   */
+  public async removeCompanyLink(
+    userId: string,
+    companyId: string,
+    linkId: string,
+  ): Promise<boolean> {
+    return this.dataSource.transaction(async (manager) => {
+      await manager.delete(UserRoleOrmEntity, { userId, companyId });
+      await manager.delete(UserCompanyOrmEntity, { id: linkId });
+
+      const remainingLinks = await manager.count(UserCompanyOrmEntity, {
+        where: { userId },
+      });
+      if (remainingLinks > 0) {
+        return false;
+      }
+
+      const hasReferences = await this.hasOperationalReferences(
+        manager,
+        userId,
+      );
+      if (hasReferences) {
+        return false;
+      }
+
+      await manager.delete(UserOrmEntity, { id: userId });
+      return true;
+    });
+  }
+
+  /**
+   * Verifica se a pessoa tem referências operacionais (histórico) em outras
+   * tabelas — impede a exclusão da pessoa sem destruir histórico.
+   *
+   * @param manager EntityManager (vê o estado da transação).
+   * @param userId Id da pessoa.
+   * @returns `true` se alguma tabela referenciar a pessoa.
+   */
+  private async hasOperationalReferences(
+    manager: EntityManager,
+    userId: string,
+  ): Promise<boolean> {
+    const references: Array<[string, string]> = [
+      ['user_vehicle', 'user_id'],
+      ['vehicle_qr_code', 'issued_by'],
+      ['vehicle_block', 'blocked_by'],
+      ['vehicle_block', 'revoked_by'],
+      ['entry_denial', 'doorman_id'],
+      ['block_request', 'requested_by'],
+      ['block_request', 'handled_by'],
+      ['vehicle_access', 'driver_user_id'],
+      ['vehicle_access', 'closed_by'],
+      ['vehicle_movement', 'driver_user_id'],
+      ['vehicle_movement', 'doorman_id'],
+      ['access_request', 'user_id'],
+      ['access_request', 'authorized_by'],
+      ['access_request', 'requested_by'],
+      ['access_request', 'handled_by'],
+      ['access_request', 'resolved_user_id'],
+      ['import_job', 'created_by'],
+    ];
+
+    const checks = references
+      .map(
+        ([table, column]) =>
+          `EXISTS (SELECT 1 FROM "${table}" WHERE "${column}" = $1)`,
+      )
+      .join(' OR ');
+
+    const rows: Array<{ has_refs: boolean }> = await manager.query(
+      `SELECT ${checks} AS "has_refs"`,
+      [userId],
+    );
+
+    return rows[0]?.has_refs ?? false;
+  }
+
+  /**
    * Mapeia a ORM entity para a entidade de domínio.
    *
    * @param orm Registro ORM da pessoa.
@@ -173,7 +257,6 @@ export class UsersTypeormRepository implements UserRepository {
       passwordHash: orm.password,
       phone: orm.phone,
       document: orm.document,
-      observation: orm.observation,
       photoUrl: orm.photoUrl,
       lastLoginAt: orm.lastLoginAt,
       createdAt: orm.createdAt,

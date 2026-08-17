@@ -122,7 +122,6 @@ export class CreateUserUseCase {
         passwordHash: this.passwordHash.execute(input.password as string),
         phone: input.phone ?? null,
         document: input.document ?? null,
-        observation: input.observation ?? null,
         companyId: actor.companyId,
         type: input.type,
         isActive: true,
@@ -155,8 +154,7 @@ export class CreateUserUseCase {
       this.hasValue(input.name) ||
       this.hasValue(input.password) ||
       this.hasValue(input.phone) ||
-      this.hasValue(input.document) ||
-      this.hasValue(input.observation)
+      this.hasValue(input.document)
     ) {
       throw new BadRequestException(
         'Não é possível alterar dados da pessoa ao vincular um usuário existente.',

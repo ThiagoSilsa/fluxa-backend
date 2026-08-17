@@ -228,7 +228,6 @@ export class UserCompanyTypeormRepository implements UserCompanyRepository {
       email: link.user?.email ?? '',
       phone: link.user?.phone ?? null,
       document: link.user?.document ?? null,
-      observation: link.user?.observation ?? null,
       photoUrl: link.user?.photoUrl ?? null,
       type: link.type,
       isActive: link.isActive,
