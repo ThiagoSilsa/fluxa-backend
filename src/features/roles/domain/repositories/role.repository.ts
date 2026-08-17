@@ -12,6 +12,8 @@ export const ROLE_REPOSITORY = Symbol('ROLE_REPOSITORY');
 export interface ListRolesRepositoryFilters {
   /** Busca por nome (parcial, case-insensitive). */
   search?: string;
+  /** Filtro por status ativo/inativo (opcional). */
+  isActive?: boolean;
   /** Quantidade de registros por página. */
   limit: number;
   /** Offset da página. */
@@ -34,6 +36,8 @@ export interface CreateRoleRepositoryData {
 export interface UpdateRoleRepositoryData {
   name?: string;
   description?: string | null;
+  /** Novo status ativo/inativo (opcional — desativa/reativa o cargo). */
+  isActive?: boolean;
 }
 
 /**
@@ -56,7 +60,7 @@ export interface RoleRepository {
   ): Promise<RoleEntity | null>;
 
   /**
-   * Lista cargos da empresa com paginação e busca por nome.
+   * Lista cargos da empresa com paginação, busca por nome e filtro por status.
    *
    * @param companyId Empresa da sessão.
    * @param filters Filtros e paginação.
@@ -76,7 +80,8 @@ export interface RoleRepository {
   create(data: CreateRoleRepositoryData): Promise<RoleEntity>;
 
   /**
-   * Atualiza um cargo da empresa (nome/descrição — `isAdmin` não é alterável).
+   * Atualiza um cargo da empresa (nome/descrição/isActive — `isAdmin` não é
+   * alterável).
    *
    * @param id Id do cargo.
    * @param companyId Empresa da sessão.
@@ -90,14 +95,15 @@ export interface RoleRepository {
   ): Promise<RoleEntity | null>;
 
   /**
-   * Desativa um cargo da empresa (soft: `is_active = false`) — não remove
-   * vínculos em `role_permission`/`user_role`.
+   * Exclui fisicamente um cargo da empresa, em **cascata**: remove os vínculos
+   * em `role_permission` e desvincula os usuários (`user_role`) — ver ADR 0004
+   * §5. A exclusão é irreversível.
    *
    * @param id Id do cargo.
    * @param companyId Empresa da sessão.
-   * @returns Cargo desativado ou `null` se não existir/não pertencer.
+   * @returns Snapshot do cargo excluído ou `null` se não existir/não pertencer.
    */
-  deactivateByIdAndCompanyId(
+  deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<RoleEntity | null>;

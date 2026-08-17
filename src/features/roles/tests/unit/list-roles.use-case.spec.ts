@@ -101,4 +101,20 @@ describe('ListRolesUseCase', () => {
       offset: 5,
     });
   });
+
+  it('repassa o filtro por status (isActive) para o repositório', async () => {
+    roleRepoMock.list.mockResolvedValue({ data: [], count: 0 });
+
+    await useCase.execute(
+      actor,
+      new ListRolesInputDto(undefined, 10, 0, false),
+    );
+
+    expect(roleRepoMock.list).toHaveBeenCalledWith(actor.companyId, {
+      search: undefined,
+      isActive: false,
+      limit: 10,
+      offset: 0,
+    });
+  });
 });

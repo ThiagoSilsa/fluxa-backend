@@ -2,7 +2,7 @@
  * Entrada do use case de atualização de cargo (já validada pelo controller).
  *
  * `isAdmin` não é alterável pelo CRUD — cargos de administração são imutáveis
- * (ADR 0004); o DTO sequer o carrega.
+ * (ADR 0004); o DTO sequer o carrega. `isActive` ativa/desativa o cargo.
  */
 export class UpdateRoleInputDto {
   constructor(
@@ -12,5 +12,7 @@ export class UpdateRoleInputDto {
     readonly name?: string,
     /** Nova descrição (opcional; `null` limpa). */
     readonly description?: string | null,
+    /** Novo status ativo/inativo (opcional — desativa/reativa o cargo). */
+    readonly isActive?: boolean,
   ) {}
 }

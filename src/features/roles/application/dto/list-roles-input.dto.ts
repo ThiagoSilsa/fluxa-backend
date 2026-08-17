@@ -9,5 +9,7 @@ export class ListRolesInputDto {
     readonly limit: number = 20,
     /** Offset da página. */
     readonly offset: number = 0,
+    /** Filtro por status ativo/inativo (opcional). */
+    readonly isActive?: boolean,
   ) {}
 }

@@ -48,7 +48,7 @@ import { UpdateRoleInputDto } from '../../../application/dto/update-role-input.d
 // Use cases
 import { AssociatePermissionToRoleUseCase } from '../../../application/use-cases/associate-permission-to-role.use-case';
 import { CreateRoleUseCase } from '../../../application/use-cases/create-role.use-case';
-import { DeactivateRoleUseCase } from '../../../application/use-cases/deactivate-role.use-case';
+import { DeleteRoleUseCase } from '../../../application/use-cases/delete-role.use-case';
 import { GetRoleUseCase } from '../../../application/use-cases/get-role.use-case';
 import { ListRolePermissionsUseCase } from '../../../application/use-cases/list-role-permissions.use-case';
 import { ListRolesUseCase } from '../../../application/use-cases/list-roles.use-case';
@@ -67,7 +67,7 @@ import type { ListRolePermissionsResponse } from '../../../application/dto/role-
 import {
   ApiAssociatePermission,
   ApiCreateRole,
-  ApiDeactivateRole,
+  ApiDeleteRole,
   ApiGetRole,
   ApiListRolePermissions,
   ApiListRoles,
@@ -90,7 +90,7 @@ export class RolesController {
     private readonly listRolesUseCase: ListRolesUseCase,
     private readonly getRoleUseCase: GetRoleUseCase,
     private readonly updateRoleUseCase: UpdateRoleUseCase,
-    private readonly deactivateRoleUseCase: DeactivateRoleUseCase,
+    private readonly deleteRoleUseCase: DeleteRoleUseCase,
     private readonly associatePermissionToRoleUseCase: AssociatePermissionToRoleUseCase,
     private readonly removePermissionFromRoleUseCase: RemovePermissionFromRoleUseCase,
     private readonly listRolePermissionsUseCase: ListRolePermissionsUseCase,
@@ -116,7 +116,12 @@ export class RolesController {
   ): Promise<ListRolesResponse> {
     return this.listRolesUseCase.execute(
       this.requireUser(request),
-      new ListRolesInputDto(query.search, query.limit, query.offset),
+      new ListRolesInputDto(
+        query.search,
+        query.limit,
+        query.offset,
+        query.isActive,
+      ),
     );
   }
 
@@ -141,17 +146,18 @@ export class RolesController {
   ): Promise<RoleResponse> {
     return this.updateRoleUseCase.execute(
       this.requireUser(request),
-      new UpdateRoleInputDto(id, dto.name, dto.description),
+      new UpdateRoleInputDto(id, dto.name, dto.description, dto.isActive),
     );
   }
 
   @Delete(':id')
-  @ApiDeactivateRole()
-  public deactivateRole(
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiDeleteRole()
+  public async deleteRole(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<RoleResponse> {
-    return this.deactivateRoleUseCase.execute(
+  ): Promise<void> {
+    await this.deleteRoleUseCase.execute(
       this.requireUser(request),
       new GetRoleInputDto(id),
     );

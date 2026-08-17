@@ -14,6 +14,8 @@ import type {
 
 // TypeORM
 import { RoleOrmEntity } from './role.orm-entity';
+import { RolePermissionOrmEntity } from './role-permission.orm-entity';
+import { UserRoleOrmEntity } from './user-role.orm-entity';
 
 /**
  * Implementação TypeORM do `RoleRepository`.
@@ -44,7 +46,7 @@ export class RolesTypeormRepository implements RoleRepository {
   }
 
   /**
-   * Lista cargos da empresa com paginação e busca por nome.
+   * Lista cargos da empresa com paginação, busca por nome e filtro por status.
    *
    * @param companyId Empresa da sessão.
    * @param filters Filtros e paginação.
@@ -57,6 +59,9 @@ export class RolesTypeormRepository implements RoleRepository {
     const where: FindOptionsWhere<RoleOrmEntity> = { companyId };
     if (filters.search) {
       where.name = ILike(`%${filters.search}%`);
+    }
+    if (filters.isActive !== undefined) {
+      where.isActive = filters.isActive;
     }
 
     const [rows, count] = await this.roleRepo.findAndCount({
@@ -87,7 +92,7 @@ export class RolesTypeormRepository implements RoleRepository {
   }
 
   /**
-   * Atualiza um cargo da empresa (nome/descrição).
+   * Atualiza um cargo da empresa (nome/descrição/isActive).
    *
    * @param id Id do cargo.
    * @param companyId Empresa da sessão.
@@ -110,19 +115,24 @@ export class RolesTypeormRepository implements RoleRepository {
     if (data.description !== undefined) {
       orm.description = data.description;
     }
+    if (data.isActive !== undefined) {
+      orm.isActive = data.isActive;
+    }
 
     const saved = await this.roleRepo.save(orm);
     return this.toDomain(saved);
   }
 
   /**
-   * Desativa um cargo da empresa (soft: `is_active = false`).
+   * Exclui fisicamente um cargo da empresa, em **cascata** (ADR 0004 §5): numa
+   * única transação remove os vínculos em `role_permission`, desvincula os
+   * usuários (`user_role`) e exclui o cargo. A exclusão é irreversível.
    *
    * @param id Id do cargo.
    * @param companyId Empresa da sessão.
-   * @returns Cargo desativado ou `null` se não existir/não pertencer.
+   * @returns Snapshot do cargo excluído ou `null` se não existir/não pertencer.
    */
-  public async deactivateByIdAndCompanyId(
+  public async deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<RoleEntity | null> {
@@ -131,9 +141,13 @@ export class RolesTypeormRepository implements RoleRepository {
       return null;
     }
 
-    orm.isActive = false;
-    const saved = await this.roleRepo.save(orm);
-    return this.toDomain(saved);
+    await this.roleRepo.manager.transaction(async (manager) => {
+      await manager.delete(RolePermissionOrmEntity, { roleId: id, companyId });
+      await manager.delete(UserRoleOrmEntity, { roleId: id, companyId });
+      await manager.delete(RoleOrmEntity, { id, companyId });
+    });
+
+    return this.toDomain(orm);
   }
 
   /**

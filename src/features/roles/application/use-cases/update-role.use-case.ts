@@ -17,10 +17,13 @@ import { toRoleResponse } from '../utils/role-response.mapper';
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { RoleResponse } from '../dto/role-response';
 import type { UpdateRoleInputDto } from '../dto/update-role-input.dto';
-import type { RoleRepository } from '../../domain/repositories/role.repository';
+import type {
+  RoleRepository,
+  UpdateRoleRepositoryData,
+} from '../../domain/repositories/role.repository';
 
 /**
- * Atualiza nome/descrição de um cargo da empresa da sessão.
+ * Atualiza nome/descrição/isActive de um cargo da empresa da sessão.
  *
  * `isAdmin` não é alterável pelo CRUD (ADR 0004) e cargos de administração são
  * imutáveis.
@@ -35,7 +38,7 @@ export class UpdateRoleUseCase {
   ) {}
 
   /**
-   * Atualiza o cargo (nome/descrição) da empresa do ator.
+   * Atualiza o cargo (nome/descrição/isActive) da empresa do ator.
    *
    * @param actor Ator autenticado (empresa da sessão).
    * @param input Id e campos a atualizar.
@@ -60,13 +63,18 @@ export class UpdateRoleUseCase {
       );
     }
 
+    const data: UpdateRoleRepositoryData = {
+      name: input.name,
+      description: input.description,
+    };
+    if (input.isActive !== undefined) {
+      data.isActive = input.isActive;
+    }
+
     const updated = await this.roleRepository.updateByIdAndCompanyId(
       input.id,
       actor.companyId,
-      {
-        name: input.name,
-        description: input.description,
-      },
+      data,
     );
     if (!updated) {
       throw new NotFoundException('Cargo não encontrado.');

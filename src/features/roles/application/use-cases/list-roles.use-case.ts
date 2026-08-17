@@ -41,6 +41,7 @@ export class ListRolesUseCase {
   ): Promise<ListRolesResponse> {
     const { data, count } = await this.roleRepository.list(actor.companyId, {
       search: input.search,
+      isActive: input.isActive,
       limit: input.limit,
       offset: input.offset,
     });

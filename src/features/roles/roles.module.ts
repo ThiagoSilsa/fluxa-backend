@@ -18,7 +18,7 @@ import { RoleOrmEntity } from './infrastructure/persistence/typeorm/role.orm-ent
 // Use cases
 import { AssociatePermissionToRoleUseCase } from './application/use-cases/associate-permission-to-role.use-case';
 import { CreateRoleUseCase } from './application/use-cases/create-role.use-case';
-import { DeactivateRoleUseCase } from './application/use-cases/deactivate-role.use-case';
+import { DeleteRoleUseCase } from './application/use-cases/delete-role.use-case';
 import { GetRoleUseCase } from './application/use-cases/get-role.use-case';
 import { ListPermissionsUseCase } from './application/use-cases/list-permissions.use-case';
 import { ListRolePermissionsUseCase } from './application/use-cases/list-role-permissions.use-case';
@@ -54,7 +54,7 @@ import { RolesController } from './presentation/http/controllers/roles.controlle
     ListRolesUseCase,
     GetRoleUseCase,
     UpdateRoleUseCase,
-    DeactivateRoleUseCase,
+    DeleteRoleUseCase,
     ListPermissionsUseCase,
     AssociatePermissionToRoleUseCase,
     RemovePermissionFromRoleUseCase,

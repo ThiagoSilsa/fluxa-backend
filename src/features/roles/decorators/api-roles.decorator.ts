@@ -47,7 +47,7 @@ export function ApiListRoles(): MethodDecorator {
     ApiOperation({
       summary: 'Lista cargos da empresa',
       description:
-        'Exige MANAGE_ROLES. Paginado no formato padrão { limit, offset, data, count, parameters? }.',
+        'Exige MANAGE_ROLES. Paginado no formato padrão { limit, offset, data, count, parameters? }, com filtros search e isActive (Todos/Ativos/Inativos).',
     }),
     ApiResponse({ status: 200, description: 'Página de cargos.' }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
@@ -75,9 +75,9 @@ export function ApiUpdateRole(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Atualiza um cargo (nome/descrição)',
+      summary: 'Atualiza um cargo (nome/descrição/isActive)',
       description:
-        'Exige MANAGE_ROLES. is_admin não é alterável e cargos de administração são imutáveis (ADR 0004).',
+        'Exige MANAGE_ROLES. isAdmin não é alterável e cargos de administração são imutáveis (ADR 0004). isActive desativa/reativa o cargo.',
     }),
     ApiParam({ name: 'id', description: 'Id do cargo (UUID).' }),
     ApiBody({ type: UpdateRoleDto }),
@@ -92,16 +92,16 @@ export function ApiUpdateRole(): MethodDecorator {
   );
 }
 
-export function ApiDeactivateRole(): MethodDecorator {
+export function ApiDeleteRole(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Desativa um cargo (soft)',
+      summary: 'Exclui um cargo (físico, em cascata)',
       description:
-        'Exige MANAGE_ROLES. Desativar não remove vínculos (role_permission/user_role); cargos de administração são imutáveis (ADR 0004).',
+        'Exige MANAGE_ROLES. Exclusão definitiva e irreversível: remove os vínculos em role_permission e desvincula os usuários (user_role) — quem estava vinculado fica sem cargo (ADR 0004 §5). Cargos de administração são imutáveis.',
     }),
     ApiParam({ name: 'id', description: 'Id do cargo (UUID).' }),
-    ApiResponse({ status: 200, description: 'Cargo desativado.' }),
+    ApiResponse({ status: 204, description: 'Cargo excluído.' }),
     ApiResponse({
       status: 400,
       description: 'Cargo de administração é imutável.',

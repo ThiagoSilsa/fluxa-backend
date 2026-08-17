@@ -92,6 +92,32 @@ describe('UpdateRoleUseCase', () => {
     });
   });
 
+  it('atualiza apenas isActive quando informado (desativa/reativa)', async () => {
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(role);
+    roleRepoMock.updateByIdAndCompanyId.mockResolvedValue({
+      ...role,
+      isActive: false,
+    });
+
+    const result = await useCase.execute(
+      actor,
+      new UpdateRoleInputDto(role.id, undefined, undefined, false),
+    );
+
+    expect(roleRepoMock.updateByIdAndCompanyId).toHaveBeenCalledWith(
+      role.id,
+      actor.companyId,
+      { isActive: false },
+    );
+    expect(result).toEqual({
+      id: role.id,
+      name: 'Porteiro',
+      description: null,
+      isAdmin: false,
+      isActive: false,
+    });
+  });
+
   it('lança NotFoundException quando o cargo não existe na empresa', async () => {
     roleRepoMock.findByIdAndCompanyId.mockResolvedValue(null);
 

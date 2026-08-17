@@ -20,16 +20,16 @@ import { ROLE_REPOSITORY } from '../../domain/repositories/role.repository';
 import { GetRoleInputDto } from '../../application/dto/get-role-input.dto';
 
 // Use case
-import { DeactivateRoleUseCase } from '../../application/use-cases/deactivate-role.use-case';
+import { DeleteRoleUseCase } from '../../application/use-cases/delete-role.use-case';
 
-describe('DeactivateRoleUseCase', () => {
-  let useCase: DeactivateRoleUseCase;
+describe('DeleteRoleUseCase', () => {
+  let useCase: DeleteRoleUseCase;
 
   const roleRepoMock = {
     findByIdAndCompanyId: jest.fn(),
-    deactivateByIdAndCompanyId: jest.fn(),
+    deleteByIdAndCompanyId: jest.fn(),
   } as jest.Mocked<
-    Pick<RoleRepository, 'findByIdAndCompanyId' | 'deactivateByIdAndCompanyId'>
+    Pick<RoleRepository, 'findByIdAndCompanyId' | 'deleteByIdAndCompanyId'>
   >;
 
   const actor: AuthenticatedUserEntity = {
@@ -58,33 +58,25 @@ describe('DeactivateRoleUseCase', () => {
     jest.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
-        DeactivateRoleUseCase,
+        DeleteRoleUseCase,
         { provide: ROLE_REPOSITORY, useValue: roleRepoMock },
       ],
     }).compile();
-    useCase = module.get(DeactivateRoleUseCase);
+    useCase = module.get(DeleteRoleUseCase);
   });
 
-  it('desativa o cargo (soft) sem tocar em vínculos', async () => {
+  it('exclui fisicamente o cargo (em cascata no repositório)', async () => {
     roleRepoMock.findByIdAndCompanyId.mockResolvedValue(role);
-    roleRepoMock.deactivateByIdAndCompanyId.mockResolvedValue({
-      ...role,
-      isActive: false,
-    });
+    roleRepoMock.deleteByIdAndCompanyId.mockResolvedValue(role);
 
-    const result = await useCase.execute(actor, new GetRoleInputDto(role.id));
+    await expect(
+      useCase.execute(actor, new GetRoleInputDto(role.id)),
+    ).resolves.toBeUndefined();
 
-    expect(roleRepoMock.deactivateByIdAndCompanyId).toHaveBeenCalledWith(
+    expect(roleRepoMock.deleteByIdAndCompanyId).toHaveBeenCalledWith(
       role.id,
       actor.companyId,
     );
-    expect(result).toEqual({
-      id: role.id,
-      name: 'Porteiro',
-      description: null,
-      isAdmin: false,
-      isActive: false,
-    });
   });
 
   it('lança NotFoundException quando o cargo não existe na empresa', async () => {
@@ -93,7 +85,16 @@ describe('DeactivateRoleUseCase', () => {
     await expect(
       useCase.execute(actor, new GetRoleInputDto(role.id)),
     ).rejects.toThrow(NotFoundException);
-    expect(roleRepoMock.deactivateByIdAndCompanyId).not.toHaveBeenCalled();
+    expect(roleRepoMock.deleteByIdAndCompanyId).not.toHaveBeenCalled();
+  });
+
+  it('lança NotFoundException quando o cargo some entre a checagem e a exclusão', async () => {
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(role);
+    roleRepoMock.deleteByIdAndCompanyId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(actor, new GetRoleInputDto(role.id)),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('lança BadRequestException para cargo is_admin (imutável — ADR 0004)', async () => {
@@ -105,6 +106,6 @@ describe('DeactivateRoleUseCase', () => {
     await expect(
       useCase.execute(actor, new GetRoleInputDto(role.id)),
     ).rejects.toThrow(BadRequestException);
-    expect(roleRepoMock.deactivateByIdAndCompanyId).not.toHaveBeenCalled();
+    expect(roleRepoMock.deleteByIdAndCompanyId).not.toHaveBeenCalled();
   });
 });

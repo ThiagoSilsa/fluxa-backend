@@ -1,8 +1,15 @@
 // class-transformer
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 // class-validator
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 /**
  * Query de listagem de cargos (apresentação).
@@ -11,6 +18,19 @@ export class ListRolesQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => {
+    if (value === 'true') {
+      return true;
+    }
+    if (value === 'false') {
+      return false;
+    }
+    return value;
+  })
+  @IsBoolean()
+  isActive?: boolean;
 
   @IsOptional()
   @Type(() => Number)
