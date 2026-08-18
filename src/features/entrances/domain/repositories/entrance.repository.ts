@@ -92,14 +92,26 @@ export interface EntranceRepository {
   ): Promise<EntranceEntity | null>;
 
   /**
-   * Desativa uma portaria da empresa (soft: `is_active = false`) — não apaga
-   * o histórico (movimentos, `entry_denial`, devices; ADR 0006 §10).
+   * Conta dispositivos da empresa vinculados a uma portaria (tabela
+   * `device`, FK `device.entrance_id` — ADR 0006 §5).
+   *
+   * @param entranceId Id da portaria.
+   * @param companyId Empresa da sessão.
+   * @returns Quantidade de dispositivos que referenciam a portaria.
+   */
+  countDevicesByEntranceIdAndCompanyId(
+    entranceId: string,
+    companyId: string,
+  ): Promise<number>;
+
+  /**
+   * Exclui fisicamente uma portaria da empresa.
    *
    * @param id Id da portaria.
    * @param companyId Empresa da sessão.
-   * @returns Portaria desativada ou `null` se não existir/não pertencer.
+   * @returns Portaria excluída ou `null` se não existir/não pertencer.
    */
-  deactivateByIdAndCompanyId(
+  deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<EntranceEntity | null>;

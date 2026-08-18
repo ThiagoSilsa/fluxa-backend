@@ -1,28 +1,31 @@
 // NestJS
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 
 // Repository
 import { ENTRANCE_REPOSITORY } from '../../domain/repositories/entrance.repository';
 
-// Mapper
-import { toEntranceResponse } from '../utils/entrance-response.mapper';
-
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
-import type { EntranceResponse } from '../dto/entrance-response';
 import type { GetEntranceInputDto } from '../dto/get-entrance-input.dto';
 import type { EntranceRepository } from '../../domain/repositories/entrance.repository';
 
 /**
- * Desativa uma portaria da empresa da sessão (soft: `is_active = false`).
+ * Exclui fisicamente uma portaria da empresa da sessão.
  *
- * A desativação **não** apaga o histórico (movimentos, `entry_denial`,
- * devices; ADR 0006 §10) — apenas impede novos usos (seleção para novos
- * `device`/movimentos, semana 3+).
+ * A exclusão é **bloqueada (409)** quando há dispositivos da empresa
+ * vinculados à portaria (tabela `device`, FK `device.entrance_id` — ADR 0006
+ * §5); sem vínculos, o registro é removido de vez. A suspensão reversível
+ * continua disponível via `PATCH` com `isActive: false`.
  */
 @Injectable()
-export class DeactivateEntranceUseCase {
-  private readonly logger = new Logger(DeactivateEntranceUseCase.name);
+export class DeleteEntranceUseCase {
+  private readonly logger = new Logger(DeleteEntranceUseCase.name);
 
   constructor(
     @Inject(ENTRANCE_REPOSITORY)
@@ -30,17 +33,18 @@ export class DeactivateEntranceUseCase {
   ) {}
 
   /**
-   * Desativa a portaria da empresa do ator.
+   * Exclui a portaria da empresa do ator.
    *
    * @param actor Ator autenticado (empresa da sessão).
    * @param input Id da portaria.
-   * @returns Portaria desativada.
    * @throws {NotFoundException} Quando a portaria não existe na empresa.
+   * @throws {ConflictException} Quando há dispositivos da empresa vinculados à
+   * portaria (device).
    */
   public async execute(
     actor: AuthenticatedUserEntity,
     input: GetEntranceInputDto,
-  ): Promise<EntranceResponse> {
+  ): Promise<void> {
     const existing = await this.entranceRepository.findByIdAndCompanyId(
       input.id,
       actor.companyId,
@@ -49,13 +53,23 @@ export class DeactivateEntranceUseCase {
       throw new NotFoundException('Portaria não encontrada.');
     }
 
-    const updated = await this.entranceRepository.deactivateByIdAndCompanyId(
+    const devicesUsing =
+      await this.entranceRepository.countDevicesByEntranceIdAndCompanyId(
+        input.id,
+        actor.companyId,
+      );
+    if (devicesUsing > 0) {
+      throw new ConflictException(
+        'Portaria em uso por dispositivos e não pode ser excluída.',
+      );
+    }
+
+    const deleted = await this.entranceRepository.deleteByIdAndCompanyId(
       input.id,
       actor.companyId,
     );
-    if (!updated) {
+    if (!deleted) {
       throw new NotFoundException('Portaria não encontrada.');
     }
-    return toEntranceResponse(updated);
   }
 }

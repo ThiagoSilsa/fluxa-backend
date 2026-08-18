@@ -120,13 +120,37 @@ export class EntrancesTypeormRepository implements EntranceRepository {
   }
 
   /**
-   * Desativa uma portaria da empresa (soft: `is_active = false`).
+   * Conta dispositivos da empresa vinculados a uma portaria (tabela
+   * `device` — sem ORM entity na semana 2, count via SQL direto).
+   *
+   * @param entranceId Id da portaria.
+   * @param companyId Empresa da sessão.
+   * @returns Quantidade de dispositivos que referenciam a portaria.
+   */
+  public async countDevicesByEntranceIdAndCompanyId(
+    entranceId: string,
+    companyId: string,
+  ): Promise<number> {
+    const rows = await this.entranceRepo.manager.query<
+      Array<{ count: number }>
+    >(
+      `SELECT COUNT(*)::int AS "count"
+       FROM "device"
+       WHERE "entrance_id" = $1 AND "company_id" = $2`,
+      [entranceId, companyId],
+    );
+
+    return rows[0]?.count ?? 0;
+  }
+
+  /**
+   * Exclui fisicamente uma portaria da empresa.
    *
    * @param id Id da portaria.
    * @param companyId Empresa da sessão.
-   * @returns Portaria desativada ou `null` se não existir/não pertencer.
+   * @returns Portaria excluída ou `null` se não existir/não pertencer.
    */
-  public async deactivateByIdAndCompanyId(
+  public async deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<EntranceEntity | null> {
@@ -135,9 +159,9 @@ export class EntrancesTypeormRepository implements EntranceRepository {
       return null;
     }
 
-    orm.isActive = false;
-    const saved = await this.entranceRepo.save(orm);
-    return this.toDomain(saved);
+    const domain = this.toDomain(orm);
+    await this.entranceRepo.delete({ id, companyId });
+    return domain;
   }
 
   /**

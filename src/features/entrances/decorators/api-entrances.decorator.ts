@@ -85,18 +85,22 @@ export function ApiUpdateEntrance(): MethodDecorator {
   );
 }
 
-export function ApiDeactivateEntrance(): MethodDecorator {
+export function ApiDeleteEntrance(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Desativa uma portaria (soft)',
+      summary: 'Exclui uma portaria (físico)',
       description:
-        'Exige MANAGE_ENTRANCES. Desativar não apaga o histórico (movimentos, entry_denial, devices — ADR 0006 §10); reativar é PATCH com isActive=true.',
+        'Exige MANAGE_ENTRANCES. Exclusão física (204); bloqueada com 409 se houver dispositivos da empresa vinculados à portaria via device (ADR 0006 §5). Suspensão reversível continua via PATCH com isActive=false.',
     }),
     ApiParam({ name: 'id', description: 'Id da portaria (UUID).' }),
-    ApiResponse({ status: 200, description: 'Portaria desativada.' }),
+    ApiResponse({ status: 204, description: 'Portaria excluída.' }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
     ApiResponse({ status: 404, description: 'Portaria não encontrada.' }),
+    ApiResponse({
+      status: 409,
+      description: 'Portaria em uso por dispositivos — exclusão bloqueada.',
+    }),
   );
 }

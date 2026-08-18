@@ -14,7 +14,7 @@ import { EntranceOrmEntity } from './infrastructure/persistence/typeorm/entrance
 
 // Use cases
 import { CreateEntranceUseCase } from './application/use-cases/create-entrance.use-case';
-import { DeactivateEntranceUseCase } from './application/use-cases/deactivate-entrance.use-case';
+import { DeleteEntranceUseCase } from './application/use-cases/delete-entrance.use-case';
 import { GetEntranceUseCase } from './application/use-cases/get-entrance.use-case';
 import { ListEntrancesUseCase } from './application/use-cases/list-entrances.use-case';
 import { UpdateEntranceUseCase } from './application/use-cases/update-entrance.use-case';
@@ -36,7 +36,7 @@ import { EntrancesController } from './presentation/http/controllers/entrances.c
     ListEntrancesUseCase,
     GetEntranceUseCase,
     UpdateEntranceUseCase,
-    DeactivateEntranceUseCase,
+    DeleteEntranceUseCase,
   ],
   controllers: [EntrancesController],
   exports: [ENTRANCE_REPOSITORY],

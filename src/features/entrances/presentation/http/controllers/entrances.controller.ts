@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -41,7 +43,7 @@ import { UpdateEntranceInputDto } from '../../../application/dto/update-entrance
 
 // Use cases
 import { CreateEntranceUseCase } from '../../../application/use-cases/create-entrance.use-case';
-import { DeactivateEntranceUseCase } from '../../../application/use-cases/deactivate-entrance.use-case';
+import { DeleteEntranceUseCase } from '../../../application/use-cases/delete-entrance.use-case';
 import { GetEntranceUseCase } from '../../../application/use-cases/get-entrance.use-case';
 import { ListEntrancesUseCase } from '../../../application/use-cases/list-entrances.use-case';
 import { UpdateEntranceUseCase } from '../../../application/use-cases/update-entrance.use-case';
@@ -55,7 +57,7 @@ import type {
 // Decorators Swagger da feature
 import {
   ApiCreateEntrance,
-  ApiDeactivateEntrance,
+  ApiDeleteEntrance,
   ApiGetEntrance,
   ApiListEntrances,
   ApiUpdateEntrance,
@@ -64,9 +66,9 @@ import {
 /**
  * CRUD de portarias (por empresa) — exige `MANAGE_ENTRANCES`.
  *
- * Portaria é independente de departamento (ADR 0006 §5) e a desativação é
- * soft (preserva histórico); o controller só valida entrada e delega para os
- * use cases.
+ * Portaria é independente de departamento (ADR 0006 §5); a exclusão é física
+ * (204) e bloqueada com 409 quando há dispositivos vinculados via `device`; a
+ * suspensão reversível segue via `PATCH isActive`.
  */
 @Controller('entrances')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -77,7 +79,7 @@ export class EntrancesController {
     private readonly listEntrancesUseCase: ListEntrancesUseCase,
     private readonly getEntranceUseCase: GetEntranceUseCase,
     private readonly updateEntranceUseCase: UpdateEntranceUseCase,
-    private readonly deactivateEntranceUseCase: DeactivateEntranceUseCase,
+    private readonly deleteEntranceUseCase: DeleteEntranceUseCase,
   ) {}
 
   @Post()
@@ -135,12 +137,13 @@ export class EntrancesController {
   }
 
   @Delete(':id')
-  @ApiDeactivateEntrance()
-  public deactivateEntrance(
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiDeleteEntrance()
+  public deleteEntrance(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<EntranceResponse> {
-    return this.deactivateEntranceUseCase.execute(
+  ): Promise<void> {
+    return this.deleteEntranceUseCase.execute(
       this.requireUser(request),
       new GetEntranceInputDto(id),
     );
