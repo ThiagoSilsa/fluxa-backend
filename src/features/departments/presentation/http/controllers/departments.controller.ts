@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -41,7 +43,7 @@ import { UpdateDepartmentInputDto } from '../../../application/dto/update-depart
 
 // Use cases
 import { CreateDepartmentUseCase } from '../../../application/use-cases/create-department.use-case';
-import { DeactivateDepartmentUseCase } from '../../../application/use-cases/deactivate-department.use-case';
+import { DeleteDepartmentUseCase } from '../../../application/use-cases/delete-department.use-case';
 import { GetDepartmentUseCase } from '../../../application/use-cases/get-department.use-case';
 import { ListDepartmentsUseCase } from '../../../application/use-cases/list-departments.use-case';
 import { UpdateDepartmentUseCase } from '../../../application/use-cases/update-department.use-case';
@@ -55,7 +57,7 @@ import type {
 // Decorators Swagger da feature
 import {
   ApiCreateDepartment,
-  ApiDeactivateDepartment,
+  ApiDeleteDepartment,
   ApiGetDepartment,
   ApiListDepartments,
   ApiUpdateDepartment,
@@ -64,9 +66,9 @@ import {
 /**
  * CRUD de departamentos (por empresa) — exige `MANAGE_DEPARTMENTS`.
  *
- * `parking_space` é obrigatório no cadastro (ADR 0006 §7) e a desativação é
- * soft (não remove vínculos); o controller só valida entrada e delega para os
- * use cases.
+ * `parking_space` é obrigatório no cadastro (ADR 0006 §7); a exclusão é física
+ * (204) e bloqueada com 409 quando há veículos vinculados via
+ * `vehicle_department`; a suspensão reversível segue via `PATCH isActive`.
  */
 @Controller('departments')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -77,7 +79,7 @@ export class DepartmentsController {
     private readonly listDepartmentsUseCase: ListDepartmentsUseCase,
     private readonly getDepartmentUseCase: GetDepartmentUseCase,
     private readonly updateDepartmentUseCase: UpdateDepartmentUseCase,
-    private readonly deactivateDepartmentUseCase: DeactivateDepartmentUseCase,
+    private readonly deleteDepartmentUseCase: DeleteDepartmentUseCase,
   ) {}
 
   @Post()
@@ -141,12 +143,13 @@ export class DepartmentsController {
   }
 
   @Delete(':id')
-  @ApiDeactivateDepartment()
-  public deactivateDepartment(
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiDeleteDepartment()
+  public deleteDepartment(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<DepartmentResponse> {
-    return this.deactivateDepartmentUseCase.execute(
+  ): Promise<void> {
+    return this.deleteDepartmentUseCase.execute(
       this.requireUser(request),
       new GetDepartmentInputDto(id),
     );

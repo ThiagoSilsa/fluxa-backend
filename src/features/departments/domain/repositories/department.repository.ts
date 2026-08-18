@@ -96,15 +96,26 @@ export interface DepartmentRepository {
   ): Promise<DepartmentEntity | null>;
 
   /**
-   * Desativa um departamento da empresa (soft: `is_active = false`) — não
-   * remove vínculos em `vehicle_department` nem acessos históricos (ADR 0006
-   * §10).
+   * Conta vínculos `vehicle_department` da empresa que referenciam um
+   * departamento (veículos com o departamento como padrão — ADR 0006 §7).
+   *
+   * @param departmentId Id do departamento.
+   * @param companyId Empresa da sessão.
+   * @returns Quantidade de vínculos que referenciam o departamento.
+   */
+  countVehicleDepartmentsByDepartmentIdAndCompanyId(
+    departmentId: string,
+    companyId: string,
+  ): Promise<number>;
+
+  /**
+   * Exclui fisicamente um departamento da empresa.
    *
    * @param id Id do departamento.
    * @param companyId Empresa da sessão.
-   * @returns Departamento desativado ou `null` se não existir/não pertencer.
+   * @returns Departamento excluído ou `null` se não existir/não pertencer.
    */
-  deactivateByIdAndCompanyId(
+  deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<DepartmentEntity | null>;

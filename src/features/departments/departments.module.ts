@@ -14,7 +14,7 @@ import { DepartmentOrmEntity } from './infrastructure/persistence/typeorm/depart
 
 // Use cases
 import { CreateDepartmentUseCase } from './application/use-cases/create-department.use-case';
-import { DeactivateDepartmentUseCase } from './application/use-cases/deactivate-department.use-case';
+import { DeleteDepartmentUseCase } from './application/use-cases/delete-department.use-case';
 import { GetDepartmentUseCase } from './application/use-cases/get-department.use-case';
 import { ListDepartmentsUseCase } from './application/use-cases/list-departments.use-case';
 import { UpdateDepartmentUseCase } from './application/use-cases/update-department.use-case';
@@ -38,7 +38,7 @@ import { DepartmentsController } from './presentation/http/controllers/departmen
     ListDepartmentsUseCase,
     GetDepartmentUseCase,
     UpdateDepartmentUseCase,
-    DeactivateDepartmentUseCase,
+    DeleteDepartmentUseCase,
   ],
   controllers: [DepartmentsController],
   exports: [DEPARTMENT_REPOSITORY],

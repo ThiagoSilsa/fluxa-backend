@@ -126,16 +126,35 @@ describe('Departments integration — CRUD de departamentos (Testcontainers)', (
     });
   });
 
-  it('DELETE desativa (soft) e PATCH reativa um departamento', async () => {
+  it('DELETE exclui fisicamente (204) e GET :id → 404', async () => {
     const created = await request(context.httpServer)
       .post('/departments')
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Temporário', parkingSpace: 5 })
       .expect(201);
 
-    const deactivated = await request(context.httpServer)
+    await request(context.httpServer)
       .delete(`/departments/${created.body.id}`)
       .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    await request(context.httpServer)
+      .get(`/departments/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+  });
+
+  it('PATCH isActive:false desativa e PATCH isActive:true reativa', async () => {
+    const created = await request(context.httpServer)
+      .post('/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Desativável', parkingSpace: 8 })
+      .expect(201);
+
+    const deactivated = await request(context.httpServer)
+      .patch(`/departments/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ isActive: false })
       .expect(200);
     expect(deactivated.body).toMatchObject({ isActive: false });
 
@@ -145,6 +164,50 @@ describe('Departments integration — CRUD de departamentos (Testcontainers)', (
       .send({ isActive: true })
       .expect(200);
     expect(reactivated.body).toMatchObject({ isActive: true });
+  });
+
+  it('DELETE com veículos vinculados ao departamento → 409 (bloqueio)', async () => {
+    const created = await request(context.httpServer)
+      .post('/departments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Em Uso', parkingSpace: 20 })
+      .expect(201);
+
+    // Cria um tipo e um veículo para vincular o departamento padrão.
+    const vehicleType = await request(context.httpServer)
+      .post('/vehicle-types')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ code: 'tipo-dep', name: 'Tipo Dep' })
+      .expect(201);
+
+    const vehicle = await request(context.httpServer)
+      .post('/vehicles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        plate: 'ABC1D23',
+        vehicleTypeId: vehicleType.body.id,
+        model: 'Veículo de teste',
+      })
+      .expect(201);
+
+    await request(context.httpServer)
+      .put(`/vehicles/${vehicle.body.id}/department`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ departmentId: created.body.id })
+      .expect(200);
+
+    const res = await request(context.httpServer)
+      .delete(`/departments/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(409);
+    expect(res.body.message).toContain('em uso por veículos');
+
+    // O departamento continua existindo (bloqueado, não removido).
+    const stillThere = await request(context.httpServer)
+      .get(`/departments/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(stillThere.body).toMatchObject({ name: 'Em Uso' });
   });
 
   it('GET /departments/:id inexistente → 404', async () => {

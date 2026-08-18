@@ -88,18 +88,22 @@ export function ApiUpdateDepartment(): MethodDecorator {
   );
 }
 
-export function ApiDeactivateDepartment(): MethodDecorator {
+export function ApiDeleteDepartment(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Desativa um departamento (soft)',
+      summary: 'Exclui um departamento (físico)',
       description:
-        'Exige MANAGE_DEPARTMENTS. Desativar não remove vínculos (vehicle_department) nem acessos históricos (ADR 0006 §10); reativar é PATCH com isActive=true.',
+        'Exige MANAGE_DEPARTMENTS. Exclusão física (204); bloqueada com 409 se houver veículos da empresa vinculados ao departamento via vehicle_department (departamento padrão — ADR 0006 §7). Suspensão reversível continua via PATCH com isActive=false.',
     }),
     ApiParam({ name: 'id', description: 'Id do departamento (UUID).' }),
-    ApiResponse({ status: 200, description: 'Departamento desativado.' }),
+    ApiResponse({ status: 204, description: 'Departamento excluído.' }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
     ApiResponse({ status: 404, description: 'Departamento não encontrado.' }),
+    ApiResponse({
+      status: 409,
+      description: 'Departamento em uso por veículos — exclusão bloqueada.',
+    }),
   );
 }

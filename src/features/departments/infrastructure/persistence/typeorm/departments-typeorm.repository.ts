@@ -14,6 +14,7 @@ import type {
 
 // TypeORM
 import { DepartmentOrmEntity } from './department.orm-entity';
+import { VehicleDepartmentOrmEntity } from '../../../../vehicles/infrastructure/persistence/typeorm/vehicle-department.orm-entity';
 
 /**
  * Implementação TypeORM do `DepartmentRepository`.
@@ -128,13 +129,30 @@ export class DepartmentsTypeormRepository implements DepartmentRepository {
   }
 
   /**
-   * Desativa um departamento da empresa (soft: `is_active = false`).
+   * Conta vínculos `vehicle_department` da empresa que referenciam um
+   * departamento.
+   *
+   * @param departmentId Id do departamento.
+   * @param companyId Empresa da sessão.
+   * @returns Quantidade de vínculos que referenciam o departamento.
+   */
+  public async countVehicleDepartmentsByDepartmentIdAndCompanyId(
+    departmentId: string,
+    companyId: string,
+  ): Promise<number> {
+    return this.departmentRepo.manager.count(VehicleDepartmentOrmEntity, {
+      where: { departmentId, companyId },
+    });
+  }
+
+  /**
+   * Exclui fisicamente um departamento da empresa.
    *
    * @param id Id do departamento.
    * @param companyId Empresa da sessão.
-   * @returns Departamento desativado ou `null` se não existir/não pertencer.
+   * @returns Departamento excluído ou `null` se não existir/não pertencer.
    */
-  public async deactivateByIdAndCompanyId(
+  public async deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<DepartmentEntity | null> {
@@ -143,9 +161,9 @@ export class DepartmentsTypeormRepository implements DepartmentRepository {
       return null;
     }
 
-    orm.isActive = false;
-    const saved = await this.departmentRepo.save(orm);
-    return this.toDomain(saved);
+    const domain = this.toDomain(orm);
+    await this.departmentRepo.delete({ id, companyId });
+    return domain;
   }
 
   /**

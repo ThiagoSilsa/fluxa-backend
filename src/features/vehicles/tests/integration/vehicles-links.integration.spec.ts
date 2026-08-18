@@ -96,8 +96,9 @@ describe('Vehicles links integration — vehicle_department e user_vehicle (Test
     it('PUT com departamento inativo → 400', async () => {
       const inactiveId = await createDepartment('Inativo', 5);
       await request(context.httpServer)
-        .delete(`/departments/${inactiveId}`)
+        .patch(`/departments/${inactiveId}`)
         .set('Authorization', `Bearer ${token}`)
+        .send({ isActive: false })
         .expect(200);
 
       await request(context.httpServer)
