@@ -10,7 +10,7 @@
 1. Os CRUDs de cadastros base exigem a permissão do catálogo (`MANAGE_VEHICLE_TYPES`, `MANAGE_DEPARTMENTS`, `MANAGE_ENTRANCES`, `MANAGE_VEHICLES`) — ou `is_admin` (bypass do ADR 0004).
 2. Tudo é escopado pela **empresa da sessão**: listar, detalhar, editar e desativar atuam sobre registros da empresa da sessão; referência de outro tenant → **404** (não revela existência).
 3. A leitura de cada catálogo está sob a própria permissão de gestão (autossuficiente). Perfis que criam veículos combinam `MANAGE_VEHICLES` + `MANAGE_VEHICLE_TYPES` (+ `MANAGE_DEPARTMENTS` se definem o departamento padrão) — composição feita na configuração de cargos.
-4. **Desativação em vez de delete físico**: `DELETE :id` em `vehicle_type`, `vehicle`, `department` e `entrance` desativa (`is_active = false`); reativar é `PATCH` com `is_active = true`. **Exceções**: o vínculo `user_vehicle` (sem `is_active` no modelo) é removido fisicamente; e `vehicle_type` é **excluído fisicamente** (204) quando nenhum veículo da empresa o usa — com veículos referenciando (FK `vehicle.vehicle_type_id`), a exclusão é **bloqueada com 409** (a linha permanece; a suspensão reversível é PATCH com `is_active = false`).
+4. **Desativação em vez de delete físico**: `DELETE :id` em `vehicle_type`, `vehicle`, `department` e `entrance` desativa (`is_active = false`); reativar é `PATCH` com `is_active = true`. **Exceções**: o vínculo `user_vehicle` (sem `is_active` no modelo) é removido fisicamente; `vehicle_type` é **excluído fisicamente** (204) quando nenhum veículo da empresa o usa — com veículos referenciando (FK `vehicle.vehicle_type_id`), a exclusão é **bloqueada com 409**; e `department` é **excluído fisicamente** (204) quando nenhum veículo da empresa está vinculado via `vehicle_department` — com vínculos, a exclusão é **bloqueada com 409** (a linha permanece; a suspensão reversível é PATCH com `is_active = false`).
 5. **Concorrência/unicidade** (placa por empresa, `code` de tipo por empresa, vínculo duplicado, segundo `is_primary`, segundo `vehicle_department`) → **409** estável, nunca 500 cru.
 
 ## 2. Tipos de veículo (`vehicle_type`)
@@ -33,8 +33,9 @@
 ## 4. Departamentos (`department`)
 
 17. **`parking_space` é obrigatório** no create → **400** se ausente (não é seedado — cadastro da administração); `0` é aceito (departamento sem vagas).
-18. Desativar um departamento **não** apaga `vehicle_department` nem acessos históricos; o departamento inativo deixa de ser selecionável na confirmação de setor da portaria e como novo departamento padrão.
-19. Veículo cujo departamento padrão foi desativado **não perde o vínculo** — conta nas vagas livres na portaria até receber um novo departamento padrão.
+18. **Excluir** (`DELETE /departments/:id`, 204) remove fisicamente o departamento **somente quando nenhum veículo da empresa está vinculado** via `vehicle_department` (departamento padrão); com vínculos → **409** (bloqueio — a linha permanece; a suspensão reversível é PATCH com `is_active = false`).
+19. Desativar um departamento **não** apaga `vehicle_department` nem acessos históricos; o departamento inativo deixa de ser selecionável na confirmação de setor da portaria e como novo departamento padrão.
+20. Veículo cujo departamento padrão foi desativado **não perde o vínculo** — conta nas vagas livres na portaria até receber um novo departamento padrão.
 
 ## 5. Portarias (`entrance`)
 
