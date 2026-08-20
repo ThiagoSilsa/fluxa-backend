@@ -1,7 +1,7 @@
 // NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 // Shared
 import { normalizePlate } from '../../../../../shared/utils/plate.util';
@@ -151,6 +151,58 @@ export class VehiclesTypeormRepository implements VehicleRepository {
     });
     const saved = await this.vehicleRepo.save(orm);
     return this.toDomain(saved);
+  }
+
+  /**
+   * Busca veículos da empresa cujas placas estão na lista (exatas, já
+   * normalizadas) — importador (ADR 0007 §8).
+   *
+   * @param plates Placas a buscar.
+   * @param companyId Empresa da sessão.
+   * @returns Veículos encontrados com uma das placas.
+   */
+  public async findByPlatesAndCompanyId(
+    plates: string[],
+    companyId: string,
+  ): Promise<VehicleEntity[]> {
+    if (plates.length === 0) {
+      return [];
+    }
+
+    const rows = await this.vehicleRepo.find({
+      where: { companyId, plate: In(plates) },
+    });
+
+    return rows.map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Insere vários veículos em lote (chunks de 500 — ADR 0007 §8).
+   *
+   * @param data Lista de dados de criação (inclui `companyId`).
+   * @returns Veículos criados.
+   */
+  public async createBatch(
+    data: CreateVehicleRepositoryData[],
+  ): Promise<VehicleEntity[]> {
+    if (data.length === 0) {
+      return [];
+    }
+
+    const entities = data.map((item) =>
+      this.vehicleRepo.create({
+        plate: item.plate,
+        companyId: item.companyId,
+        model: item.model,
+        color: item.color,
+        observation: item.observation,
+        freePass: item.freePass,
+        vehicleTypeId: item.vehicleTypeId,
+      }),
+    );
+
+    const saved = await this.vehicleRepo.save(entities);
+    return saved.map((row) => this.toDomain(row));
   }
 
   /**

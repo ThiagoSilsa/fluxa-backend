@@ -47,6 +47,17 @@ export interface UserVehicleRepository {
   create(data: AssignDriverRepositoryData): Promise<UserVehicleEntity>;
 
   /**
+   * Insere vários vínculos em lote (chunks de 500 — ADR 0007 §8). Se algum
+   * vínculo do lote marca `isPrimary`, os primários anteriores dos veículos
+   * envolvidos são desmarcados na mesma transação (invariante de 1 primário —
+   * ADR 0006 §9).
+   *
+   * @param data Lista de dados do vínculo (inclui `companyId`).
+   * @returns Vínculos criados.
+   */
+  createBatch(data: AssignDriverRepositoryData[]): Promise<UserVehicleEntity[]>;
+
+  /**
    * Lista os vínculos do veículo na empresa, com o nome do motorista
    * (primários primeiro).
    *
@@ -58,6 +69,19 @@ export interface UserVehicleRepository {
     vehicleId: string,
     companyId: string,
   ): Promise<UserVehicleWithUserEntity[]>;
+
+  /**
+   * Lista os vínculos de vários veículos na empresa (sem o motorista) — usado
+   * pelo importador para detectar vínculos duplicados em lote (ADR 0007 §8).
+   *
+   * @param vehicleIds Ids dos veículos.
+   * @param companyId Empresa da sessão.
+   * @returns Vínculos encontrados para os veículos informados.
+   */
+  findByVehicleIdsAndCompanyId(
+    vehicleIds: string[],
+    companyId: string,
+  ): Promise<UserVehicleEntity[]>;
 
   /**
    * Busca o vínculo de um motorista com um veículo na empresa.

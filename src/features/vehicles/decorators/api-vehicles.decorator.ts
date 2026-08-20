@@ -375,3 +375,57 @@ export function ApiRemoveVehicleDriver(): MethodDecorator {
     }),
   );
 }
+
+export function ApiImportVehicles(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Importa veículos por planilha XLSX',
+      description:
+        'Exige MANAGE_IMPORTS. Envia multipart com o campo file (.xlsx ≤ 50MB, aba fixa "data"). freePass=true em qualquer linha exige GRANT_FREE_PASS. O upload valida a estrutura, cria um job e enfileira o processamento (ADR 0007); a UI acompanha via GET /import-jobs/:jobId.',
+    }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        required: ['file'],
+        properties: {
+          file: { type: 'string', format: 'binary' },
+        },
+      },
+    }),
+    ApiResponse({
+      status: 201,
+      description: 'Job criado e enfileirado: { jobId, status: PENDING }.',
+    }),
+    ApiResponse({ status: 400, description: 'Arquivo/planilha inválidos.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+  );
+}
+
+export function ApiImportUserVehicles(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Importa vínculos usuário-veículo por planilha XLSX',
+      description:
+        'Exige MANAGE_IMPORTS. Envia multipart com o campo file (.xlsx ≤ 50MB, aba fixa "data"). Referências por chave natural: vehiclePlate e userEmail. O upload valida a estrutura, cria um job e enfileira o processamento (ADR 0007); a UI acompanha via GET /import-jobs/:jobId.',
+    }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        required: ['file'],
+        properties: {
+          file: { type: 'string', format: 'binary' },
+        },
+      },
+    }),
+    ApiResponse({
+      status: 201,
+      description: 'Job criado e enfileirado: { jobId, status: PENDING }.',
+    }),
+    ApiResponse({ status: 400, description: 'Arquivo/planilha inválidos.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+  );
+}

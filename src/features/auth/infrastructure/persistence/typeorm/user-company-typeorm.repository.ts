@@ -97,6 +97,25 @@ export class UserCompanyTypeormRepository implements UserCompanyRepository {
   }
 
   /**
+   * Busca a pessoa pelo e-mail (normalizado) com o vínculo na empresa —
+   * importador de vínculo usuário-veículo (ADR 0007 §8).
+   *
+   * @param email E-mail normalizado.
+   * @param companyId Id da empresa da sessão.
+   * @returns Pessoa + vínculo na empresa, ou `null` se não existir.
+   */
+  public async findByEmailAndCompanyId(
+    email: string,
+    companyId: string,
+  ): Promise<UserCompanyWithUserEntity | null> {
+    const link = await this.userCompanyRepo.findOne({
+      where: { companyId, user: { email } },
+      relations: { user: true },
+    });
+    return link ? this.toDomainWithUser(link) : null;
+  }
+
+  /**
    * Verifica se a pessoa já tem vínculo com a empresa (ativo ou inativo).
    *
    * @param userId Id da pessoa.

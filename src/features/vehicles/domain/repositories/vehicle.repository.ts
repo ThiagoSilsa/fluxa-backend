@@ -101,6 +101,28 @@ export interface VehicleRepository {
   create(data: CreateVehicleRepositoryData): Promise<VehicleEntity>;
 
   /**
+   * Busca veículos da empresa cujas placas estão na lista (exatas, já
+   * normalizadas) — usado pelo importador para detectar duplicados e resolver
+   * placas (ADR 0007 §8).
+   *
+   * @param plates Placas a buscar.
+   * @param companyId Empresa da sessão.
+   * @returns Veículos encontrados com uma das placas.
+   */
+  findByPlatesAndCompanyId(
+    plates: string[],
+    companyId: string,
+  ): Promise<VehicleEntity[]>;
+
+  /**
+   * Insere vários veículos em lote (chunks de 500 — ADR 0007 §8).
+   *
+   * @param data Lista de dados de criação (inclui `companyId`).
+   * @returns Veículos criados.
+   */
+  createBatch(data: CreateVehicleRepositoryData[]): Promise<VehicleEntity[]>;
+
+  /**
    * Atualiza um veículo da empresa.
    *
    * @param id Id do veículo.

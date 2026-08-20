@@ -84,6 +84,19 @@ export interface VehicleTypeRepository {
   create(data: CreateVehicleTypeRepositoryData): Promise<VehicleTypeEntity>;
 
   /**
+   * Busca tipos da empresa cujos códigos estão na lista (exatos) — usado
+   * pelo importador de veículos para resolver o tipo por código (ADR 0007 §8).
+   *
+   * @param codes Códigos a buscar.
+   * @param companyId Empresa da sessão.
+   * @returns Tipos encontrados com um dos códigos.
+   */
+  findByCodesAndCompanyId(
+    codes: string[],
+    companyId: string,
+  ): Promise<VehicleTypeEntity[]>;
+
+  /**
    * Atualiza um tipo da empresa (código/nome/descrição/classificação).
    *
    * @param id Id do tipo.

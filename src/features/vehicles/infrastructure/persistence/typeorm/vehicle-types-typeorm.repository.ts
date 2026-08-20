@@ -1,7 +1,7 @@
 // NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 // Types
 import type { VehicleTypeEntity } from '../../../domain/entities/vehicle-type.entity';
@@ -106,6 +106,29 @@ export class VehicleTypesTypeormRepository implements VehicleTypeRepository {
     });
     const saved = await this.vehicleTypeRepo.save(orm);
     return this.toDomain(saved);
+  }
+
+  /**
+   * Busca tipos da empresa cujos códigos estão na lista (exatos) —
+   * importador de veículos (ADR 0007 §8).
+   *
+   * @param codes Códigos a buscar.
+   * @param companyId Empresa da sessão.
+   * @returns Tipos encontrados com um dos códigos.
+   */
+  public async findByCodesAndCompanyId(
+    codes: string[],
+    companyId: string,
+  ): Promise<VehicleTypeEntity[]> {
+    if (codes.length === 0) {
+      return [];
+    }
+
+    const rows = await this.vehicleTypeRepo.find({
+      where: { companyId, code: In(codes) },
+    });
+
+    return rows.map((row) => this.toDomain(row));
   }
 
   /**

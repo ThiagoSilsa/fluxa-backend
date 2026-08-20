@@ -116,6 +116,20 @@ export interface UserCompanyRepository {
   ): Promise<UserCompanyWithUserEntity | null>;
 
   /**
+   * Busca a pessoa pelo e-mail (normalizado) com o vínculo na empresa — usado
+   * pelo importador de vínculo usuário-veículo para resolver o usuário por
+   * e-mail (ADR 0007 §8).
+   *
+   * @param email E-mail normalizado.
+   * @param companyId Id da empresa da sessão.
+   * @returns Pessoa + vínculo na empresa, ou `null` se não existir.
+   */
+  findByEmailAndCompanyId(
+    email: string,
+    companyId: string,
+  ): Promise<UserCompanyWithUserEntity | null>;
+
+  /**
    * Verifica se a pessoa já tem vínculo com a empresa (ativo ou inativo) —
    * usado no create para devolver 409 quando o vínculo já existe.
    *

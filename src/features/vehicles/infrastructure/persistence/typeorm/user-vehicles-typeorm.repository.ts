@@ -1,7 +1,7 @@
 // NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
 // Types
 import type {
@@ -65,6 +65,56 @@ export class UserVehiclesTypeormRepository implements UserVehicleRepository {
   }
 
   /**
+   * Insere vários vínculos em lote (chunks de 500 — ADR 0007 §8). Se algum
+   * vínculo do lote marca `isPrimary`, os primários anteriores dos veículos
+   * envolvidos são desmarcados na mesma transação (invariante de 1 primário —
+   * ADR 0006 §9).
+   *
+   * @param data Lista de dados do vínculo (inclui `companyId`).
+   * @returns Vínculos criados.
+   */
+  public async createBatch(
+    data: AssignDriverRepositoryData[],
+  ): Promise<UserVehicleEntity[]> {
+    if (data.length === 0) {
+      return [];
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const primaryVehicleIds = [
+        ...new Set(
+          data.filter((item) => item.isPrimary).map((item) => item.vehicleId),
+        ),
+      ];
+
+      if (primaryVehicleIds.length > 0) {
+        await manager.update(
+          UserVehicleOrmEntity,
+          {
+            vehicleId: In(primaryVehicleIds),
+            companyId: data[0].companyId,
+            isPrimary: true,
+          },
+          { isPrimary: false },
+        );
+      }
+
+      const entities = data.map((item) =>
+        manager.create(UserVehicleOrmEntity, {
+          companyId: item.companyId,
+          userId: item.userId,
+          vehicleId: item.vehicleId,
+          isPrimary: item.isPrimary,
+          canDrive: item.canDrive,
+        }),
+      );
+
+      const saved = await manager.save(entities);
+      return saved.map((row) => this.toDomain(row));
+    });
+  }
+
+  /**
    * Lista os vínculos do veículo na empresa, com o nome do motorista
    * (primários primeiro).
    *
@@ -82,6 +132,29 @@ export class UserVehiclesTypeormRepository implements UserVehicleRepository {
       order: { isPrimary: 'DESC', createdAt: 'ASC' },
     });
     return rows.map((row) => this.toDomainWithUser(row));
+  }
+
+  /**
+   * Lista os vínculos de vários veículos na empresa (sem o motorista) —
+   * importador de vínculo usuário-veículo (ADR 0007 §8).
+   *
+   * @param vehicleIds Ids dos veículos.
+   * @param companyId Empresa da sessão.
+   * @returns Vínculos encontrados para os veículos informados.
+   */
+  public async findByVehicleIdsAndCompanyId(
+    vehicleIds: string[],
+    companyId: string,
+  ): Promise<UserVehicleEntity[]> {
+    if (vehicleIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.userVehicleRepo.find({
+      where: { companyId, vehicleId: In(vehicleIds) },
+    });
+
+    return rows.map((row) => this.toDomain(row));
   }
 
   /**
