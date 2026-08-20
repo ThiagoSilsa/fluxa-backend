@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './features/auth/auth.module';
 import { DepartmentsModule } from './features/departments/departments.module';
 import { EntrancesModule } from './features/entrances/entrances.module';
+import { ImportsModule } from './features/imports/imports.module';
 import { RolesModule } from './features/roles/roles.module';
 import { UsersModule } from './features/users/users.module';
 import { VehiclesModule } from './features/vehicles/vehicles.module';
@@ -33,6 +34,7 @@ import { validateEnvironment } from './shared/validators/environment.validator';
     DepartmentsModule,
     EntrancesModule,
     VehiclesModule,
+    ImportsModule,
   ],
   providers: [
     // Validação global de DTOs (sem tocar no main.ts — AGENTS.md).
