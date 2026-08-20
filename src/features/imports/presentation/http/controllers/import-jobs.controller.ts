@@ -52,6 +52,8 @@ import {
  * (ADR 0007 §6). A criação dos jobs acontece nos importadores de cada recurso
  * (`POST /<recurso>/import` — Fase 1, marcos 3–5).
  */
+@ApiTags('Import Jobs')
+@ApiBearerAuth('access-token')
 @Controller('import-jobs')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @RequirePermissions(PermissionCode.MANAGE_IMPORTS)

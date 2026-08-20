@@ -82,6 +82,29 @@ export interface DepartmentRepository {
   create(data: CreateDepartmentRepositoryData): Promise<DepartmentEntity>;
 
   /**
+   * Busca departamentos da empresa cujos nomes estão na lista (exato) — usado
+   * pelo importador para detectar duplicados (ADR 0007 §8).
+   *
+   * @param names Nomes a buscar (exatos).
+   * @param companyId Empresa da sessão.
+   * @returns Departamentos encontrados com um dos nomes.
+   */
+  findByNamesAndCompanyId(
+    names: string[],
+    companyId: string,
+  ): Promise<DepartmentEntity[]>;
+
+  /**
+   * Insere vários departamentos em lote (chunks de 500 — ADR 0007 §8).
+   *
+   * @param data Lista de dados de criação (inclui `companyId`).
+   * @returns Departamentos criados.
+   */
+  createBatch(
+    data: CreateDepartmentRepositoryData[],
+  ): Promise<DepartmentEntity[]>;
+
+  /**
    * Atualiza um departamento da empresa (nome/descrição/vagas).
    *
    * @param id Id do departamento.

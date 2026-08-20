@@ -6,7 +6,10 @@ import { PermissionCode } from '../../../../shared/constants/access-control.cons
 
 // Constants
 import { UserType } from '../../../auth/domain/constants/user-type.constant';
-import { ImportJobStatus, ImportJobType } from '../../domain/constants/import-job.constant';
+import {
+  ImportJobStatus,
+  ImportJobType,
+} from '../../domain/constants/import-job.constant';
 
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';

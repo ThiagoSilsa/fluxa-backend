@@ -1,7 +1,7 @@
 // NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, ILike, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, In, Repository } from 'typeorm';
 
 // Types
 import type { DepartmentEntity } from '../../../domain/entities/department.entity';
@@ -91,6 +91,55 @@ export class DepartmentsTypeormRepository implements DepartmentRepository {
     });
     const saved = await this.departmentRepo.save(orm);
     return this.toDomain(saved);
+  }
+
+  /**
+   * Busca departamentos da empresa cujos nomes estão na lista (exato) —
+   * usado pelo importador para detectar duplicados (ADR 0007 §8).
+   *
+   * @param names Nomes a buscar (exatos).
+   * @param companyId Empresa da sessão.
+   * @returns Departamentos encontrados com um dos nomes.
+   */
+  public async findByNamesAndCompanyId(
+    names: string[],
+    companyId: string,
+  ): Promise<DepartmentEntity[]> {
+    if (names.length === 0) {
+      return [];
+    }
+
+    const rows = await this.departmentRepo.find({
+      where: { companyId, name: In(names) },
+    });
+
+    return rows.map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Insere vários departamentos em lote (chunks de 500 — ADR 0007 §8).
+   *
+   * @param data Lista de dados de criação (inclui `companyId`).
+   * @returns Departamentos criados.
+   */
+  public async createBatch(
+    data: CreateDepartmentRepositoryData[],
+  ): Promise<DepartmentEntity[]> {
+    if (data.length === 0) {
+      return [];
+    }
+
+    const entities = data.map((item) =>
+      this.departmentRepo.create({
+        companyId: item.companyId,
+        name: item.name,
+        description: item.description,
+        parkingSpace: item.parkingSpace,
+      }),
+    );
+
+    const saved = await this.departmentRepo.save(entities);
+    return saved.map((row) => this.toDomain(row));
   }
 
   /**
