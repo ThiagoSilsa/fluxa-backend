@@ -23,6 +23,10 @@ export interface ListVehiclesRepositoryFilters {
   freePass?: boolean;
   /** Filtra por estado ativo/inativo. */
   isActive?: boolean;
+  /** Coluna de ordenação (whitelist: `plate`, `isActive`, `createdAt`). */
+  sortBy?: 'plate' | 'isActive' | 'createdAt';
+  /** Direção da ordenação (default `ASC`). */
+  sortOrder?: 'ASC' | 'DESC';
   /** Quantidade de registros por página. */
   limit: number;
   /** Offset da página. */
@@ -111,14 +115,26 @@ export interface VehicleRepository {
   ): Promise<VehicleEntity | null>;
 
   /**
-   * Desativa um veículo da empresa (soft: `is_active = false`) — não fecha
-   * acessos `INSIDE`, não revoga QR/bloqueios (ADR 0006 §10).
+   * Conta vínculos da empresa que referenciam um veículo — `vehicle_department`
+   * (departamento padrão) + `user_vehicle` (motoristas) — ADR 0006 §9/§10.
+   *
+   * @param vehicleId Id do veículo.
+   * @param companyId Empresa da sessão.
+   * @returns Quantidade de vínculos que referenciam o veículo.
+   */
+  countVehicleLinksByVehicleIdAndCompanyId(
+    vehicleId: string,
+    companyId: string,
+  ): Promise<number>;
+
+  /**
+   * Exclui fisicamente um veículo da empresa.
    *
    * @param id Id do veículo.
    * @param companyId Empresa da sessão.
-   * @returns Veículo desativado ou `null` se não existir/não pertencer.
+   * @returns Veículo excluído ou `null` se não existir/não pertencer.
    */
-  deactivateByIdAndCompanyId(
+  deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<VehicleEntity | null>;

@@ -202,19 +202,37 @@ export function ApiUpdateVehicle(): MethodDecorator {
   );
 }
 
-export function ApiDeactivateVehicle(): MethodDecorator {
+export function ApiDeleteVehicle(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Desativa um veículo (soft)',
+      summary: 'Exclui um veículo (físico)',
       description:
-        'Exige MANAGE_VEHICLES. Desativar não fecha acessos INSIDE, não revoga QR/bloqueios (ADR 0006 §10); reativar é PATCH com isActive=true.',
+        'Exige MANAGE_VEHICLES. Exclusão física (204); bloqueada com 409 se houver vínculos da empresa (departamento padrão via vehicle_department ou motoristas via user_vehicle — ADR 0006 §9/§10). Suspensão reversível continua via PATCH com isActive=false.',
     }),
     ApiParam({ name: 'id', description: 'Id do veículo (UUID).' }),
-    ApiResponse({ status: 200, description: 'Veículo desativado.' }),
+    ApiResponse({ status: 204, description: 'Veículo excluído.' }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
     ApiResponse({ status: 404, description: 'Veículo não encontrado.' }),
+    ApiResponse({
+      status: 409,
+      description: 'Veículo em uso por vínculos — exclusão bloqueada.',
+    }),
+  );
+}
+
+export function ApiListDriverCandidates(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Lista candidatos a motorista da empresa',
+      description:
+        'Exige MANAGE_VEHICLES. Pessoas com vínculo user_company ativo na empresa da sessão (pré-requisito para vincular como motorista — ADR 0006 §9). Paginado no formato padrão, com busca por nome.',
+    }),
+    ApiResponse({ status: 200, description: 'Página de candidatos.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
   );
 }
 

@@ -4,6 +4,7 @@ import { Transform, Type } from 'class-transformer';
 // class-validator
 import {
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -56,6 +57,16 @@ export class ListVehiclesQueryDto {
   })
   @IsBoolean()
   isActive?: boolean;
+
+  /** Coluna de ordenação (whitelist — ADR 0006 §11). */
+  @IsOptional()
+  @IsIn(['plate', 'isActive', 'createdAt'])
+  sortBy?: 'plate' | 'isActive' | 'createdAt';
+
+  /** Direção da ordenação. */
+  @IsOptional()
+  @IsIn(['ASC', 'DESC'])
+  sortOrder?: 'ASC' | 'DESC';
 
   @IsOptional()
   @Type(() => Number)

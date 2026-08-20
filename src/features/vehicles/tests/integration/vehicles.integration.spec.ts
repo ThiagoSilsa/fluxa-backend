@@ -15,6 +15,7 @@ describe('Vehicles integration — CRUD de veículos (Testcontainers)', () => {
   let token: string;
   let porteiroToken: string;
   let manageVehiclesToken: string;
+  let motoristaId: string;
 
   beforeAll(async () => {
     context = await createVehiclesIntegrationContext();
@@ -38,6 +39,14 @@ describe('Vehicles integration — CRUD de veículos (Testcontainers)', () => {
       'gestor@teste.local',
       VEHICLES_SEEDED.ADMIN_PASSWORD,
     );
+    // Motorista com vínculo user_company ativo — cenários de 409 e candidatos.
+    await context.seedUserWithRole(
+      'motorista@teste.local',
+      VEHICLES_SEEDED.PORTEIRO_ROLE_ID,
+    );
+    motoristaId = (await context.findUserIdByEmail(
+      'motorista@teste.local',
+    )) as string;
   });
 
   afterAll(async () => {
@@ -214,16 +223,35 @@ describe('Vehicles integration — CRUD de veículos (Testcontainers)', () => {
     expect(res.body).toMatchObject({ model: 'Cruze', color: 'Preto' });
   });
 
-  it('DELETE desativa (soft) e PATCH reativa um veículo', async () => {
+  it('DELETE exclui fisicamente (204) e GET :id → 404', async () => {
     const created = await request(context.httpServer)
       .post('/vehicles')
       .set('Authorization', `Bearer ${token}`)
       .send({ plate: 'MNO1P23', vehicleTypeId: VEHICLES_SEEDED.FROTA_TYPE_ID })
       .expect(201);
 
-    const deactivated = await request(context.httpServer)
+    await request(context.httpServer)
       .delete(`/vehicles/${created.body.id}`)
       .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    await request(context.httpServer)
+      .get(`/vehicles/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+  });
+
+  it('PATCH isActive:false desativa e PATCH isActive:true reativa', async () => {
+    const created = await request(context.httpServer)
+      .post('/vehicles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ plate: 'QRS2T34', vehicleTypeId: VEHICLES_SEEDED.FROTA_TYPE_ID })
+      .expect(201);
+
+    const deactivated = await request(context.httpServer)
+      .patch(`/vehicles/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ isActive: false })
       .expect(200);
     expect(deactivated.body).toMatchObject({ isActive: false });
 
@@ -233,6 +261,102 @@ describe('Vehicles integration — CRUD de veículos (Testcontainers)', () => {
       .send({ isActive: true })
       .expect(200);
     expect(reactivated.body).toMatchObject({ isActive: true });
+  });
+
+  it('DELETE com motorista vinculado → 409 (bloqueio)', async () => {
+    const created = await request(context.httpServer)
+      .post('/vehicles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ plate: 'UVW3X45', vehicleTypeId: VEHICLES_SEEDED.FROTA_TYPE_ID })
+      .expect(201);
+
+    await request(context.httpServer)
+      .post(`/vehicles/${created.body.id}/drivers`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ userId: motoristaId })
+      .expect(201);
+
+    const res = await request(context.httpServer)
+      .delete(`/vehicles/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(409);
+    expect(res.body.message).toContain('em uso por vínculos');
+
+    // O veículo continua existindo (bloqueado, não removido).
+    await request(context.httpServer)
+      .get(`/vehicles/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+  });
+
+  it('GET /vehicles?sortBy=&sortOrder= ordena no servidor', async () => {
+    await request(context.httpServer)
+      .post('/vehicles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ plate: 'BBB1A11', vehicleTypeId: VEHICLES_SEEDED.FROTA_TYPE_ID })
+      .expect(201);
+    await request(context.httpServer)
+      .post('/vehicles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ plate: 'AAA1B22', vehicleTypeId: VEHICLES_SEEDED.FROTA_TYPE_ID })
+      .expect(201);
+    await request(context.httpServer)
+      .post('/vehicles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ plate: 'CCC1C33', vehicleTypeId: VEHICLES_SEEDED.FROTA_TYPE_ID })
+      .expect(201);
+
+    const desc = await request(context.httpServer)
+      .get('/vehicles?sortBy=plate&sortOrder=DESC&limit=100')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const platesDesc = desc.body.data.map((v: { plate: string }) => v.plate);
+    expect(platesDesc).toContain('AAA1B22');
+    expect(platesDesc).toContain('BBB1A11');
+    expect(platesDesc).toContain('CCC1C33');
+    expect(platesDesc.indexOf('CCC1C33')).toBeLessThan(
+      platesDesc.indexOf('AAA1B22'),
+    );
+
+    const asc = await request(context.httpServer)
+      .get('/vehicles?sortBy=plate&sortOrder=ASC&limit=100')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const platesAsc = asc.body.data.map((v: { plate: string }) => v.plate);
+    expect(platesAsc.indexOf('AAA1B22')).toBeLessThan(
+      platesAsc.indexOf('CCC1C33'),
+    );
+  });
+
+  it('GET /vehicles?sortBy=inválido → 400', async () => {
+    await request(context.httpServer)
+      .get('/vehicles?sortBy=model&sortOrder=ASC')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+  });
+
+  it('GET /vehicles/driver-candidates lista pessoas com vínculo ativo', async () => {
+    const res = await request(context.httpServer)
+      .get('/vehicles/driver-candidates?search=motorista')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body).toMatchObject({ limit: 20, offset: 0 });
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: motoristaId,
+          name: 'Usuário de teste',
+        }),
+      ]),
+    );
+  });
+
+  it('GET /vehicles/driver-candidates sem token → 401', async () => {
+    await request(context.httpServer)
+      .get('/vehicles/driver-candidates')
+      .expect(401);
   });
 
   it('GET /vehicles/:id inexistente → 404', async () => {

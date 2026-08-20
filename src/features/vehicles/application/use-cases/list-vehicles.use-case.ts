@@ -58,6 +58,8 @@ export class ListVehiclesUseCase {
       departmentId: input.departmentId,
       freePass: input.freePass,
       isActive: input.isActive,
+      sortBy: input.sortBy,
+      sortOrder: input.sortOrder,
       limit: input.limit,
       offset: input.offset,
     });

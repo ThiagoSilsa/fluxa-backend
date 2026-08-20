@@ -1,5 +1,5 @@
 // NestJS
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 // Shared
@@ -20,18 +20,21 @@ import { VEHICLE_REPOSITORY } from '../../domain/repositories/vehicle.repository
 import { GetVehicleInputDto } from '../../application/dto/get-vehicle-input.dto';
 
 // Use case
-import { DeactivateVehicleUseCase } from '../../application/use-cases/deactivate-vehicle.use-case';
+import { DeleteVehicleUseCase } from '../../application/use-cases/delete-vehicle.use-case';
 
-describe('DeactivateVehicleUseCase', () => {
-  let useCase: DeactivateVehicleUseCase;
+describe('DeleteVehicleUseCase', () => {
+  let useCase: DeleteVehicleUseCase;
 
   const vehicleRepoMock = {
     findByIdAndCompanyId: jest.fn(),
-    deactivateByIdAndCompanyId: jest.fn(),
+    countVehicleLinksByVehicleIdAndCompanyId: jest.fn(),
+    deleteByIdAndCompanyId: jest.fn(),
   } as jest.Mocked<
     Pick<
       VehicleRepository,
-      'findByIdAndCompanyId' | 'deactivateByIdAndCompanyId'
+      | 'findByIdAndCompanyId'
+      | 'countVehicleLinksByVehicleIdAndCompanyId'
+      | 'deleteByIdAndCompanyId'
     >
   >;
 
@@ -48,10 +51,10 @@ describe('DeactivateVehicleUseCase', () => {
 
   const existing: VehicleWithTypeEntity = {
     id: '50000000-0000-0000-0000-000000000001',
-    plate: 'ABC1D23',
     companyId: actor.companyId,
+    plate: 'ABC1D23',
     model: 'Onix',
-    color: 'Prata',
+    color: null,
     observation: null,
     isBlocked: false,
     freePass: false,
@@ -71,31 +74,43 @@ describe('DeactivateVehicleUseCase', () => {
     jest.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
-        DeactivateVehicleUseCase,
+        DeleteVehicleUseCase,
         { provide: VEHICLE_REPOSITORY, useValue: vehicleRepoMock },
       ],
     }).compile();
-    useCase = module.get(DeactivateVehicleUseCase);
+    useCase = module.get(DeleteVehicleUseCase);
   });
 
-  it('desativa (soft) um veículo da empresa do ator, mantendo o tipo', async () => {
+  it('exclui fisicamente um veículo sem vínculos da empresa do ator', async () => {
     vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(existing);
-    vehicleRepoMock.deactivateByIdAndCompanyId.mockResolvedValue({
-      ...existing,
-      isActive: false,
-    });
-
-    const result = await useCase.execute(
-      actor,
-      new GetVehicleInputDto(existing.id),
+    vehicleRepoMock.countVehicleLinksByVehicleIdAndCompanyId.mockResolvedValue(
+      0,
     );
+    vehicleRepoMock.deleteByIdAndCompanyId.mockResolvedValue(existing);
 
-    expect(vehicleRepoMock.deactivateByIdAndCompanyId).toHaveBeenCalledWith(
+    await expect(
+      useCase.execute(actor, new GetVehicleInputDto(existing.id)),
+    ).resolves.toBeUndefined();
+
+    expect(
+      vehicleRepoMock.countVehicleLinksByVehicleIdAndCompanyId,
+    ).toHaveBeenCalledWith(existing.id, actor.companyId);
+    expect(vehicleRepoMock.deleteByIdAndCompanyId).toHaveBeenCalledWith(
       existing.id,
       actor.companyId,
     );
-    expect(result.isActive).toBe(false);
-    expect(result.vehicleType).toEqual(existing.vehicleType);
+  });
+
+  it('lança ConflictException (409) quando há vínculos (departamento padrão ou motoristas)', async () => {
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(existing);
+    vehicleRepoMock.countVehicleLinksByVehicleIdAndCompanyId.mockResolvedValue(
+      2,
+    );
+
+    await expect(
+      useCase.execute(actor, new GetVehicleInputDto(existing.id)),
+    ).rejects.toThrow(ConflictException);
+    expect(vehicleRepoMock.deleteByIdAndCompanyId).not.toHaveBeenCalled();
   });
 
   it('lança NotFoundException quando o veículo não existe na empresa', async () => {
@@ -107,6 +122,21 @@ describe('DeactivateVehicleUseCase', () => {
         new GetVehicleInputDto('50000000-0000-0000-0000-000000000099'),
       ),
     ).rejects.toThrow(NotFoundException);
-    expect(vehicleRepoMock.deactivateByIdAndCompanyId).not.toHaveBeenCalled();
+    expect(
+      vehicleRepoMock.countVehicleLinksByVehicleIdAndCompanyId,
+    ).not.toHaveBeenCalled();
+    expect(vehicleRepoMock.deleteByIdAndCompanyId).not.toHaveBeenCalled();
+  });
+
+  it('lança NotFoundException quando a exclusão não encontra o veículo', async () => {
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(existing);
+    vehicleRepoMock.countVehicleLinksByVehicleIdAndCompanyId.mockResolvedValue(
+      0,
+    );
+    vehicleRepoMock.deleteByIdAndCompanyId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(actor, new GetVehicleInputDto(existing.id)),
+    ).rejects.toThrow(NotFoundException);
   });
 });

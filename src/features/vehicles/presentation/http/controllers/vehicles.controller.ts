@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -41,7 +43,7 @@ import { UpdateVehicleInputDto } from '../../../application/dto/update-vehicle-i
 
 // Use cases
 import { CreateVehicleUseCase } from '../../../application/use-cases/create-vehicle.use-case';
-import { DeactivateVehicleUseCase } from '../../../application/use-cases/deactivate-vehicle.use-case';
+import { DeleteVehicleUseCase } from '../../../application/use-cases/delete-vehicle.use-case';
 import { GetVehicleUseCase } from '../../../application/use-cases/get-vehicle.use-case';
 import { ListVehiclesUseCase } from '../../../application/use-cases/list-vehicles.use-case';
 import { UpdateVehicleUseCase } from '../../../application/use-cases/update-vehicle.use-case';
@@ -55,7 +57,7 @@ import type {
 // Decorators Swagger da feature
 import {
   ApiCreateVehicle,
-  ApiDeactivateVehicle,
+  ApiDeleteVehicle,
   ApiGetVehicle,
   ApiListVehicles,
   ApiUpdateVehicle,
@@ -65,8 +67,9 @@ import {
  * CRUD de veículos (por empresa) — exige `MANAGE_VEHICLES`.
  *
  * Placa normalizada + validada, `free_pass` restrito a `GRANT_FREE_PASS`,
- * `is_blocked` read-only e `vehicle_type_id` ativo (ADR 0006 §§3–6); o
- * controller só valida entrada e delega para os use cases.
+ * `is_blocked` read-only, `vehicle_type_id` ativo (ADR 0006 §§3–6) e exclusão
+ * física (204) bloqueada com 409 quando há vínculos (departamento padrão ou
+ * motoristas).
  */
 @Controller('vehicles')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -77,7 +80,7 @@ export class VehiclesController {
     private readonly listVehiclesUseCase: ListVehiclesUseCase,
     private readonly getVehicleUseCase: GetVehicleUseCase,
     private readonly updateVehicleUseCase: UpdateVehicleUseCase,
-    private readonly deactivateVehicleUseCase: DeactivateVehicleUseCase,
+    private readonly deleteVehicleUseCase: DeleteVehicleUseCase,
   ) {}
 
   @Post()
@@ -114,6 +117,8 @@ export class VehiclesController {
         query.departmentId,
         query.freePass,
         query.isActive,
+        query.sortBy,
+        query.sortOrder,
         query.limit,
         query.offset,
       ),
@@ -156,12 +161,13 @@ export class VehiclesController {
   }
 
   @Delete(':id')
-  @ApiDeactivateVehicle()
-  public deactivateVehicle(
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiDeleteVehicle()
+  public deleteVehicle(
     @Req() request: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<VehicleResponse> {
-    return this.deactivateVehicleUseCase.execute(
+  ): Promise<void> {
+    return this.deleteVehicleUseCase.execute(
       this.requireUser(request),
       new GetVehicleInputDto(id),
     );

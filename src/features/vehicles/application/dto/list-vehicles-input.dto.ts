@@ -13,6 +13,10 @@ export class ListVehiclesInputDto {
     readonly freePass?: boolean,
     /** Filtro por estado ativo/inativo. */
     readonly isActive?: boolean,
+    /** Coluna de ordenação (whitelist). */
+    readonly sortBy?: 'plate' | 'isActive' | 'createdAt',
+    /** Direção da ordenação. */
+    readonly sortOrder?: 'ASC' | 'DESC',
     /** Quantidade de registros por página. */
     readonly limit: number = 20,
     /** Offset da página. */

@@ -128,6 +128,8 @@ describe('ListVehiclesUseCase', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
         20,
         0,
       ),
@@ -139,6 +141,8 @@ describe('ListVehiclesUseCase', () => {
       departmentId: undefined,
       freePass: undefined,
       isActive: undefined,
+      sortBy: undefined,
+      sortOrder: undefined,
       limit: 20,
       offset: 0,
     });
@@ -163,6 +167,7 @@ describe('ListVehiclesUseCase', () => {
             isFleet: true,
           },
           isActive: true,
+          createdAt: '2026-08-15T00:00:00.000Z',
         },
       ],
       parameters: [
@@ -193,6 +198,8 @@ describe('ListVehiclesUseCase', () => {
         department.id,
         true,
         true,
+        'createdAt',
+        'DESC',
         10,
         5,
       ),
@@ -204,6 +211,8 @@ describe('ListVehiclesUseCase', () => {
       departmentId: department.id,
       freePass: true,
       isActive: true,
+      sortBy: 'createdAt',
+      sortOrder: 'DESC',
       limit: 10,
       offset: 5,
     });

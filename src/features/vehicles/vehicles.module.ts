@@ -25,11 +25,12 @@ import { AssignDriverToVehicleUseCase } from './application/use-cases/assign-dri
 import { CreateVehicleTypeUseCase } from './application/use-cases/create-vehicle-type.use-case';
 import { CreateVehicleUseCase } from './application/use-cases/create-vehicle.use-case';
 import { DeleteVehicleTypeUseCase } from './application/use-cases/delete-vehicle-type.use-case';
-import { DeactivateVehicleUseCase } from './application/use-cases/deactivate-vehicle.use-case';
+import { DeleteVehicleUseCase } from './application/use-cases/delete-vehicle.use-case';
 import { GetVehicleDepartmentUseCase } from './application/use-cases/get-vehicle-department.use-case';
 import { GetVehicleTypeUseCase } from './application/use-cases/get-vehicle-type.use-case';
 import { GetVehicleUseCase } from './application/use-cases/get-vehicle.use-case';
 import { ListVehicleDriversUseCase } from './application/use-cases/list-vehicle-drivers.use-case';
+import { ListDriverCandidatesUseCase } from './application/use-cases/list-driver-candidates.use-case';
 import { ListVehicleTypesUseCase } from './application/use-cases/list-vehicle-types.use-case';
 import { ListVehiclesUseCase } from './application/use-cases/list-vehicles.use-case';
 import { RemoveVehicleDepartmentUseCase } from './application/use-cases/remove-vehicle-department.use-case';
@@ -41,6 +42,7 @@ import { UpdateVehicleUseCase } from './application/use-cases/update-vehicle.use
 
 // Presentation
 import { VehicleDepartmentController } from './presentation/http/controllers/vehicle-department.controller';
+import { VehicleDriverCandidatesController } from './presentation/http/controllers/vehicle-driver-candidates.controller';
 import { VehicleDriversController } from './presentation/http/controllers/vehicle-drivers.controller';
 import { VehicleTypesController } from './presentation/http/controllers/vehicle-types.controller';
 import { VehiclesController } from './presentation/http/controllers/vehicles.controller';
@@ -78,7 +80,7 @@ import { VehiclesController } from './presentation/http/controllers/vehicles.con
     ListVehiclesUseCase,
     GetVehicleUseCase,
     UpdateVehicleUseCase,
-    DeactivateVehicleUseCase,
+    DeleteVehicleUseCase,
     SetVehicleDepartmentUseCase,
     GetVehicleDepartmentUseCase,
     RemoveVehicleDepartmentUseCase,
@@ -86,8 +88,12 @@ import { VehiclesController } from './presentation/http/controllers/vehicles.con
     ListVehicleDriversUseCase,
     UpdateVehicleDriverUseCase,
     RemoveVehicleDriverUseCase,
+    ListDriverCandidatesUseCase,
   ],
   controllers: [
+    // Antes de `VehiclesController` para que `/vehicles/driver-candidates`
+    // (estática) não caia no `GET /vehicles/:id` (ParseUUIDPipe → 400).
+    VehicleDriverCandidatesController,
     VehicleTypesController,
     VehiclesController,
     VehicleDepartmentController,

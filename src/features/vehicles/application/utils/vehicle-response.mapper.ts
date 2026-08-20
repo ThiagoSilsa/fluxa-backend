@@ -23,5 +23,6 @@ export function toVehicleResponse(
     vehicleTypeId: vehicle.vehicleTypeId,
     vehicleType: vehicle.vehicleType,
     isActive: vehicle.isActive,
+    createdAt: vehicle.createdAt.toISOString(),
   };
 }

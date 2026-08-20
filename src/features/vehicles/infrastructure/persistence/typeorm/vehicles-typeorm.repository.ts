@@ -21,6 +21,14 @@ import type {
 // TypeORM
 import { VehicleDepartmentOrmEntity } from './vehicle-department.orm-entity';
 import { VehicleOrmEntity } from './vehicle.orm-entity';
+import { UserVehicleOrmEntity } from './user-vehicle.orm-entity';
+
+/** Mapa seguro de colunas de ordenação (whitelist — ADR 0006 §11). */
+const VEHICLE_SORT_COLUMNS: Record<string, string> = {
+  plate: 'vehicle.plate',
+  isActive: 'vehicle.is_active',
+  createdAt: 'vehicle.created_at',
+};
 
 /**
  * Implementação TypeORM do `VehicleRepository`.
@@ -108,8 +116,14 @@ export class VehiclesTypeormRepository implements VehicleRepository {
       });
     }
 
+    const orderByColumn =
+      filters.sortBy && VEHICLE_SORT_COLUMNS[filters.sortBy]
+        ? VEHICLE_SORT_COLUMNS[filters.sortBy]
+        : 'vehicle.plate';
+    const orderByDirection = filters.sortOrder === 'DESC' ? 'DESC' : 'ASC';
+
     const [rows, count] = await query
-      .orderBy('vehicle.plate', 'ASC')
+      .orderBy(orderByColumn, orderByDirection)
       .take(filters.limit)
       .skip(filters.offset)
       .getManyAndCount();
@@ -186,13 +200,37 @@ export class VehiclesTypeormRepository implements VehicleRepository {
   }
 
   /**
-   * Desativa um veículo da empresa (soft: `is_active = false`).
+   * Conta vínculos da empresa que referenciam um veículo — `vehicle_department`
+   * (departamento padrão) + `user_vehicle` (motoristas).
+   *
+   * @param vehicleId Id do veículo.
+   * @param companyId Empresa da sessão.
+   * @returns Quantidade de vínculos que referenciam o veículo.
+   */
+  public async countVehicleLinksByVehicleIdAndCompanyId(
+    vehicleId: string,
+    companyId: string,
+  ): Promise<number> {
+    const [departments, drivers] = await Promise.all([
+      this.vehicleRepo.manager.count(VehicleDepartmentOrmEntity, {
+        where: { vehicleId, companyId },
+      }),
+      this.vehicleRepo.manager.count(UserVehicleOrmEntity, {
+        where: { vehicleId, companyId },
+      }),
+    ]);
+
+    return departments + drivers;
+  }
+
+  /**
+   * Exclui fisicamente um veículo da empresa.
    *
    * @param id Id do veículo.
    * @param companyId Empresa da sessão.
-   * @returns Veículo desativado ou `null` se não existir/não pertencer.
+   * @returns Veículo excluído ou `null` se não existir/não pertencer.
    */
-  public async deactivateByIdAndCompanyId(
+  public async deleteByIdAndCompanyId(
     id: string,
     companyId: string,
   ): Promise<VehicleEntity | null> {
@@ -203,9 +241,9 @@ export class VehiclesTypeormRepository implements VehicleRepository {
       return null;
     }
 
-    orm.isActive = false;
-    const saved = await this.vehicleRepo.save(orm);
-    return this.toDomain(saved);
+    const domain = this.toDomain(orm);
+    await this.vehicleRepo.delete({ id, companyId });
+    return domain;
   }
 
   /**

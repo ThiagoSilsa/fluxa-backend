@@ -59,6 +59,8 @@ export interface VehicleResponse {
   drivers?: VehicleDriverResponse[];
   /** Se o veículo está ativo. */
   isActive: boolean;
+  /** Data de criação (ISO) — usada na ordenação da listagem (whitelist). */
+  createdAt: string;
 }
 
 /**
