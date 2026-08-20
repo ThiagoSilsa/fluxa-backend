@@ -4,7 +4,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 // Modules
 import { AuthModule } from '../auth/auth.module';
+import { ImportsModule } from '../imports/imports.module';
 import { RolesModule } from '../roles/roles.module';
+
+// Shared
+import {
+  QUEUE_NAMES,
+  registerImportQueue,
+} from '../../shared/queue/queue.module';
 
 // Repositories
 import { USER_REPOSITORY } from './domain/repositories/user.repository';
@@ -22,14 +29,19 @@ import { CreateUserUseCase } from './application/use-cases/create-user.use-case'
 import { DeleteUserUseCase } from './application/use-cases/delete-user.use-case';
 import { EmailStatusUseCase } from './application/use-cases/email-status.use-case';
 import { GetUserUseCase } from './application/use-cases/get-user.use-case';
+import { ImportUsersUseCase } from './application/use-cases/import-users.use-case';
 import { ListUserRolesUseCase } from './application/use-cases/list-user-roles.use-case';
 import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
 import { RemoveRoleFromUserUseCase } from './application/use-cases/remove-role-from-user.use-case';
 import { UpdateUserUseCase } from './application/use-cases/update-user.use-case';
 
+// Processors
+import { ImportUsersProcessor } from './application/processors/import-users.processor';
+
 // Presentation
 import { UserRolesController } from './presentation/http/controllers/user-roles.controller';
 import { UsersController } from './presentation/http/controllers/users.controller';
+import { UsersImportController } from './presentation/http/controllers/users-import.controller';
 
 /**
  * Módulo de usuários (CRUD de `user`, `user_company` e `user_role`) — ADR
@@ -44,6 +56,8 @@ import { UsersController } from './presentation/http/controllers/users.controlle
   imports: [
     AuthModule,
     RolesModule,
+    ImportsModule,
+    registerImportQueue(QUEUE_NAMES.IMPORT_USERS),
     TypeOrmModule.forFeature([
       UserOrmEntity,
       UserCompanyOrmEntity,
@@ -62,8 +76,10 @@ import { UsersController } from './presentation/http/controllers/users.controlle
     AssignRoleToUserUseCase,
     RemoveRoleFromUserUseCase,
     ListUserRolesUseCase,
+    ImportUsersUseCase,
+    ImportUsersProcessor,
   ],
-  controllers: [UsersController, UserRolesController],
+  controllers: [UsersController, UserRolesController, UsersImportController],
   exports: [USER_REPOSITORY],
 })
 export class UsersModule {}

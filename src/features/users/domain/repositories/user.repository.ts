@@ -75,6 +75,16 @@ export interface UserRepository {
   findByDocument(document: string): Promise<UserEntity | null>;
 
   /**
+   * Busca as pessoas pelos e-mails (normalizados — identidade global) — usado
+   * pelo importador de usuários para detectar pessoas já existentes em lote
+   * (ADR 0007 §8).
+   *
+   * @param emails E-mails normalizados.
+   * @returns Pessoas encontradas com um dos e-mails.
+   */
+  findByEmails(emails: string[]): Promise<UserEntity[]>;
+
+  /**
    * Cria a pessoa **e o vínculo** com a empresa na mesma transação (ADR 0002
    * — pessoa sem vínculo não pode existir).
    *
@@ -82,6 +92,16 @@ export interface UserRepository {
    * @returns Pessoa criada.
    */
   create(data: CreateUserRepositoryData): Promise<UserEntity>;
+
+  /**
+   * Insere várias pessoas **e vínculos** em lote (chunks de 500 — ADR 0007
+   * §8), cada pessoa com o `user_company` (e `user_role` quando `roleId`
+   * informado) na mesma transação.
+   *
+   * @param data Lista de dados da pessoa + vínculo a criar junto.
+   * @returns Pessoas criadas.
+   */
+  createBatch(data: CreateUserRepositoryData[]): Promise<UserEntity[]>;
 
   /**
    * Atualiza parcialmente a pessoa (dados da pessoa — refletem em todas as

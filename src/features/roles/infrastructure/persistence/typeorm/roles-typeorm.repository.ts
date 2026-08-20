@@ -1,7 +1,7 @@
 // NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, ILike, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, In, Repository } from 'typeorm';
 
 // Types
 import type { RoleEntity } from '../../../domain/entities/role.entity';
@@ -89,6 +89,29 @@ export class RolesTypeormRepository implements RoleRepository {
     });
     const saved = await this.roleRepo.save(orm);
     return this.toDomain(saved);
+  }
+
+  /**
+   * Busca cargos da empresa cujos nomes estão na lista (exatos) — importador
+   * de usuários (ADR 0007 §8).
+   *
+   * @param names Nomes a buscar.
+   * @param companyId Empresa da sessão.
+   * @returns Cargos encontrados com um dos nomes.
+   */
+  public async findByNamesAndCompanyId(
+    names: string[],
+    companyId: string,
+  ): Promise<RoleEntity[]> {
+    if (names.length === 0) {
+      return [];
+    }
+
+    const rows = await this.roleRepo.find({
+      where: { companyId, name: In(names) },
+    });
+
+    return rows.map((row) => this.toDomain(row));
   }
 
   /**

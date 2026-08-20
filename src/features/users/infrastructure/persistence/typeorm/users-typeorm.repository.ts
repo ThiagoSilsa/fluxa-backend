@@ -1,7 +1,7 @@
 // NestJS
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 
 // Types
 import type { UserEntity } from '../../../domain/entities/user.entity';
@@ -67,6 +67,22 @@ export class UsersTypeormRepository implements UserRepository {
   }
 
   /**
+   * Busca as pessoas pelos e-mails (identidade global) — importador de
+   * usuários (ADR 0007 §8).
+   *
+   * @param emails E-mails normalizados.
+   * @returns Pessoas encontradas com um dos e-mails.
+   */
+  public async findByEmails(emails: string[]): Promise<UserEntity[]> {
+    if (emails.length === 0) {
+      return [];
+    }
+
+    const rows = await this.userRepo.find({ where: { email: In(emails) } });
+    return rows.map((row) => this.toDomain(row));
+  }
+
+  /**
    * Cria a pessoa **e o vínculo** com a empresa na mesma transação (ADR 0002).
    *
    * @param data Dados da pessoa + vínculo a criar junto.
@@ -103,6 +119,59 @@ export class UsersTypeormRepository implements UserRepository {
       }
 
       return this.toDomain(savedUser);
+    });
+  }
+
+  /**
+   * Insere várias pessoas **e vínculos** em lote (chunks de 500 — ADR 0007
+   * §8), cada pessoa com o `user_company` (e `user_role` quando `roleId`
+   * informado) na mesma transação.
+   *
+   * @param data Lista de dados da pessoa + vínculo a criar junto.
+   * @returns Pessoas criadas.
+   */
+  public async createBatch(
+    data: CreateUserRepositoryData[],
+  ): Promise<UserEntity[]> {
+    if (data.length === 0) {
+      return [];
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const created: UserEntity[] = [];
+
+      for (const item of data) {
+        const user = manager.create(UserOrmEntity, {
+          name: item.name,
+          email: item.email,
+          password: item.passwordHash,
+          phone: item.phone,
+          document: item.document,
+        });
+        const savedUser = await manager.save(user);
+
+        const link = manager.create(UserCompanyOrmEntity, {
+          userId: savedUser.id,
+          companyId: item.companyId,
+          type: item.type,
+          isActive: item.isActive,
+        });
+        await manager.save(link);
+
+        // Cargo único por empresa (ADR 0005 §5) — na MESMA transação.
+        if (item.roleId) {
+          const userRole = manager.create(UserRoleOrmEntity, {
+            userId: savedUser.id,
+            companyId: item.companyId,
+            roleId: item.roleId,
+          });
+          await manager.save(userRole);
+        }
+
+        created.push(this.toDomain(savedUser));
+      }
+
+      return created;
     });
   }
 

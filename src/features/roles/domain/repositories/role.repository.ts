@@ -80,6 +80,19 @@ export interface RoleRepository {
   create(data: CreateRoleRepositoryData): Promise<RoleEntity>;
 
   /**
+   * Busca cargos da empresa cujos nomes estão na lista (exatos) — usado pelo
+   * importador de usuários para resolver o cargo por nome (ADR 0007 §8).
+   *
+   * @param names Nomes a buscar.
+   * @param companyId Empresa da sessão.
+   * @returns Cargos encontrados com um dos nomes.
+   */
+  findByNamesAndCompanyId(
+    names: string[],
+    companyId: string,
+  ): Promise<RoleEntity[]>;
+
+  /**
    * Atualiza um cargo da empresa (nome/descrição/isActive — `isAdmin` não é
    * alterável).
    *
