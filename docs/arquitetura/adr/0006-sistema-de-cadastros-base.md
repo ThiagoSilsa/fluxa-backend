@@ -1,7 +1,7 @@
 # ADR 0006 — Cadastros base (tipos de veículo, veículos, departamentos e portarias)
 
 Número do ADR: 0006
-Título: Sistema de cadastros base: CRUD de tipos de veículo, veículos, departamentos e portarias com vínculos vehicle_department (1 por veículo) e user_vehicle (1 proprietário primário por veículo), placa normalizada com validação de formato, free_pass restrito a permissão específica, is_blocked derivado (não editável), desativação em vez de delete físico nos catálogos e exclusão física de tipo de veículo, departamento e portaria bloqueada com 409 quando em uso (por veículos/dispositivos)
+Título: Sistema de cadastros base: CRUD de tipos de veículo, veículos, departamentos e portarias com vínculos vehicle_department (1 por veículo) e user_vehicle (1 proprietário primário por veículo), placa normalizada com validação de formato, free_pass restrito a permissão específica, is_blocked derivado (não editável), desativação em vez de delete físico nos catálogos e exclusão física de tipo de veículo, departamento, portaria e veículo bloqueada com 409 quando em uso (por veículos/dispositivos/vínculos)
 Data: 2026-08-15
 Responsável: Thiago
 
@@ -9,7 +9,7 @@ Responsável: Thiago
 
 O RBAC operacional está implementado ([ADR 0004](./0004-sistema-de-cargos-e-permissoes.md)) e o sistema de usuários também ([ADR 0005](./0005-sistema-de-usuarios.md)). O modelo de dados dos cadastros base já existe nas migrations `0002`/`0003` ([modelagem-controle-veiculos.md](../modelagem/modelagem-controle-veiculos.md)): `vehicle_type`, `vehicle`, `department`, `vehicle_department`, `user_vehicle` e `entrance`, com seeds dos tipos padrão `FROTA`/`PARTICULAR` e das permissões (`MANAGE_VEHICLES`, `MANAGE_VEHICLE_TYPES`, `MANAGE_DEPARTMENTS`, `MANAGE_ENTRANCES`, `GRANT_FREE_PASS`). As regras de negócio do fluxo de acesso já estão definidas ([regras-negocio-controle-veiculos.md](../produto/regras-negocio-controle-veiculos.md)) e consomem esse catálogo (tipo do veículo, departamento padrão, motoristas, portarias).
 
-Falta, porém, a **API de administração dos cadastros base** que a web vai consumir na Semana 2 (cronograma intensivo): CRUD de `vehicle_type`, `vehicle`, `department`, `entrance` e os vínculos `vehicle_department` (departamento padrão do veículo) e `user_vehicle` (motoristas). Este ADR define o contrato dessa API — rotas e permissões, desativação em vez de delete físico (com exceção de tipo de veículo, departamento e portaria, excluíveis fisicamente quando sem referências ativas), placa normalizada com validação de formato, `free_pass` com permissão específica, `is_blocked` derivado (não editável) e as invariantes dos vínculos (1 departamento padrão e 1 proprietário primário por veículo).
+Falta, porém, a **API de administração dos cadastros base** que a web vai consumir na Semana 2 (cronograma intensivo): CRUD de `vehicle_type`, `vehicle`, `department`, `entrance` e os vínculos `vehicle_department` (departamento padrão do veículo) e `user_vehicle` (motoristas). Este ADR define o contrato dessa API — rotas e permissões, desativação em vez de delete físico (com exceção de tipo de veículo, departamento, portaria e veículo, excluíveis fisicamente quando sem referências ativas), placa normalizada com validação de formato, `free_pass` com permissão específica, `is_blocked` derivado (não editável) e as invariantes dos vínculos (1 departamento padrão e 1 proprietário primário por veículo).
 
 ## Decisão
 
@@ -45,6 +45,8 @@ Cada rota é escopada pela **empresa da sessão**; referências de outro tenant 
 `department` também é **excluído fisicamente** (aprovado em 18/08, mesmo padrão): `DELETE /departments/:id` **exclui fisicamente** (204) quando **nenhum veículo** da empresa está vinculado via `vehicle_department` (departamento padrão); com vínculos, a exclusão é **bloqueada com 409** — a linha permanece e a suspensão reversível é `PATCH` com `is_active = false` (ver §7).
 
 `entrance` também é **excluída fisicamente** (aprovado em 18/08, mesmo padrão): `DELETE /entrances/:id` **exclui fisicamente** (204) quando **nenhum dispositivo** da empresa está vinculado à portaria via `device` (FK `device.entrance_id` — vínculo que a torna selecionável); com dispositivos vinculados, a exclusão é **bloqueada com 409** — a linha permanece e a suspensão reversível é `PATCH` com `is_active = false` (ver §5).
+
+`vehicle` também é **excluído fisicamente** (aprovado em 20/08, mesmo padrão): `DELETE /vehicles/:id` **exclui fisicamente** (204) quando **nenhum vínculo** da empresa aponta para o veículo — `vehicle_department` (departamento padrão) ou `user_vehicle` (motoristas); com vínculos, a exclusão é **bloqueada com 409** — a linha permanece e a suspensão reversível é `PATCH` com `is_active = false` (ver §9/§10). O histórico (`vehicle_access`, `vehicle_movement`, `entry_denial` — semana 3+) tem `vehicle_id` NOT NULL e é extensão futura do bloqueio.
 
 ### 3. Placa: normalização obrigatória + validação de formato + unicidade
 
@@ -101,7 +103,7 @@ Desativar `vehicle`, `vehicle_type`, `department` ou `entrance` **não** fecha a
 - Veículo desativado deixa de operar na portaria (não resolve na busca), mas um acesso `INSIDE` em andamento segue até a saída ser registrada (não pode "prender" o veículo);
 - Departamentos e portarias inativos permanecem no histórico (movimentos, `vehicle_access`, `entry_denial`, `device`) e apenas deixam de ser selecionáveis para novos vínculos.
 
-As únicas exclusões físicas de catálogo são `vehicle_type` (**bloqueada com 409** enquanto houver veículos usando o tipo — §2/§6), `department` (**bloqueada com 409** enquanto houver veículos vinculados via `vehicle_department` — §2/§7) e `entrance` (**bloqueada com 409** enquanto houver dispositivos vinculados via `device` — §2/§5); com referência, a linha permanece e a desativação segue sendo a operação de suspensão.
+As únicas exclusões físicas de catálogo são `vehicle_type` (**bloqueada com 409** enquanto houver veículos usando o tipo — §2/§6), `department` (**bloqueada com 409** enquanto houver veículos vinculados via `vehicle_department` — §2/§7), `entrance` (**bloqueada com 409** enquanto houver dispositivos vinculados via `device` — §2/§5) e `vehicle` (**bloqueada com 409** enquanto houver vínculos via `vehicle_department`/`user_vehicle` — §2/§9); com referência, a linha permanece e a desativação segue sendo a operação de suspensão.
 
 ### 11. Detalhe e listagens
 
@@ -112,7 +114,7 @@ Listagens seguem o formato padrão `{ limit, offset, data, count, parameters? }`
 - `GET /vehicle-types?search=&isFleet=&isActive=&limit=&offset=`;
 - `GET /departments?search=&isActive=&limit=&offset=`;
 - `GET /entrances?search=&isActive=&limit=&offset=`;
-- `GET /vehicles?search=&vehicleTypeId=&departmentId=&freePass=&isActive=&limit=&offset=` — `search` normaliza a placa antes de buscar (busca por placa ou trecho de modelo); `parameters` com `allowed_values` completos para `vehicleTypeId` (tipos ativos) e `departmentId` (departamentos ativos).
+- `GET /vehicles?search=&vehicleTypeId=&departmentId=&freePass=&isActive=&sortBy=&sortOrder=&limit=&offset=` — `search` normaliza a placa antes de buscar (busca por placa ou trecho de modelo); `parameters` com `allowed_values` completos para `vehicleTypeId` (tipos ativos) e `departmentId` (departamentos ativos); **ordenação server-side** com `sortBy` na whitelist `plate | isActive | createdAt` e `sortOrder` (`ASC`/`DESC`, default `ASC`) — `sortBy` fora da whitelist → **400**.
 
 ### 12. Concorrência e unicidade → 409 (nunca 500 cru)
 
@@ -126,7 +128,7 @@ Permanecem em features futuras (semana 3+): `vehicle_qr_code` (`PRINT_QRCODE`), 
 
 - A web ganha a API para as telas de **tipos, veículos, departamentos e portarias**: CRUD com desativação (reativável), placa normalizada com validação de formato, `free_pass` restrito a `GRANT_FREE_PASS` e o detalhe agregado do veículo (tipo + departamento padrão + motoristas + `is_blocked`).
 - O catálogo nasce consistente para o fluxo de acesso: tipos ativos selecionáveis, departamentos com vagas obrigatórias, portarias desativáveis sem apagar histórico, e vínculos com as invariantes do modelo (1 departamento padrão, 1 proprietário primário) preservadas pela API (upsert/substituição) e pelo banco (uniques parciais).
-- `user_vehicle` é a exceção **de vínculo** ao soft-delete — o modelo não prevê `is_active` no vínculo, e a remoção é física. No catálogo, `vehicle_type`, `department` e `entrance` são as exceções: excluíveis fisicamente (204), **bloqueadas com 409** enquanto houver veículos da empresa usando o tipo / vinculados ao departamento / dispositivos vinculados à portaria.
+- `user_vehicle` é a exceção **de vínculo** ao soft-delete — o modelo não prevê `is_active` no vínculo, e a remoção é física. No catálogo, `vehicle_type`, `department`, `entrance` e `vehicle` são as exceções: excluíveis fisicamente (204), **bloqueadas com 409** enquanto houver veículos da empresa usando o tipo / vinculados ao departamento / dispositivos vinculados à portaria / vínculos (departamento padrão ou motoristas) apontando para o veículo.
 - Cross-tenant devolve 404 (mesmo padrão do ADR 0005), e a referência a `user` em `user_vehicle` é validada pelo vínculo ativo `user_company` (nunca por coluna inexistente `user.company_id`).
 - A composição de permissões fica na configuração de cargos (cada catálogo é autossuficiente): perfis que criam veículos combinam `MANAGE_VEHICLES` + `MANAGE_VEHICLE_TYPES` (+ `MANAGE_DEPARTMENTS`), como já faz o seed da Administração.
 
@@ -136,7 +138,7 @@ Permanecem em features futuras (semana 3+): `vehicle_qr_code` (`PRINT_QRCODE`), 
 
 Rejeitado em sua forma ampla: `vehicle`, `department` e `entrance` são referenciados por vínculos e histórico (movimentos, bloqueios, QRs, acessos, devices); delete físico quebraria FKs e o histórico de auditoria. Desativação é o padrão já usado em `role`/`user_company` (ADR 0004/0005).
 
-**Exceções aprovadas — `vehicle_type` (17/08), `department` e `entrance` (18/08):** a exclusão física é permitida **apenas** quando não há referências ativas — `vehicle_type` sem veículos usando o tipo (FK `vehicle.vehicle_type_id`); `department` sem veículos vinculados via `vehicle_department`; `entrance` sem dispositivos vinculados via `device`. Com referências, o backend devolve **409** (bloqueio), preservando FKs e histórico. A suspensão reversível continua disponível via `PATCH` com `is_active = false`.
+**Exceções aprovadas — `vehicle_type` (17/08), `department` e `entrance` (18/08) e `vehicle` (20/08):** a exclusão física é permitida **apenas** quando não há referências ativas — `vehicle_type` sem veículos usando o tipo (FK `vehicle.vehicle_type_id`); `department` sem veículos vinculados via `vehicle_department`; `entrance` sem dispositivos vinculados via `device`; `vehicle` sem vínculos via `vehicle_department`/`user_vehicle`. Com referências, o backend devolve **409** (bloqueio), preservando FKs e histórico. A suspensão reversível continua disponível via `PATCH` com `is_active = false`.
 
 ### 2. Trocar departamento padrão criando uma nova linha de `vehicle_department`
 
