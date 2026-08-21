@@ -118,6 +118,17 @@ describe('LoginUseCase', () => {
     });
   });
 
+  it('normaliza o e-mail em caixa mista antes de buscar (Fase 0)', async () => {
+    authRepoMock.findUsersByEmail.mockResolvedValue([somarCandidate]);
+
+    await useCase.execute(new LoginInputDto('  Admin@Somar.Local ', 'senha'));
+
+    expect(authRepoMock.findUsersByEmail).toHaveBeenCalledWith(
+      'admin@somar.local',
+    );
+    expect(jwtSignMock.execute).toHaveBeenCalled();
+  });
+
   it('devolve requiresCompanyChoice quando há N empresas e nenhuma escolha', async () => {
     authRepoMock.findUsersByEmail.mockResolvedValue([
       somarCandidate,

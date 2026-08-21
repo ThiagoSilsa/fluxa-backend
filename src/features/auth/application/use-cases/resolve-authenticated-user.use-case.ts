@@ -46,9 +46,10 @@ export class ResolveAuthenticatedUserUseCase {
       return null;
     }
 
-    const [roleCodes, permissions] = await Promise.all([
+    const [roleCodes, permissions, isAdmin] = await Promise.all([
       this.authRepository.findRoleCodesByUserIdAndCompanyId(sub, companyId),
       this.authRepository.findPermissionsByUserIdAndCompanyId(sub, companyId),
+      this.authRepository.findHasAdminRoleByUserIdAndCompanyId(sub, companyId),
     ]);
 
     return {
@@ -57,6 +58,7 @@ export class ResolveAuthenticatedUserUseCase {
       email: candidate.email,
       name: candidate.name,
       type: candidate.type,
+      isAdmin,
       roleCodes,
       permissions,
     };

@@ -11,10 +11,10 @@ import type { AuthUserEntity } from '../../../domain/entities/auth-user.entity';
 import type { AuthRepository } from '../../../domain/repositories/auth.repository';
 
 // TypeORM
-import { RolePermissionOrmEntity } from './role-permission.orm-entity';
-import { UserCompanyOrmEntity } from './user-company.orm-entity';
-import { UserRoleOrmEntity } from './user-role.orm-entity';
-import { UserOrmEntity } from './user.orm-entity';
+import { UserCompanyOrmEntity } from '../../../../users/infrastructure/persistence/typeorm/user-company.orm-entity';
+import { UserOrmEntity } from '../../../../users/infrastructure/persistence/typeorm/user.orm-entity';
+import { RolePermissionOrmEntity } from '../../../../../features/roles/infrastructure/persistence/typeorm/role-permission.orm-entity';
+import { UserRoleOrmEntity } from '../../../../../features/roles/infrastructure/persistence/typeorm/user-role.orm-entity';
 
 /**
  * Implementação TypeORM do `AuthRepository`.
@@ -131,6 +131,45 @@ export class AuthTypeormRepository implements AuthRepository {
       .filter(
         (code): code is PermissionCode => code !== undefined && code !== null,
       );
+  }
+
+  /**
+   * Se a pessoa tem cargo `is_admin` ativo na empresa da sessão.
+   *
+   * @param userId Id da pessoa.
+   * @param companyId Id da empresa da sessão.
+   * @returns `true` quando há cargo ativo com `is_admin = true`.
+   */
+  public async findHasAdminRoleByUserIdAndCompanyId(
+    userId: string,
+    companyId: string,
+  ): Promise<boolean> {
+    const userRoles = await this.userRoleRepo.find({
+      where: { userId, companyId },
+      relations: { role: true },
+    });
+    return userRoles.some(
+      (userRole) =>
+        userRole.role?.isActive === true && userRole.role.isAdmin === true,
+    );
+  }
+
+  /**
+   * Quantidade de usuários com cargo `is_admin` ativo na empresa.
+   *
+   * @param companyId Id da empresa da sessão.
+   * @returns Número de usuários distintos com cargo `is_admin` ativo.
+   */
+  public async countAdminsByCompanyId(companyId: string): Promise<number> {
+    const rows = await this.userRoleRepo
+      .createQueryBuilder('ur')
+      .innerJoin('ur.role', 'r')
+      .where('ur.company_id = :companyId', { companyId })
+      .andWhere('r.is_admin = true')
+      .andWhere('r.is_active = true')
+      .select('DISTINCT ur.user_id', 'user_id')
+      .getRawMany<{ user_id: string }>();
+    return rows.length;
   }
 
   /**

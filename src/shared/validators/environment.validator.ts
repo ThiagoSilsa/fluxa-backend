@@ -30,6 +30,7 @@ export function validateEnvironment(
   env.JWT_EXPIRES_IN = env.JWT_EXPIRES_IN ?? '28800s';
   env.ADMIN_DEFAULT_EMAIL = env.ADMIN_DEFAULT_EMAIL ?? 'admin@somar.local';
   env.ADMIN_DEFAULT_PASSWORD = env.ADMIN_DEFAULT_PASSWORD ?? 'admin123';
+  env.IMPORT_DEFAULT_PASSWORD = env.IMPORT_DEFAULT_PASSWORD ?? 'Somar@123';
 
   return env;
 }

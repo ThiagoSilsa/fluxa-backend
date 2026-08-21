@@ -241,7 +241,7 @@ export class SeedDefaultCompanyRolesAdminVehicleTypes1760001000001 implements Mi
     await queryRunner.query(
       `INSERT INTO "user_role" ("id", "company_id", "user_id", "role_id")
        VALUES (gen_random_uuid(), $1, $2, '20000000-0000-0000-0000-000000000001')
-       ON CONFLICT ("company_id", "user_id", "role_id") DO NOTHING`,
+       ON CONFLICT ("company_id", "user_id") DO NOTHING`,
       [companyId, adminUserId],
     );
   }

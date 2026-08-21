@@ -143,6 +143,8 @@ Uniques:
 
 ### `vehicle_qr_code` — QR codes emitidos por veículo
 
+> A partir do [ADR 0009](../adr/0009-emissao-de-qr-code-para-veiculos.md) (21/08), a tabela ganha a **feature de emissão de QR** (dentro de `vehicles`, permissão `PRINT_QRCODE`): emitir/reimprimir/reemitir/revogar + resolução pelo `code` (`GET /qr-codes/:code`, `REGISTER_ENTRY`, 410 para QR revogado). **Sem migration nova** — o schema abaixo já atende.
+
 | Coluna                      | Tipo                               | Constraints / Notas                                                        |
 | --------------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
 | `id`                        | uuid                               | PK, default `gen_random_uuid()`                                            |

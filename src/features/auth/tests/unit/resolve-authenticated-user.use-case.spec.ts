@@ -24,12 +24,14 @@ describe('ResolveAuthenticatedUserUseCase', () => {
     findUserInCompany: jest.fn(),
     findRoleCodesByUserIdAndCompanyId: jest.fn(),
     findPermissionsByUserIdAndCompanyId: jest.fn(),
+    findHasAdminRoleByUserIdAndCompanyId: jest.fn(),
   } as jest.Mocked<
     Pick<
       AuthRepository,
       | 'findUserInCompany'
       | 'findRoleCodesByUserIdAndCompanyId'
       | 'findPermissionsByUserIdAndCompanyId'
+      | 'findHasAdminRoleByUserIdAndCompanyId'
     >
   >;
 
@@ -68,6 +70,7 @@ describe('ResolveAuthenticatedUserUseCase', () => {
       PermissionCode.MANAGE_USERS,
       PermissionCode.REGISTER_ENTRY,
     ]);
+    authRepoMock.findHasAdminRoleByUserIdAndCompanyId.mockResolvedValue(true);
 
     const result = await useCase.execute(
       activeCandidate.id,
@@ -80,9 +83,27 @@ describe('ResolveAuthenticatedUserUseCase', () => {
       email: activeCandidate.email,
       name: activeCandidate.name,
       type: activeCandidate.type,
+      isAdmin: true,
       roleCodes: ['Administração'],
       permissions: ['MANAGE_USERS', 'REGISTER_ENTRY'],
     });
+  });
+
+  it('inclui isAdmin conforme o cargo ativo da pessoa na empresa', async () => {
+    authRepoMock.findUserInCompany.mockResolvedValue(activeCandidate);
+    authRepoMock.findRoleCodesByUserIdAndCompanyId.mockResolvedValue([]);
+    authRepoMock.findPermissionsByUserIdAndCompanyId.mockResolvedValue([]);
+    authRepoMock.findHasAdminRoleByUserIdAndCompanyId.mockResolvedValue(true);
+
+    const result = await useCase.execute(
+      activeCandidate.id,
+      activeCandidate.companyId,
+    );
+
+    expect(result?.isAdmin).toBe(true);
+    expect(
+      authRepoMock.findHasAdminRoleByUserIdAndCompanyId,
+    ).toHaveBeenCalledWith(activeCandidate.id, activeCandidate.companyId);
   });
 
   it('retorna null quando o vínculo não existe', async () => {

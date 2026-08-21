@@ -17,8 +17,8 @@
 
 6. **Login** por **e-mail e senha** (da pessoa). A senha é armazenada como **hash (bcrypt)**, nunca texto puro.
 7. **O mesmo usuário pode ter mais de uma companhia vinculada** (`user_company`, `UNIQUE (user_id, company_id)`).
-8. O que muda por empresa mora no **vínculo**: `type` (`EMPLOYEE`/`VISITOR`) e `is_active`. **Desativar um usuário é ato da empresa sobre a participação** — uma pessoa sem nenhum vínculo ativo não entra em lugar nenhum.
-9. Dados pessoais (`name`, `email`, `password`, `phone`, `document`, `observation`, `photo_url`) são **da pessoa**: editar em uma empresa reflete em todas.
+8. O que muda por empresa mora no **vínculo**: `type` (`EMPLOYEE`/`VISITOR`) e `is_active`. **Desativar um usuário é ato da empresa sobre a participação** — uma pessoa sem nenhum vínculo ativo não entra em lugar nenhum. **Excluir** (`DELETE /users/:id`) remove o vínculo da empresa (e a pessoa, quando é a última empresa dela sem histórico operacional — ADR 0005 §4).
+9. Dados pessoais (`name`, `email`, `password`, `phone`, `document`, `photo_url`) são **da pessoa**: editar em uma empresa reflete em todas.
 10. Usuários criados via solicitação de acesso são do tipo **`VISITOR`** (no vínculo daquela empresa).
 11. **LGPD** (decisões em aberto em `planejamento/pendencias.md`): política de **retenção** e **acesso** de foto/documento/telefone, consentimento de visitantes, quem visualiza a foto do condutor, descarte de solicitações `REJECTED` com dados pessoais e direito de exclusão/atualização.
 
@@ -42,46 +42,47 @@
 
 25. `permission` é um **catálogo global** do sistema (sem `company_id`); o vínculo com a empresa ocorre via `role_permission`.
 26. **Cargos (`role`)** são por empresa; cada cargo pode ser marcado como `is_admin` (acesso total à administração).
-27. **Permissões são granulares** (`role_permission`): um cargo possui um conjunto de permissões; um usuário pode ter vários cargos (`user_role`).
+27. **Permissões são granulares** (`role_permission`): um cargo possui um conjunto de permissões; **um usuário tem no máximo um cargo por empresa** (`user_role` — unique `(company_id, user_id)`, ADR 0005).
 28. **Escalabilidade não engessada**: a administração pode **mudar cargos, permissões e a visualização de seus usuários** — o mapeamento inicial é um ponto de partida, não um contrato rígido.
 29. **Acesso por papel**: os papéis são **Porteiro**, **Segurança**, **Administração** e **Presidência** — cada um com permissões específicas.
 30. No código, permissões são referenciadas pelo enum `PermissionCode` (nunca strings hardcoded), aplicadas via `JwtAuthGuard` + `PermissionsGuard`.
 31. **Papéis nunca vazam entre empresas**: `user_role`/`role_permission` já são escopados por `company_id`; a resolução usa sempre `(user_id, companyId)`.
+32. **Exclusão física de cargo desvincula usuários** (ADR 0004 §5): `DELETE /roles/:id` remove os `role_permission` e **desvincula os usuários** (`user_role`) em cascata — quem estava vinculado fica **sem cargo** (resumo `role` → `null`); o frontend exige confirmação com aviso. Proibida para cargos `is_admin`.
 
 ### Cargos seedados (empresa padrão SOMAR)
 
-32. **Administração** (`is_admin = true`): todas as 23 permissões.
-33. **Segurança**: tudo do porteiro + `MANAGE_BLOCKS`.
-34. **Presidência**: `VIEW_DASHBOARDS`, `GRANT_FREE_PASS`, `MANAGE_BLOCKS`.
-35. **Porteiro**: `REGISTER_ENTRY`, `REGISTER_EXIT`, `REGISTER_DENIAL`, `CREATE_ACCESS_REQUEST`, `CANCEL_ACCESS_REQUEST`, `CREATE_BLOCK_REQUEST`, `VIEW_DASHBOARDS`.
+33. **Administração** (`is_admin = true`): todas as 23 permissões.
+34. **Segurança**: tudo do porteiro + `MANAGE_BLOCKS`.
+35. **Presidência**: `VIEW_DASHBOARDS`, `GRANT_FREE_PASS`, `MANAGE_BLOCKS`.
+36. **Porteiro**: `REGISTER_ENTRY`, `REGISTER_EXIT`, `REGISTER_DENIAL`, `CREATE_ACCESS_REQUEST`, `CANCEL_ACCESS_REQUEST`, `CREATE_BLOCK_REQUEST`, `VIEW_DASHBOARDS`.
 
 ## 5. Device (app do porteiro)
 
-36. O tablet da portaria é **compartilhado** (sem dono) — vários porteiros logam no mesmo `device`; quem executa cada ação é registrado em `doorman_id`/`requested_by`.
-37. **Registro de device**: na 1ª execução o app se registra (`name`, `token` único, `platform`, `app_version`) — usado no sync e na auditoria.
-38. O tablet pode ser vinculado a uma **portaria** (`device.entrance_id`), preenchendo `entrance_id` dos eventos automaticamente.
-39. `last_sync_at` é usado no **pull incremental**; device **desativado** (`is_active = false`) limpa o cache do app.
-40. **Offline**: cache local com **minimização de dados pessoais (LGPD)** — no dispositivo fica apenas o **nome** do motorista; documento, telefone e foto apenas **online**. Retenção do cache: limpar ao deslogar, ao desativar o device e após **30 dias sem sincronizar**.
-41. **Sync**: fila local (outbox) com `idempotency_key`; o servidor **revalida as regras** de negócio de cada item e faz o pull incremental desde `last_sync_at`. O servidor é a **fonte da verdade**.
+37. O tablet da portaria é **compartilhado** (sem dono) — vários porteiros logam no mesmo `device`; quem executa cada ação é registrado em `doorman_id`/`requested_by`.
+38. **Registro de device**: na 1ª execução o app se registra (`name`, `token` único, `platform`, `app_version`) — usado no sync e na auditoria.
+39. O tablet pode ser vinculado a uma **portaria** (`device.entrance_id`), preenchendo `entrance_id` dos eventos automaticamente.
+40. `last_sync_at` é usado no **pull incremental**; device **desativado** (`is_active = false`) limpa o cache do app.
+41. **Offline**: cache local com **minimização de dados pessoais (LGPD)** — no dispositivo fica apenas o **nome** do motorista; documento, telefone e foto apenas **online**. Retenção do cache: limpar ao deslogar, ao desativar o device e após **30 dias sem sincronizar**.
+42. **Sync**: fila local (outbox) com `idempotency_key`; o servidor **revalida as regras** de negócio de cada item e faz o pull incremental desde `last_sync_at`. O servidor é a **fonte da verdade**.
 
 ## 6. Importação de planilhas
 
-42. A importação (Excel/xlsx) ocorre por **jobs** (`import_job`), com fila e status `PENDING`/`PROCESSING`/`DONE`/`FAILED`/`PARTIAL` (erros por linha em `errors`).
-43. Tipos de importação: `VEHICLE`, `USER`, `USER_VEHICLE`.
-44. **Pós-importação**: a aplicação **web** gera os QR codes dos veículos importados (**em lote**) e disponibiliza a impressão.
-45. Importação é uma feature do MVP — cadastros em massa para facilitar a adoção inicial.
+43. A importação (Excel/xlsx) ocorre por **jobs** (`import_job`), com fila e status `PENDING`/`PROCESSING`/`DONE`/`FAILED`/`PARTIAL` (erros por linha em `errors`).
+44. Tipos de importação: `VEHICLE`, `USER`, `USER_VEHICLE`.
+45. **Pós-importação**: a aplicação **web** gera os QR codes dos veículos importados (**em lote**) e disponibiliza a impressão.
+46. Importação é uma feature do MVP — cadastros em massa para facilitar a adoção inicial.
 
 ## 7. Auditoria (versão completa)
 
-46. **Auditoria** (`audit_log`) é apenas da **versão completa** — sem auditoria mínima no MVP (a migração `0007` fica fora da leva inicial, sem impacto nas anteriores).
-47. Registra ações (`CREATE`, `UPDATE`, `DELETE`, `LOGIN`, `EXPORT`, `IMPORT`, `PRINT_QRCODE`, ...) com ator (`USER`/`SYSTEM`/`API`), snapshot do papel, `entity_type`/`entity_id`, `request_id` (correlação), `context` (ip, user_agent, device) e `old_values`/`new_values`.
-48. `created_at` é **imutável** (só INSERT; sem `updated_at`).
+47. **Auditoria** (`audit_log`) é apenas da **versão completa** — sem auditoria mínima no MVP (a migração `0007` fica fora da leva inicial, sem impacto nas anteriores).
+48. Registra ações (`CREATE`, `UPDATE`, `DELETE`, `LOGIN`, `EXPORT`, `IMPORT`, `PRINT_QRCODE`, ...) com ator (`USER`/`SYSTEM`/`API`), snapshot do papel, `entity_type`/`entity_id`, `request_id` (correlação), `context` (ip, user_agent, device) e `old_values`/`new_values`.
+49. `created_at` é **imutável** (só INSERT; sem `updated_at`).
 
 ## 8. Fora do escopo do MVP
 
-49. **Super admin** de múltiplas autarquias (gestão de autarquias) — versão completa.
-50. **Integração com Gmail/Google** para avisos à administração e disparo de relatórios — versão completa.
-51. **Recuperação de senha** multi-empresa (redefinição que vale para todos os vínculos do mesmo e-mail) — a decidir quando entrar no escopo.
+50. **Super admin** de múltiplas autarquias (gestão de autarquias) — versão completa.
+51. **Integração com Gmail/Google** para avisos à administração e disparo de relatórios — versão completa.
+52. **Recuperação de senha** multi-empresa (redefinição que vale para todos os vínculos do mesmo e-mail) — a decidir quando entrar no escopo. **Até lá**, a troca de senha é feita de forma **provisória** por gestão (`MANAGE_USERS`), com efeito em todos os vínculos da pessoa — ver [ADR 0005](../adr/0005-sistema-de-usuarios.md) e [regras-negocio-usuarios.md](./regras-negocio-usuarios.md). Quando a recuperação de senha entrar no escopo, **nenhuma empresa** poderá trocar a senha do usuário.
 
 ## Referências
 

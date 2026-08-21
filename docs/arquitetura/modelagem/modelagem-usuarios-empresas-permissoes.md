@@ -69,7 +69,6 @@ erDiagram
 | `password`                  | varchar(255) NOT NULL              | hash (bcrypt), nunca texto puro                                          |
 | `phone`                     | varchar(32) NULL                   |                                                                          |
 | `document`                  | varchar(32) NULL                   | `UQ_user_document UNIQUE (document)` — global (NULLs permitidos)         |
-| `observation`               | text NULL                          |                                                                          |
 | `photo_url`                 | varchar(512) NULL                  |                                                                          |
 | `last_login_at`             | timestamptz NULL                   | último login (ADR 0003, migration `0008`; falha do update não bloqueia)  |
 | `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now() |                                                                          |
@@ -139,7 +138,7 @@ Uniques: `UQ_role_permission_company_role_permission UNIQUE (company_id, role_id
 | `role_id`                   | uuid NOT NULL                      | FK → `role(id)`                 |
 | `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now() |                                 |
 
-Uniques: `UQ_user_role_company_user_role UNIQUE (company_id, user_id, role_id)` — evita cargo repetido no usuário.
+Uniques: `UQ_user_role_company_user UNIQUE (company_id, user_id)` — **um usuário tem no máximo um cargo por empresa** (migration `0009`; substitui o unique anterior `(company_id, user_id, role_id)`).
 
 > Já é escopado por empresa. Com o ADR 0002, a resolução de papéis/permissões continua por `(user_id, company_id)` — papéis **nunca vazam entre empresas**.
 
@@ -148,6 +147,7 @@ Uniques: `UQ_user_role_company_user_role UNIQUE (company_id, user_id, role_id)` 
 ### `device` — dispositivos do app do porteiro (sync offline)
 
 > Tablet **compartilhado** (sem dono). Mantém cache local + fila offline; usado no sync e na auditoria.
+> A partir do [ADR 0008](../adr/0008-sistema-de-gerenciamento-de-dispositivos.md) (21/08), a tabela ganha a **feature de gerenciamento** (`src/features/devices/`): CRUD por empresa com token gerado pelo backend (write-only), rotação de token, vínculo com portaria e exclusão física sem referências. **Sem migration nova** — o schema abaixo já atende.
 
 | Coluna                      | Tipo                               | Constraints / Notas                                                                                     |
 | --------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -164,20 +164,27 @@ Uniques: `UQ_user_role_company_user_role UNIQUE (company_id, user_id, role_id)` 
 
 ### `import_job` — jobs de importação de planilhas
 
-| Coluna                      | Tipo                                           | Constraints / Notas                                  |
-| --------------------------- | ---------------------------------------------- | ---------------------------------------------------- |
-| `id`                        | uuid                                           | PK, default `gen_random_uuid()`                      |
-| `company_id`                | uuid NOT NULL                                  | FK → `company(id)`                                   |
-| `type`                      | `import_job_type` NOT NULL                     | `VEHICLE` / `USER` / `USER_VEHICLE`                  |
-| `status`                    | `import_job_status` NOT NULL DEFAULT 'PENDING' | `PENDING`, `PROCESSING`, `DONE`, `FAILED`, `PARTIAL` |
-| `file_url`                  | varchar(512) NULL                              |                                                      |
-| `created_by`                | uuid NULL                                      | FK → `user(id)`                                      |
-| `errors`                    | jsonb NOT NULL DEFAULT '[]'                    | `[{row, message}]`                                   |
-| `total_rows`                | integer NOT NULL DEFAULT 0                     |                                                      |
-| `processed_rows`            | integer NOT NULL DEFAULT 0                     |                                                      |
-| `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now()             |                                                      |
+> Schema **evoluído** pela migration `0011` ([ADR 0007](../adr/0007-sistema-de-importacao-por-planilha.md)): adiciona as colunas de histórico do modelo **fail-fast** e remove a coluna `errors` (desenhada para importação parcial, descartada em 20/08). `PARTIAL` permanece no enum `import_job_status` como reserva.
 
-> Pós-importação: a **web** gera os QR codes dos veículos importados (em lote) e disponibiliza a impressão.
+| Coluna                      | Tipo                                           | Constraints / Notas                                                                   |
+| --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `id`                        | uuid                                           | PK, default `gen_random_uuid()`                                                       |
+| `company_id`                | uuid NOT NULL                                  | FK → `company(id)`                                                                    |
+| `type`                      | `import_job_type` NOT NULL                     | `DEPARTMENT` / `VEHICLE` / `USER` / `USER_VEHICLE` (migração `0011` add `DEPARTMENT`) |
+| `status`                    | `import_job_status` NOT NULL DEFAULT 'PENDING' | `PENDING`, `PROCESSING`, `DONE`, `FAILED` (em uso) · `PARTIAL` (reserva)              |
+| `file_url`                  | varchar(512) NULL                              |                                                                                       |
+| `file_name`                 | varchar(255) NULL                              | nome do arquivo original (histórico) — migração `0011`                                |
+| `created_by`                | uuid NULL                                      | FK → `user(id)`                                                                       |
+| `total_rows`                | integer NOT NULL DEFAULT 0                     |                                                                                       |
+| `processed_rows`            | integer NOT NULL DEFAULT 0                     |                                                                                       |
+| `success_count`             | integer NOT NULL DEFAULT 0                     | migração `0011`                                                                       |
+| `error_count`               | integer NOT NULL DEFAULT 0                     | migração `0011`                                                                       |
+| `error_message`             | text NULL                                      | mensagem fail-fast `Linha N: ...` — migração `0011`                                   |
+| `started_at`                | timestamptz NULL                               | migração `0011`                                                                       |
+| `completed_at`              | timestamptz NULL                               | migração `0011`                                                                       |
+| `created_at` / `updated_at` | timestamptz NOT NULL DEFAULT now()             |                                                                                       |
+
+> Pós-importação: a **web** gera os QR codes dos veículos importados (em lote) e disponibiliza a impressão (evolução futura — ADR 0007 §11).
 
 ## Auditoria — versão completa (migração `0007`, planejada)
 
@@ -205,8 +212,8 @@ Uniques: `UQ_user_role_company_user_role UNIQUE (company_id, user_id, role_id)` 
 | ------------------- | ---------------------------------------------------- | ------------------------------------------------ |
 | `user_type`         | `EMPLOYEE`, `VISITOR`                                | `0001` (em uso em `user_company` desde a `0006`) |
 | `device_platform`   | `ANDROID`, `IOS`                                     | `0005`                                           |
-| `import_job_type`   | `VEHICLE`, `USER`, `USER_VEHICLE`                    | `0005`                                           |
-| `import_job_status` | `PENDING`, `PROCESSING`, `DONE`, `FAILED`, `PARTIAL` | `0005`                                           |
+| `import_job_type`   | `DEPARTMENT`, `VEHICLE`, `USER`, `USER_VEHICLE`      | `0005` (+ `DEPARTMENT` na `0011`)                |
+| `import_job_status` | `PENDING`, `PROCESSING`, `DONE`, `FAILED`, `PARTIAL` | `0005` (`PARTIAL` reservado — fail-fast)         |
 | `audit_actor_type`  | `USER`, `SYSTEM`, `API` (planejado)                  | `0007`                                           |
 
 > Enums do escopo de veículos (`vehicle_block_type`, `vehicle_block_status`, `entry_denial_reason`, `sync_status`, `block_request_status`, `movement_type`, `movement_source`, `access_status`, `access_request_type`, `access_request_status`, `contact_channel`) — ver [modelagem-controle-veiculos.md](./modelagem-controle-veiculos.md).

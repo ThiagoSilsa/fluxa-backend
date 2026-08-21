@@ -23,6 +23,8 @@ export interface AuthenticatedUserEntity {
   name: string;
   /** Tipo no vínculo da empresa da sessão. */
   type: UserType;
+  /** Se a pessoa tem cargo `is_admin` ativo na empresa da sessão (acesso total — ADR 0004). */
+  isAdmin: boolean;
   /** Códigos dos cargos da pessoa na empresa da sessão. */
   roleCodes: string[];
   /** Permissões efetivas da pessoa na empresa da sessão. */
