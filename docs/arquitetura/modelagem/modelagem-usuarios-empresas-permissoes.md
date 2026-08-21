@@ -147,6 +147,7 @@ Uniques: `UQ_user_role_company_user UNIQUE (company_id, user_id)` — **um usuá
 ### `device` — dispositivos do app do porteiro (sync offline)
 
 > Tablet **compartilhado** (sem dono). Mantém cache local + fila offline; usado no sync e na auditoria.
+> A partir do [ADR 0008](../adr/0008-sistema-de-gerenciamento-de-dispositivos.md) (21/08), a tabela ganha a **feature de gerenciamento** (`src/features/devices/`): CRUD por empresa com token gerado pelo backend (write-only), rotação de token, vínculo com portaria e exclusão física sem referências. **Sem migration nova** — o schema abaixo já atende.
 
 | Coluna                      | Tipo                               | Constraints / Notas                                                                                     |
 | --------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
