@@ -123,6 +123,10 @@ export class EntrancesTypeormRepository implements EntranceRepository {
    * Conta dispositivos da empresa vinculados a uma portaria (tabela
    * `device` — sem ORM entity na semana 2, count via SQL direto).
    *
+   * TODO: <Tarefa Futura> — migrar para o `DEVICE_REPOSITORY` da feature
+   * `devices` (ADR 0008) quando o acoplamento for aceitável; mantido aqui
+   * para não criar dependência entrances → devices.
+   *
    * @param entranceId Id da portaria.
    * @param companyId Empresa da sessão.
    * @returns Quantidade de dispositivos que referenciam a portaria.

@@ -5,6 +5,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './features/auth/auth.module';
 import { DepartmentsModule } from './features/departments/departments.module';
+import { DevicesModule } from './features/devices/devices.module';
 import { EntrancesModule } from './features/entrances/entrances.module';
 import { ImportsModule } from './features/imports/imports.module';
 import { RolesModule } from './features/roles/roles.module';
@@ -33,6 +34,7 @@ import { validateEnvironment } from './shared/validators/environment.validator';
     UsersModule,
     DepartmentsModule,
     EntrancesModule,
+    DevicesModule,
     VehiclesModule,
     ImportsModule,
   ],
