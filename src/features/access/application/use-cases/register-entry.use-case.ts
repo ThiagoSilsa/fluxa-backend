@@ -36,6 +36,9 @@ import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicl
 import { DEPARTMENT_REPOSITORY } from '../../../departments/domain/repositories/department.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
 
+// Repositories (entrances — M4)
+import { ENTRANCE_REPOSITORY } from '../../../entrances/domain/repositories/entrance.repository';
+
 // Constants
 import {
   MovementSource,
@@ -65,6 +68,7 @@ import type { VehicleDepartmentRepository } from '../../../vehicles/domain/repos
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
 import type { DepartmentRepository } from '../../../departments/domain/repositories/department.repository';
 import type { UserRepository } from '../../../users/domain/repositories/user.repository';
+import type { EntranceRepository } from '../../../entrances/domain/repositories/entrance.repository';
 import type { RegisterEntryInputDto } from '../dto/register-entry-input.dto';
 import type {
   AccessEntryResponse,
@@ -88,9 +92,22 @@ import type { DepartmentEntity } from '../../../departments/domain/entities/depa
 export class RegisterEntryUseCase {
   private readonly logger = new Logger(RegisterEntryUseCase.name);
 
+  /**
+   * Origens aceitas do client (M4) — `WEB`/`INITIAL` são internos do servidor
+   * e rejeitados aqui (400).
+   */
+  private static readonly CLIENT_SOURCES = [
+    MovementSource.PLATE,
+    MovementSource.QRCODE,
+    MovementSource.APP,
+    MovementSource.MANUAL,
+  ];
+
   constructor(
     @Inject(VEHICLE_ACCESS_REPOSITORY)
     private readonly vehicleAccessRepository: VehicleAccessRepository,
+    @Inject(ENTRANCE_REPOSITORY)
+    private readonly entranceRepository: EntranceRepository,
     @Inject(VEHICLE_REPOSITORY)
     private readonly vehicleRepository: VehicleRepository,
     @Inject(VEHICLE_BLOCK_REPOSITORY)
@@ -128,6 +145,52 @@ export class RegisterEntryUseCase {
       throw new BadRequestException('Placa inválida.');
     }
     const companyId = actor.companyId;
+
+    // M4 — dedup de retry/sync: mesma chave de idempotência → devolve o
+    // resultado já persistido (não duplica visita/movimento no offline).
+    if (input.idempotencyKey) {
+      const existing =
+        await this.vehicleAccessRepository.findMovementByIdempotencyKeyAndCompanyId(
+          input.idempotencyKey,
+          companyId,
+        );
+      if (existing?.accessId) {
+        const access = await this.vehicleAccessRepository.findByIdAndCompanyId(
+          existing.accessId,
+          companyId,
+        );
+        if (access) {
+          return {
+            granted: true,
+            message: 'Entrada já registrada.',
+            access: toAccessResponse(access),
+            movement: toMovementResponse(existing),
+          };
+        }
+      }
+    }
+
+    // M4 — origem aceita do client (QRCODE/APP/MANUAL; default PLATE).
+    const source = input.source ?? MovementSource.PLATE;
+    if (!RegisterEntryUseCase.CLIENT_SOURCES.includes(source)) {
+      throw new BadRequestException('Origem do registro inválida.');
+    }
+
+    // M4 — portaria do device: deve existir e estar ativa na empresa.
+    let entranceId: string | null = null;
+    if (input.entranceId) {
+      const entrance = await this.entranceRepository.findByIdAndCompanyId(
+        input.entranceId,
+        companyId,
+      );
+      if (!entrance) {
+        throw new NotFoundException('Portaria não encontrada.');
+      }
+      if (!entrance.isActive) {
+        throw new BadRequestException('Portaria inativa.');
+      }
+      entranceId = entrance.id;
+    }
 
     const vehicle = await this.vehicleRepository.findByPlateAndCompanyId(
       plate,
@@ -210,8 +273,8 @@ export class RegisterEntryUseCase {
       departmentId: department?.id ?? null,
       accessRequestId: driver.accessRequestId,
       overCapacity: input.overCapacity,
-      source: MovementSource.PLATE,
-      entranceId: null,
+      source,
+      entranceId,
       doormanId: actor.id,
       syncStatus: SyncStatus.SYNCED,
       idempotencyKey: input.idempotencyKey ?? randomUUID(),

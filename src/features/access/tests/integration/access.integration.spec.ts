@@ -96,6 +96,20 @@ describe('Access integration — entrada/saída/ocupação (Testcontainers, ADR 
       })
       .expect(201);
 
+    // Veículos M4 (free_pass — sem motorista): QR/portaria, dedup entrada,
+    // dedup saída.
+    for (const plate of ['QRD1A23', 'DUP1A23', 'DUP2A23']) {
+      await request(context.httpServer)
+        .post('/vehicles')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          plate,
+          vehicleTypeId: ACCESS_SEEDED.FROTA_TYPE_ID,
+          freePass: true,
+        })
+        .expect(201);
+    }
+
     // Departamento com 1 vaga (cenário de vaga cheia).
     const depRes = await request(context.httpServer)
       .post('/departments')
@@ -377,6 +391,137 @@ describe('Access integration — entrada/saída/ocupação (Testcontainers, ADR 
       );
       expect(vagaUnica.occupied).toBeGreaterThanOrEqual(1);
       expect(vagaUnica.capacity).toBe(1);
+    });
+  });
+
+  describe('M4 — Integrações finas: source, portaria e idempotência', () => {
+    let entranceId: string;
+
+    beforeAll(async () => {
+      const entranceRes = await request(context.httpServer)
+        .post('/entrances')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'Portaria Principal' })
+        .expect(201);
+      entranceId = entranceRes.body.id;
+    });
+
+    it('registra entrada com source=QRCODE e portaria ativa (movimento com entrance_id)', async () => {
+      const res = await request(context.httpServer)
+        .post('/access/entry')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({ plate: 'QRD1A23', source: 'QRCODE', entranceId })
+        .expect(201);
+
+      expect(res.body.granted).toBe(true);
+      expect(res.body.movement).toMatchObject({
+        source: 'QRCODE',
+        entranceId,
+      });
+    });
+
+    it('lança 400 para source interno (WEB)', async () => {
+      await request(context.httpServer)
+        .post('/access/entry')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({ plate: 'QRD1A23', source: 'WEB' })
+        .expect(400);
+    });
+
+    it('lança 404 para portaria inexistente', async () => {
+      await request(context.httpServer)
+        .post('/access/entry')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'QRD1A23',
+          source: 'QRCODE',
+          entranceId: '40000000-0000-0000-0000-000000000099',
+        })
+        .expect(404);
+    });
+
+    it('lança 400 para portaria inativa', async () => {
+      const offRes = await request(context.httpServer)
+        .post('/entrances')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'Portaria Fechada' })
+        .expect(201);
+      await request(context.httpServer)
+        .patch(`/entrances/${offRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isActive: false })
+        .expect(200);
+
+      await request(context.httpServer)
+        .post('/access/entry')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'QRD1A23',
+          source: 'QRCODE',
+          entranceId: offRes.body.id,
+        })
+        .expect(400);
+    });
+
+    it('dedup: retry com a mesma idempotencyKey não duplica a entrada', async () => {
+      const first = await request(context.httpServer)
+        .post('/access/entry')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'DUP1A23',
+          idempotencyKey: '90000000-0000-0000-0000-000000000001',
+        })
+        .expect(201);
+      expect(first.body.granted).toBe(true);
+
+      const retry = await request(context.httpServer)
+        .post('/access/entry')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'DUP1A23',
+          idempotencyKey: '90000000-0000-0000-0000-000000000001',
+        })
+        .expect(201);
+
+      expect(retry.body.granted).toBe(true);
+      expect(retry.body.message).toBe('Entrada já registrada.');
+      expect(retry.body.access.id).toBe(first.body.access.id);
+      expect(await context.countInsideByPlate('DUP1A23')).toBe(1);
+      expect(await context.countMovementsByType('DUP1A23', 'ENTRY')).toBe(1);
+    });
+
+    it('dedup: retry de saída devolve o encerramento sem duplicar EXIT', async () => {
+      await request(context.httpServer)
+        .post('/access/entry')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({ plate: 'DUP2A23' })
+        .expect(201);
+
+      const first = await request(context.httpServer)
+        .post('/access/exit')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'DUP2A23',
+          idempotencyKey: '90000000-0000-0000-0000-000000000002',
+        })
+        .expect(201);
+      expect(first.body.closedAccesses).toHaveLength(1);
+
+      const retry = await request(context.httpServer)
+        .post('/access/exit')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'DUP2A23',
+          idempotencyKey: '90000000-0000-0000-0000-000000000002',
+        })
+        .expect(201);
+
+      expect(retry.body.closedAccesses).toHaveLength(1);
+      expect(retry.body.closedAccesses[0].access.id).toBe(
+        first.body.closedAccesses[0].access.id,
+      );
+      expect(await context.countInsideByPlate('DUP2A23')).toBe(0);
+      expect(await context.countMovementsByType('DUP2A23', 'EXIT')).toBe(1);
     });
   });
 });

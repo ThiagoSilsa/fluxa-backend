@@ -1,12 +1,19 @@
 // class-validator
 import {
   IsBoolean,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
 } from 'class-validator';
+
+// class-transformer
+import { Transform } from 'class-transformer';
+
+// Constants
+import { MovementSource } from '../../../domain/constants/access.constant';
 
 // Shared
 import { UUID_ANY_VERSION_PATTERN } from '../../../../../shared/validators/uuid.pattern';
@@ -44,4 +51,19 @@ export class RegisterEntryDto {
   @IsOptional()
   @Matches(UUID_ANY_VERSION_PATTERN)
   idempotencyKey?: string;
+
+  /** Origem do registro (QRCODE/APP/MANUAL; default PLATE — M4). */
+  @IsOptional()
+  @IsEnum(MovementSource)
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string'
+      ? (value.toUpperCase() as MovementSource)
+      : (value as MovementSource | undefined),
+  )
+  source?: MovementSource;
+
+  /** Portaria do device (validada ativa na empresa — M4). */
+  @IsOptional()
+  @Matches(UUID_ANY_VERSION_PATTERN)
+  entranceId?: string;
 }

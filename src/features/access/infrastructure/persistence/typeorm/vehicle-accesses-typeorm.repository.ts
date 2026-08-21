@@ -83,6 +83,40 @@ export class VehicleAccessesTypeormRepository implements VehicleAccessRepository
   }
 
   /**
+   * Busca um movimento pela chave de idempotência (M4 — dedup de retry/sync).
+   *
+   * @param idempotencyKey Chave enviada pelo cliente.
+   * @param companyId Empresa da sessão.
+   * @returns Movimento encontrado ou `null`.
+   */
+  public async findMovementByIdempotencyKeyAndCompanyId(
+    idempotencyKey: string,
+    companyId: string,
+  ): Promise<VehicleMovementEntity | null> {
+    const orm = await this.vehicleMovementRepo.findOne({
+      where: { idempotencyKey, companyId },
+    });
+    return orm ? this.toMovementDomain(orm) : null;
+  }
+
+  /**
+   * Busca um acesso por id (M4 — reconstrói o resultado de um retry).
+   *
+   * @param id Id do acesso.
+   * @param companyId Empresa da sessão.
+   * @returns Acesso encontrado ou `null`.
+   */
+  public async findByIdAndCompanyId(
+    id: string,
+    companyId: string,
+  ): Promise<VehicleAccessEntity | null> {
+    const orm = await this.vehicleAccessRepo.findOne({
+      where: { id, companyId },
+    });
+    return orm ? this.toDomain(orm) : null;
+  }
+
+  /**
    * Registra uma entrada (INSIDE + movimento ENTRY), fechando acessos INSIDE
    * anteriores na mesma transação (regra 9 — reentrada).
    *
@@ -204,7 +238,7 @@ export class VehicleAccessesTypeormRepository implements VehicleAccessRepository
         movement: VehicleMovementEntity;
       }[] = [];
 
-      for (const id of data.accessIds) {
+      for (const [index, id] of data.accessIds.entries()) {
         const orm = await manager.findOne(VehicleAccessOrmEntity, {
           where: { id, companyId: data.companyId, status: AccessStatus.INSIDE },
         });
@@ -218,6 +252,12 @@ export class VehicleAccessesTypeormRepository implements VehicleAccessRepository
         orm.closedAt = data.occurredAt;
         await manager.save(orm);
 
+        // Dedup (M4): a chave do request fica no 1º movimento EXIT fechado;
+        // os demais (multi-inside) ganham uuid próprio.
+        const idempotencyKey =
+          data.idempotencyKey && index === 0
+            ? data.idempotencyKey
+            : randomUUID();
         const movement = manager.create(VehicleMovementOrmEntity, {
           companyId: data.companyId,
           accessId: orm.id,
@@ -231,7 +271,7 @@ export class VehicleAccessesTypeormRepository implements VehicleAccessRepository
           entranceId: data.entranceId,
           doormanId: data.doormanId,
           syncStatus: data.syncStatus,
-          idempotencyKey: randomUUID(),
+          idempotencyKey,
         });
         const savedMovement = await manager.save(movement);
 

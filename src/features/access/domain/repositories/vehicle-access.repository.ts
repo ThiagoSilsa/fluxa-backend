@@ -81,6 +81,8 @@ export interface CloseOpenAccessesRepositoryData {
   doormanId: string;
   /** `SYNCED` (web). */
   syncStatus: SyncStatus;
+  /** Idempotência do 1º movimento EXIT fechado (dedup de retry — M4). */
+  idempotencyKey?: string;
   /** Momento real do evento. */
   occurredAt: Date;
 }
@@ -170,6 +172,33 @@ export interface VehicleAccessRepository {
    * @returns Entrada registrada.
    */
   createEntry(data: CreateEntryAccessRepositoryData): Promise<EntryResult>;
+
+  /**
+   * Busca um movimento pela chave de idempotência (M4 — dedup de retry/
+   * sync). Permite devolver o resultado já persistido em vez de duplicar
+   * quando o cliente reenvia a mesma operação offline.
+   *
+   * @param idempotencyKey Chave enviada pelo cliente (ou gerada pelo servidor).
+   * @param companyId Empresa da sessão.
+   * @returns Movimento encontrado ou `null`.
+   */
+  findMovementByIdempotencyKeyAndCompanyId(
+    idempotencyKey: string,
+    companyId: string,
+  ): Promise<VehicleMovementEntity | null>;
+
+  /**
+   * Busca um acesso por id (usado no dedup para reconstruir o resultado já
+   * persistido de uma operação repetida).
+   *
+   * @param id Id do acesso.
+   * @param companyId Empresa da sessão.
+   * @returns Acesso encontrado ou `null`.
+   */
+  findByIdAndCompanyId(
+    id: string,
+    companyId: string,
+  ): Promise<VehicleAccessEntity | null>;
 
   /**
    * Encerra os acessos abertos informados (`OUT`) e gera os movimentos EXIT

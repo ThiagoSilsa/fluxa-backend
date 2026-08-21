@@ -33,6 +33,7 @@ import type { AccessRequestEntity } from '../../../access-requests/domain/entiti
 import type { UserEntity } from '../../../users/domain/entities/user.entity';
 import type { UserVehicleWithUserEntity } from '../../../vehicles/domain/entities/user-vehicle.entity';
 import type { DepartmentEntity } from '../../../departments/domain/entities/department.entity';
+import type { EntranceEntity } from '../../../entrances/domain/entities/entrance.entity';
 import type { VehicleAccessRepository } from '../../domain/repositories/vehicle-access.repository';
 import type { VehicleBlockRepository } from '../../../blocks/domain/repositories/vehicle-block.repository';
 import type { EntryDenialRepository } from '../../../blocks/domain/repositories/entry-denial.repository';
@@ -42,6 +43,7 @@ import type { UserVehicleRepository } from '../../../vehicles/domain/repositorie
 import type { VehicleDepartmentRepository } from '../../../vehicles/domain/repositories/vehicle-department.repository';
 import type { DepartmentRepository } from '../../../departments/domain/repositories/department.repository';
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
+import type { EntranceRepository } from '../../../entrances/domain/repositories/entrance.repository';
 
 // Repositories
 import { VEHICLE_ACCESS_REPOSITORY } from '../../domain/repositories/vehicle-access.repository';
@@ -53,6 +55,7 @@ import { USER_VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/u
 import { VEHICLE_DEPARTMENT_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle-department.repository';
 import { DEPARTMENT_REPOSITORY } from '../../../departments/domain/repositories/department.repository';
 import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle.repository';
+import { ENTRANCE_REPOSITORY } from '../../../entrances/domain/repositories/entrance.repository';
 
 // DTOs
 import { RegisterEntryInputDto } from '../../application/dto/register-entry-input.dto';
@@ -67,12 +70,16 @@ describe('RegisterEntryUseCase', () => {
     createEntry: jest.fn(),
     countInsideByDepartmentIdAndCompanyId: jest.fn(),
     countInsideByCompanyId: jest.fn(),
+    findMovementByIdempotencyKeyAndCompanyId: jest.fn(),
+    findByIdAndCompanyId: jest.fn(),
   } as jest.Mocked<
     Pick<
       VehicleAccessRepository,
       | 'createEntry'
       | 'countInsideByDepartmentIdAndCompanyId'
       | 'countInsideByCompanyId'
+      | 'findMovementByIdempotencyKeyAndCompanyId'
+      | 'findByIdAndCompanyId'
     >
   >;
 
@@ -118,6 +125,10 @@ describe('RegisterEntryUseCase', () => {
     findByIdAndCompanyId: jest.fn(),
     list: jest.fn(),
   } as jest.Mocked<Pick<DepartmentRepository, 'findByIdAndCompanyId' | 'list'>>;
+
+  const entranceRepoMock = {
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<Pick<EntranceRepository, 'findByIdAndCompanyId'>>;
 
   const actor: AuthenticatedUserEntity = {
     id: '30000000-0000-0000-0000-000000000002',
@@ -230,6 +241,15 @@ describe('RegisterEntryUseCase', () => {
     updatedAt: new Date(),
   };
 
+  const entrance: EntranceEntity = {
+    id: '40000000-0000-0000-0000-000000000030',
+    companyId: actor.companyId,
+    name: 'Portaria Principal',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
   const access: VehicleAccessEntity = {
     id: '70000000-0000-0000-0000-000000000001',
     companyId: actor.companyId,
@@ -296,6 +316,7 @@ describe('RegisterEntryUseCase', () => {
           useValue: vehicleDepartmentRepoMock,
         },
         { provide: DEPARTMENT_REPOSITORY, useValue: departmentRepoMock },
+        { provide: ENTRANCE_REPOSITORY, useValue: entranceRepoMock },
       ],
     }).compile();
     useCase = module.get(RegisterEntryUseCase);
@@ -621,5 +642,174 @@ describe('RegisterEntryUseCase', () => {
     expect(result.granted).toBe(true);
     expect(result.previousClosed?.access.forcedExit).toBe(true);
     expect(result.previousClosed?.movement.type).toBe(MovementType.EXIT);
+  });
+
+  it('registra entrada com source=QRCODE e portaria ativa (M4)', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(
+      buildVehicle({ freePass: true }),
+    );
+    blockRepoMock.findActiveByVehicleIdAndCompanyId.mockResolvedValue(null);
+    accessRepoMock.countInsideByCompanyId.mockResolvedValue(0);
+    departmentRepoMock.list.mockResolvedValue({ data: [], count: 0 });
+    accessRepoMock.createEntry.mockResolvedValue({
+      access,
+      movement,
+      previousClosed: null,
+    });
+    entranceRepoMock.findByIdAndCompanyId.mockResolvedValue(entrance);
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryInputDto(
+        'ABC1D23',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        MovementSource.QRCODE,
+        entrance.id,
+      ),
+    );
+
+    expect(result.granted).toBe(true);
+    expect(entranceRepoMock.findByIdAndCompanyId).toHaveBeenCalledWith(
+      entrance.id,
+      actor.companyId,
+    );
+    expect(accessRepoMock.createEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: MovementSource.QRCODE,
+        entranceId: entrance.id,
+      }),
+    );
+  });
+
+  it('lança 400 para source interno (WEB) (M4)', async () => {
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryInputDto(
+          'ABC1D23',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          MovementSource.WEB,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(accessRepoMock.createEntry).not.toHaveBeenCalled();
+  });
+
+  it('lança 404 para portaria inexistente (M4)', async () => {
+    entranceRepoMock.findByIdAndCompanyId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryInputDto(
+          'ABC1D23',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          MovementSource.QRCODE,
+          '40000000-0000-0000-0000-000000000099',
+        ),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(accessRepoMock.createEntry).not.toHaveBeenCalled();
+  });
+
+  it('lança 400 para portaria inativa (M4)', async () => {
+    entranceRepoMock.findByIdAndCompanyId.mockResolvedValue({
+      ...entrance,
+      isActive: false,
+    });
+
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryInputDto(
+          'ABC1D23',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          MovementSource.QRCODE,
+          entrance.id,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(accessRepoMock.createEntry).not.toHaveBeenCalled();
+  });
+
+  it('dedup: mesma idempotencyKey devolve a entrada já registrada (M4)', async () => {
+    accessRepoMock.findMovementByIdempotencyKeyAndCompanyId.mockResolvedValue(
+      movement,
+    );
+    accessRepoMock.findByIdAndCompanyId.mockResolvedValue(access);
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryInputDto(
+        'ABC1D23',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'mov-1',
+      ),
+    );
+
+    expect(result.granted).toBe(true);
+    expect(result.message).toBe('Entrada já registrada.');
+    expect(result.access?.id).toBe(access.id);
+    expect(result.movement?.id).toBe(movement.id);
+    expect(accessRepoMock.createEntry).not.toHaveBeenCalled();
+  });
+
+  it('dedup: idempotencyKey nova segue o fluxo normal (M4)', async () => {
+    accessRepoMock.findMovementByIdempotencyKeyAndCompanyId.mockResolvedValue(
+      null,
+    );
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(
+      buildVehicle({ freePass: true }),
+    );
+    blockRepoMock.findActiveByVehicleIdAndCompanyId.mockResolvedValue(null);
+    accessRepoMock.countInsideByCompanyId.mockResolvedValue(0);
+    departmentRepoMock.list.mockResolvedValue({ data: [], count: 0 });
+    accessRepoMock.createEntry.mockResolvedValue({
+      access,
+      movement,
+      previousClosed: null,
+    });
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryInputDto(
+        'ABC1D23',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'mov-nova',
+      ),
+    );
+
+    expect(result.granted).toBe(true);
+    expect(accessRepoMock.createEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: 'mov-nova' }),
+    );
   });
 });

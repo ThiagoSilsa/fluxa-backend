@@ -7,6 +7,7 @@ import { AuthModule } from '../auth/auth.module';
 import { AccessRequestsModule } from '../access-requests/access-requests.module';
 import { BlocksModule } from '../blocks/blocks.module';
 import { DepartmentsModule } from '../departments/departments.module';
+import { EntrancesModule } from '../entrances/entrances.module';
 import { UsersModule } from '../users/users.module';
 import { VehiclesModule } from '../vehicles/vehicles.module';
 
@@ -46,6 +47,7 @@ import { AccessController } from './presentation/http/controllers/access.control
     DepartmentsModule,
     BlocksModule,
     AccessRequestsModule,
+    EntrancesModule,
     TypeOrmModule.forFeature([
       VehicleAccessOrmEntity,
       VehicleMovementOrmEntity,

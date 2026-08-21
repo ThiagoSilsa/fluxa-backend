@@ -1,3 +1,6 @@
+// Types
+import type { MovementSource } from '../../domain/constants/access.constant';
+
 /**
  * Entrada do use case de registro de entrada (já validada pelo controller).
  */
@@ -17,5 +20,9 @@ export class RegisterEntryInputDto {
     readonly overCapacity: boolean = false,
     /** Idempotência (opcional — servidor gera se ausente). */
     readonly idempotencyKey?: string,
+    /** Origem (QRCODE/APP/MANUAL; default PLATE — M4). */
+    readonly source?: MovementSource,
+    /** Portaria do device (M4 — validada ativa na empresa). */
+    readonly entranceId?: string,
   ) {}
 }

@@ -23,8 +23,12 @@ import { VEHICLE_ACCESS_REPOSITORY } from '../../domain/repositories/vehicle-acc
 import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
 
+// Repositories (entrances — M4)
+import { ENTRANCE_REPOSITORY } from '../../../entrances/domain/repositories/entrance.repository';
+
 // Constants
 import {
+  AccessStatus,
   MovementSource,
   SyncStatus,
 } from '../../domain/constants/access.constant';
@@ -37,6 +41,7 @@ import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/auth
 import type { VehicleAccessRepository } from '../../domain/repositories/vehicle-access.repository';
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
 import type { UserRepository } from '../../../users/domain/repositories/user.repository';
+import type { EntranceRepository } from '../../../entrances/domain/repositories/entrance.repository';
 import type { RegisterExitInputDto } from '../dto/register-exit-input.dto';
 import type { AccessExitResponse } from '../dto/access-response';
 
@@ -52,9 +57,22 @@ import type { AccessExitResponse } from '../dto/access-response';
 export class RegisterExitUseCase {
   private readonly logger = new Logger(RegisterExitUseCase.name);
 
+  /**
+   * Origens aceitas do client (M4) — `WEB`/`INITIAL` são internos do servidor
+   * e rejeitados aqui (400).
+   */
+  private static readonly CLIENT_SOURCES = [
+    MovementSource.PLATE,
+    MovementSource.QRCODE,
+    MovementSource.APP,
+    MovementSource.MANUAL,
+  ];
+
   constructor(
     @Inject(VEHICLE_ACCESS_REPOSITORY)
     private readonly vehicleAccessRepository: VehicleAccessRepository,
+    @Inject(ENTRANCE_REPOSITORY)
+    private readonly entranceRepository: EntranceRepository,
     @Inject(VEHICLE_REPOSITORY)
     private readonly vehicleRepository: VehicleRepository,
     @Inject(USER_REPOSITORY)
@@ -80,6 +98,56 @@ export class RegisterExitUseCase {
     }
     const companyId = actor.companyId;
 
+    // M4 — dedup de retry/sync: mesma chave de idempotência → devolve o
+    // resultado já persistido (não duplica encerramento/movimento).
+    if (input.idempotencyKey) {
+      const existing =
+        await this.vehicleAccessRepository.findMovementByIdempotencyKeyAndCompanyId(
+          input.idempotencyKey,
+          companyId,
+        );
+      if (existing?.accessId) {
+        const access = await this.vehicleAccessRepository.findByIdAndCompanyId(
+          existing.accessId,
+          companyId,
+        );
+        if (access) {
+          if (access.status === AccessStatus.NO_EXIT) {
+            return {
+              closedAccesses: [],
+              noExit: toClosedAccessResponse(access, existing),
+            };
+          }
+          return {
+            closedAccesses: [toClosedAccessResponse(access, existing)],
+            noExit: null,
+          };
+        }
+      }
+    }
+
+    // M4 — origem aceita do client (QRCODE/APP/MANUAL; default PLATE).
+    const source = input.source ?? MovementSource.PLATE;
+    if (!RegisterExitUseCase.CLIENT_SOURCES.includes(source)) {
+      throw new BadRequestException('Origem do registro inválida.');
+    }
+
+    // M4 — portaria do device: deve existir e estar ativa na empresa.
+    let entranceId: string | null = null;
+    if (input.entranceId) {
+      const entrance = await this.entranceRepository.findByIdAndCompanyId(
+        input.entranceId,
+        companyId,
+      );
+      if (!entrance) {
+        throw new NotFoundException('Portaria não encontrada.');
+      }
+      if (!entrance.isActive) {
+        throw new BadRequestException('Portaria inativa.');
+      }
+      entranceId = entrance.id;
+    }
+
     const vehicle = await this.vehicleRepository.findByPlateAndCompanyId(
       plate,
       companyId,
@@ -93,10 +161,11 @@ export class RegisterExitUseCase {
           companyId,
           accessIds: open.map((access) => access.id),
           plateSnapshot: plate,
-          source: MovementSource.PLATE,
-          entranceId: null,
+          source,
+          entranceId,
           doormanId: actor.id,
           syncStatus: SyncStatus.SYNCED,
+          idempotencyKey: input.idempotencyKey,
           occurredAt: new Date(),
         });
       return {
@@ -128,8 +197,8 @@ export class RegisterExitUseCase {
       temporaryPlate: vehicle ? null : plate,
       driverUserId: input.driverUserId ?? null,
       temporaryDriverName: input.temporaryDriverName?.trim() || null,
-      source: MovementSource.PLATE,
-      entranceId: null,
+      source,
+      entranceId,
       doormanId: actor.id,
       syncStatus: SyncStatus.SYNCED,
       idempotencyKey: input.idempotencyKey ?? randomUUID(),
