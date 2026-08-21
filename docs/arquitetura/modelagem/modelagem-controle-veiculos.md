@@ -176,6 +176,7 @@ Uniques:
 ### `vehicle_block` — estado de bloqueio (portão de acesso)
 
 > **Estado** (não evento): define se o veículo está ou não bloqueado. Gerenciado **somente pela administração** ou pelo **sistema** (bloqueio automático). Histórico de estados: a única mutação permitida é `status ACTIVE → REVOKED`.
+> A feature de bloqueio ([ADR 0010](../adr/0010-estrategia-de-implementacao-do-fluxo-de-acesso.md) §2) é a **única** que mantém `vehicle.is_blocked` (derivado): seta `true` ao criar o bloqueio e recalcula ao revogar, na mesma transação. O fluxo de acesso apenas **lê** `vehicle.is_blocked`.
 
 | Coluna                      | Tipo                                             | Constraints / Notas                                      |
 | --------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
