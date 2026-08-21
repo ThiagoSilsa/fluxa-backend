@@ -429,3 +429,92 @@ export function ApiImportUserVehicles(): MethodDecorator {
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
   );
 }
+
+// ---- QR code de veículos (ADR 0009) ----
+
+export function ApiEmitVehicleQr(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Emite o QR code permanente de um veículo',
+      description:
+        'Exige PRINT_QRCODE. Gera o code (uuid) e cria o QR ativo (issued_by = ator). 409 se o veículo já tiver QR ativo — reimprimir usa o GET (ADR 0009 §2).',
+    }),
+    ApiParam({ name: 'id', description: 'Id do veículo (UUID).' }),
+    ApiResponse({ status: 201, description: 'QR emitido (code + dados).' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({ status: 404, description: 'Veículo não encontrado.' }),
+    ApiResponse({ status: 409, description: 'Veículo já possui QR ativo.' }),
+  );
+}
+
+export function ApiGetVehicleQr(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Reimprime o QR ativo de um veículo',
+      description:
+        'Exige PRINT_QRCODE. Devolve o QR ativo (mesmo code — a imagem é regenerada no client). 404 se o veículo não existir ou não houver QR ativo (ADR 0009 §2).',
+    }),
+    ApiParam({ name: 'id', description: 'Id do veículo (UUID).' }),
+    ApiResponse({ status: 200, description: 'QR ativo do veículo.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({ status: 404, description: 'Veículo/QR não encontrado.' }),
+  );
+}
+
+export function ApiReissueVehicleQr(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Reemite o QR code de um veículo (adesivo novo)',
+      description:
+        'Exige PRINT_QRCODE. Revoga o QR ativo atual e cria um novo code em transação; o adesivo antigo passa a "expirado". 409 se não houver QR ativo para reemitir (ADR 0009 §2).',
+    }),
+    ApiParam({ name: 'id', description: 'Id do veículo (UUID).' }),
+    ApiResponse({ status: 201, description: 'Novo QR emitido (novo code).' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({ status: 404, description: 'Veículo não encontrado.' }),
+    ApiResponse({ status: 409, description: 'Nenhum QR ativo para reemitir.' }),
+  );
+}
+
+export function ApiRevokeVehicleQr(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Revoga o QR ativo de um veículo (sem emitir outro)',
+      description:
+        'Exige PRINT_QRCODE. Desativa o QR ativo (is_active = false) — passa a "expirado" — sem criar outro (ex.: adesivo comprometido). 409 se não houver QR ativo (ADR 0009 §2).',
+    }),
+    ApiParam({ name: 'id', description: 'Id do veículo (UUID).' }),
+    ApiResponse({ status: 200, description: 'QR revogado.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({ status: 404, description: 'Veículo não encontrado.' }),
+    ApiResponse({ status: 409, description: 'Nenhum QR ativo para revogar.' }),
+  );
+}
+
+export function ApiResolveVehicleQr(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Resolve o veículo pelo código do QR (scanner)',
+      description:
+        'Exige REGISTER_ENTRY. QR ativo → veículo com agregado (tipo, departamento, motoristas) para o fluxo de entrada; QR revogado → 410 Gone ("QR expirado"); desconhecido/outro tenant → 404 (ADR 0009 §4).',
+    }),
+    ApiParam({
+      name: 'code',
+      description: 'Código do QR (uuid lido pelo scanner).',
+    }),
+    ApiResponse({ status: 200, description: 'Veículo resolvido.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({ status: 404, description: 'QR/veículo não encontrado.' }),
+    ApiResponse({ status: 410, description: 'QR code expirado (revogado).' }),
+  );
+}
