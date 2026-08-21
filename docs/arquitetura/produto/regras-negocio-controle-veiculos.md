@@ -60,61 +60,71 @@
 
 ## 4. QR code
 
+> Implementação: [ADR 0009 — Emissão de QR code para veículos](../adr/0009-emissao-de-qr-code-para-veiculos.md).
+
 28. QR **revogado** (`is_active = false`) não resolve mais o veículo — ao escanear, o app mostra **"QR expirado"**.
 29. Reemitir gera **novo** `code` (adesivo novo distinto do antigo); apenas **1 QR ativo por veículo** (unique parcial).
 30. Geração/impressão dos QR (inclusive pós-importação de planilhas) é feita pela **web**, com permissão (`PRINT_QRCODE`).
+31. **Emitir** (`POST /vehicles/:id/qr`, `PRINT_QRCODE`): gera `code` (uuid v4) e cria QR **ativo** com `issued_by` = ator → **201**; **409** se já houver QR ativo para o veículo (reimprimir usa o `GET`).
+32. **Reimprimir** (`GET /vehicles/:id/qr`, `PRINT_QRCODE`): devolve o QR **ativo** (o mesmo `code` — a imagem é regenerada no client, nada é salvo); **404** se o veículo não existir/for de outro tenant ou se não houver QR ativo.
+33. **Reemitir** (`POST /vehicles/:id/qr/reissue`, `PRINT_QRCODE`): **revoga** o QR ativo atual (`is_active = false`) e cria **novo** `code` ativo (adesivo novo) → **201**.
+34. **Revogar** (`POST /vehicles/:id/qr/revoke`, `PRINT_QRCODE`): desativa o QR ativo **sem** criar outro (ex.: adesivo comprometido) → **200**; **409** se não houver QR ativo.
+35. O `code` é o **token permanente** do veículo: único por empresa, **não muda** ao editar placa/modelo/cor/proprietário, revogável e gerado de forma segura (`randomUUID`). O QR identifica o **veículo**, não os dados cadastrais.
+36. **Resolver** (`GET /qr-codes/:code`, `REGISTER_ENTRY`): devolve os dados do veículo (placa, modelo, cor, tipo, `freePass`, `isBlocked`, `isActive`, departamento, motoristas com `canDrive`) para o porteiro; QR **revogado** → **410 Gone** ("QR expirado"); `code` **desconhecido/outro tenant** → **404**.
+37. Desativar o veículo **não** revoga o QR ativo (ADR 0006 §10) — `TODO` de interação futura; veículo desativado continua podendo ter QR.
 
 ## 5. Bloqueio automático por prazo de solicitação
 
-31. Solicitação em `PENDING` há mais de **3 dias** (contados do `requested_at`) e **não** em `IN_CONTACT` → o sistema gera `vehicle_block` (`block_type = AUTOMATIC`) e o veículo passa a ser tratado como proibido de entrar.
-32. Enquanto a solicitação estiver em `IN_CONTACT` (admin já em contato), o prazo de **3 dias se estende** — sem bloqueio automático — com **teto de 7 dias** total (contados do `requested_at`); após 7 dias, bloqueia automaticamente mesmo em `IN_CONTACT`.
-33. **Revogação automática**: quando a administração registra o veículo de uma solicitação com bloqueio automático, o sistema **revoga o bloqueio automaticamente** (mesma linha, `revoked_reason` = "veículo cadastrado pela administração").
+38. Solicitação em `PENDING` há mais de **3 dias** (contados do `requested_at`) e **não** em `IN_CONTACT` → o sistema gera `vehicle_block` (`block_type = AUTOMATIC`) e o veículo passa a ser tratado como proibido de entrar.
+39. Enquanto a solicitação estiver em `IN_CONTACT` (admin já em contato), o prazo de **3 dias se estende** — sem bloqueio automático — com **teto de 7 dias** total (contados do `requested_at`); após 7 dias, bloqueia automaticamente mesmo em `IN_CONTACT`.
+40. **Revogação automática**: quando a administração registra o veículo de uma solicitação com bloqueio automático, o sistema **revoga o bloqueio automaticamente** (mesma linha, `revoked_reason` = "veículo cadastrado pela administração").
 
 ## 6. Solicitações de cadastro e vínculo (`access_request`)
 
-34. O porteiro identifica o motorista por **busca no app** (nome/documento/telefone) e cria a solicitação conforme o cenário:
+41. O porteiro identifica o motorista por **busca no app** (nome/documento/telefone) e cria a solicitação conforme o cenário:
     - `NEW_USER` — veículo cadastrado, motorista **não**: no aceite cria `user` + vínculo (`user_vehicle`) com o veículo existente;
     - `NEW_VEHICLE` — motorista cadastrado, veículo **não**: no aceite cria `vehicle` + vínculo com o usuário existente;
     - `LINK` — ambos cadastrados **sem vínculo**: cria apenas `user_vehicle`; o porteiro **libera a entrada na hora** (ambos existem) e a admin só formaliza o vínculo;
     - `BOTH` — nenhum cadastrado: no aceite cria `user` + `vehicle` + vínculo.
-35. No aceite, a admin define o vínculo: default `can_drive = true`; `is_primary` opcional (com ou sem; **apenas 1 primário por veículo**). O usuário criado na solicitação é do tipo **`VISITOR`**.
-36. **Contato**: `contact_phone` (whatsapp) é **obrigatório** em `NEW_USER`/`NEW_VEHICLE`/`BOTH`; dispensável em `LINK` (ambos já existem).
-37. **Resolução retroativa (opção A)**: ao aceitar, o sistema atualiza **todas** as `vehicle_access` (abertas INSIDE **e** já fechadas OUT/NO_EXIT) daquele veículo/placa — preenche `vehicle_id` e troca o condutor temporário pelo usuário criado. O `vehicle_movement` (ledger) **permanece imutável** (`vehicle_id` null + `plate_snapshot`).
-38. **Entrada com dados temporários** é possível para motorista (`temporary_driver_name`) e/ou veículo (`temporary_plate`, `vehicle_id` NULL).
-39. **Departamento**: o porteiro só pode selecionar um departamento **já criado**; se o setor não existir, a solicitação é feita **sem departamento** (conta nas vagas livres).
-40. **Duplicidade**: status `DUPLICATED` foi **removido** — duplicidade vira `REJECTED` (+ observação); ao buscar o veículo, o porteiro vê que ele está cadastrado normalmente. Unique parcial evita solicitação aberta duplicada da mesma placa.
-41. Ao buscar veículo **não cadastrado**: solicitação em `PENDING`/`IN_CONTACT` → mostra "**em análise**"; `REJECTED`/`CANCELLED`/`REGISTERED` → **nenhum aviso**.
-42. **Rejeitar/registrar** é exclusivo da **administração**; o **porteiro pode cancelar** solicitação própria apenas em `PENDING`.
-43. O porteiro tem **tela no app** para consultar as solicitações.
+42. No aceite, a admin define o vínculo: default `can_drive = true`; `is_primary` opcional (com ou sem; **apenas 1 primário por veículo**). O usuário criado na solicitação é do tipo **`VISITOR`**.
+43. **Contato**: `contact_phone` (whatsapp) é **obrigatório** em `NEW_USER`/`NEW_VEHICLE`/`BOTH`; dispensável em `LINK` (ambos já existem).
+44. **Resolução retroativa (opção A)**: ao aceitar, o sistema atualiza **todas** as `vehicle_access` (abertas INSIDE **e** já fechadas OUT/NO_EXIT) daquele veículo/placa — preenche `vehicle_id` e troca o condutor temporário pelo usuário criado. O `vehicle_movement` (ledger) **permanece imutável** (`vehicle_id` null + `plate_snapshot`).
+45. **Entrada com dados temporários** é possível para motorista (`temporary_driver_name`) e/ou veículo (`temporary_plate`, `vehicle_id` NULL).
+46. **Departamento**: o porteiro só pode selecionar um departamento **já criado**; se o setor não existir, a solicitação é feita **sem departamento** (conta nas vagas livres).
+47. **Duplicidade**: status `DUPLICATED` foi **removido** — duplicidade vira `REJECTED` (+ observação); ao buscar o veículo, o porteiro vê que ele está cadastrado normalmente. Unique parcial evita solicitação aberta duplicada da mesma placa.
+48. Ao buscar veículo **não cadastrado**: solicitação em `PENDING`/`IN_CONTACT` → mostra "**em análise**"; `REJECTED`/`CANCELLED`/`REGISTERED` → **nenhum aviso**.
+49. **Rejeitar/registrar** é exclusivo da **administração**; o **porteiro pode cancelar** solicitação própria apenas em `PENDING`.
+50. O porteiro tem **tela no app** para consultar as solicitações.
 
 ## 7. Solicitação de bloqueio pelo porteiro (`block_request`)
 
-44. O porteiro pode **solicitar** o bloqueio de um veículo (cadastrado ou não, motivo obrigatório); a **administração aprova ou rejeita**.
-45. `APPROVED` → o sistema cria `vehicle_block` (`block_type = MANUAL`, `blocked_by` = admin que aprovou); `REJECTED` → não bloqueia. O porteiro **nunca altera** o estado diretamente.
-46. Unique parcial evita pedido de bloqueio **pendente duplicado** da mesma placa.
+51. O porteiro pode **solicitar** o bloqueio de um veículo (cadastrado ou não, motivo obrigatório); a **administração aprova ou rejeita**.
+52. `APPROVED` → o sistema cria `vehicle_block` (`block_type = MANUAL`, `blocked_by` = admin que aprovou); `REJECTED` → não bloqueia. O porteiro **nunca altera** o estado diretamente.
+53. Unique parcial evita pedido de bloqueio **pendente duplicado** da mesma placa.
 
 ## 8. Entrada inicial (go-live)
 
-47. Os dados do caderno de papel são **descartados** (sem importação).
-48. Veículos **já presentes** no local quando o sistema entrar no ar são registrados pela **administração** como "**entrada inicial**": `vehicle_movement` (ENTRY, `source = INITIAL`, `occurred_at` = momento do go-live, `doorman_id` = admin) + `vehicle_access` (`INSIDE`) com departamento informado (ou "vagas livres"). O ledger nasce consistente e a ocupação/dashboard começam corretos.
+54. Os dados do caderno de papel são **descartados** (sem importação).
+55. Veículos **já presentes** no local quando o sistema entrar no ar são registrados pela **administração** como "**entrada inicial**": `vehicle_movement` (ENTRY, `source = INITIAL`, `occurred_at` = momento do go-live, `doorman_id` = admin) + `vehicle_access` (`INSIDE`) com departamento informado (ou "vagas livres"). O ledger nasce consistente e a ocupação/dashboard começam corretos.
 
 ## 9. Offline e sync (app do porteiro)
 
-49. **Cache local** de veículos/placas para busca por placa/QR **sem rede**; **minimização de dados pessoais (LGPD)**: no dispositivo fica apenas o **nome** do motorista — documento, telefone e foto são exibidos apenas **online**, nunca no cache.
-50. **Retenção do cache**: limpar ao **deslogar**, quando o **device é desativado** e após **30 dias sem sincronizar**.
-51. Movimentos e solicitações criados offline ficam em **fila local** e sincronizam automaticamente quando há internet (mesmo mecanismo: `idempotency_key` + `sync_status`).
-52. No sync, o servidor **revalida as regras** (ex.: bloqueio criado enquanto o app estava offline, prazo de 3 dias, vaga cheia); o servidor é a **fonte da verdade**.
-53. O app é **apenas do porteiro** — cadastros sempre exigem internet (web/admin) → **sem conflito de cadastro**. Caso raríssimo de 2 solicitações para a mesma placa: a administração aceita uma e rejeita a outra (fluxo normal).
-54. **Device compartilhado**: o tablet da portaria **não tem dono** — vários porteiros logam no mesmo `device`; quem executa cada ação é registrado em `doorman_id`/`requested_by`. O tablet pode ser vinculado a uma **portaria** (`device.entrance_id`), preenchendo `entrance_id` dos eventos automaticamente.
+56. **Cache local** de veículos/placas para busca por placa/QR **sem rede**; **minimização de dados pessoais (LGPD)**: no dispositivo fica apenas o **nome** do motorista — documento, telefone e foto são exibidos apenas **online**, nunca no cache.
+57. **Retenção do cache**: limpar ao **deslogar**, quando o **device é desativado** e após **30 dias sem sincronizar**.
+58. Movimentos e solicitações criados offline ficam em **fila local** e sincronizam automaticamente quando há internet (mesmo mecanismo: `idempotency_key` + `sync_status`).
+59. No sync, o servidor **revalida as regras** (ex.: bloqueio criado enquanto o app estava offline, prazo de 3 dias, vaga cheia); o servidor é a **fonte da verdade**.
+60. O app é **apenas do porteiro** — cadastros sempre exigem internet (web/admin) → **sem conflito de cadastro**. Caso raríssimo de 2 solicitações para a mesma placa: a administração aceita uma e rejeita a outra (fluxo normal).
+61. **Device compartilhado**: o tablet da portaria **não tem dono** — vários porteiros logam no mesmo `device`; quem executa cada ação é registrado em `doorman_id`/`requested_by`. O tablet pode ser vinculado a uma **portaria** (`device.entrance_id`), preenchendo `entrance_id` dos eventos automaticamente.
 
 ## 10. Fuso horário
 
-55. Padrão **brasileiro**, definido por empresa (`company.timezone`, default `America/Sao_Paulo`). Os cortes de "dia x" no dashboard e relatórios usam o fuso da empresa.
+62. Padrão **brasileiro**, definido por empresa (`company.timezone`, default `America/Sao_Paulo`). Os cortes de "dia x" no dashboard e relatórios usam o fuso da empresa.
 
 ## Referências
 
 - [Modelagem — Controle de veículos e fluxo de acesso](../modelagem/modelagem-controle-veiculos.md)
 - [Modelagem — Usuários, empresas e permissões](../modelagem/modelagem-usuarios-empresas-permissoes.md)
 - [ADR 0001 — Migrations e seeds iniciais](../adr/0001-migrations-seeds-iniciais.md)
+- [ADR 0009 — Emissão de QR code para veículos](../adr/0009-emissao-de-qr-code-para-veiculos.md)
 - [Regras de negócio — Usuários, empresas e permissões](./regras-negocio-usuarios-empresas-permissoes.md)
 - Fonte consolidada: `planejamento/planejamento-geral.md` (Decisões de negócio resolvidas) e `planejamento/planejamento-frontend/planejamento-aplicativo-celular.md` (offline/sync)
