@@ -4,6 +4,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 // Repository
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
 import { USER_ROLE_REPOSITORY } from '../../domain/repositories/user-role.repository';
+import { ROLE_REPOSITORY } from '../../../roles/domain/repositories/role.repository';
 
 // Mapper
 import { toUserResponse } from '../utils/user-response.mapper';
@@ -12,6 +13,8 @@ import { toUserResponse } from '../utils/user-response.mapper';
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
 import type { UserRoleRepository } from '../../domain/repositories/user-role.repository';
+import type { RoleRepository } from '../../../roles/domain/repositories/role.repository';
+import type { ParameterDto } from '../../../../shared/dto/parameter.dto';
 import type { ListUsersInputDto } from '../dto/list-users-input.dto';
 import type { ListUsersResponse } from '../dto/user-response';
 
@@ -30,6 +33,8 @@ export class ListUsersUseCase {
     private readonly userCompanyRepository: UserCompanyRepository,
     @Inject(USER_ROLE_REPOSITORY)
     private readonly userRoleRepository: UserRoleRepository,
+    @Inject(ROLE_REPOSITORY)
+    private readonly roleRepository: RoleRepository,
   ) {}
 
   /**
@@ -68,6 +73,39 @@ export class ListUsersUseCase {
         toUserResponse(item, roleByUserId.get(item.userId) ?? null),
       ),
       count,
+      parameters: await this.buildParameters(actor.companyId),
     };
+  }
+
+  /**
+   * Metadados da listagem (AGENTS.md §3): cargos **ativos** da empresa para o
+   * Select de cargo do formulário de usuário.
+   *
+   * Retornar como `parameters` (mesmo padrão de veículos — ADR 0006 §11)
+   * evita que a página de usuários dependa de `GET /roles` (permissão
+   * `MANAGE_ROLES`): quem gerencia usuários mas não cargos continua podendo
+   * atribuir cargos.
+   *
+   * @param companyId Empresa da sessão.
+   * @returns Metadados com o catálogo de cargos ativos.
+   */
+  private async buildParameters(companyId: string): Promise<ParameterDto[]> {
+    const { data: roles } = await this.roleRepository.list(companyId, {
+      isActive: true,
+      limit: 100,
+      offset: 0,
+    });
+
+    return [
+      {
+        key: 'role_id',
+        label: 'Cargo',
+        allowed_values: roles.map((role) => ({
+          id: role.id,
+          name: role.name,
+          isAdmin: role.isAdmin,
+        })),
+      },
+    ];
   }
 }
