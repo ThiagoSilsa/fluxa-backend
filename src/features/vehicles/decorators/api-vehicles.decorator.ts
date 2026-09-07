@@ -158,6 +158,20 @@ export function ApiListVehicles(): MethodDecorator {
   );
 }
 
+export function ApiListVehicleOptions(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Lista opções de veículo (seleção enxuta)',
+      description:
+        'Acessível a quem tem CREATE_ACCESS_REQUEST ou CREATE_BLOCK_REQUEST (ADR 0011). Busca por placa (normalizada) ou modelo; resposta mínima { id, plate, model } no formato padrão { limit, offset, data, count }, escopada pela empresa da sessão.',
+    }),
+    ApiResponse({ status: 200, description: 'Página de opções de veículo.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+  );
+}
+
 export function ApiGetVehicle(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),

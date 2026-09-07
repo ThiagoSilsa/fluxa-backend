@@ -42,6 +42,7 @@ import { GetVehicleTypeUseCase } from './application/use-cases/get-vehicle-type.
 import { GetVehicleUseCase } from './application/use-cases/get-vehicle.use-case';
 import { ListVehicleDriversUseCase } from './application/use-cases/list-vehicle-drivers.use-case';
 import { ListDriverCandidatesUseCase } from './application/use-cases/list-driver-candidates.use-case';
+import { ListVehicleOptionsUseCase } from './application/use-cases/list-vehicle-options.use-case';
 import { ListVehicleTypesUseCase } from './application/use-cases/list-vehicle-types.use-case';
 import { ListVehiclesUseCase } from './application/use-cases/list-vehicles.use-case';
 import { ImportUserVehiclesUseCase } from './application/use-cases/import-user-vehicles.use-case';
@@ -63,6 +64,7 @@ import { ImportVehiclesProcessor } from './application/processors/import-vehicle
 // Presentation
 import { VehicleDepartmentController } from './presentation/http/controllers/vehicle-department.controller';
 import { VehicleDriverCandidatesController } from './presentation/http/controllers/vehicle-driver-candidates.controller';
+import { VehicleOptionsController } from './presentation/http/controllers/vehicle-options.controller';
 import { VehicleDriversController } from './presentation/http/controllers/vehicle-drivers.controller';
 import { VehicleQrController } from './presentation/http/controllers/vehicle-qr.controller';
 import { QrCodesController } from './presentation/http/controllers/qr-codes.controller';
@@ -117,6 +119,7 @@ import { UserVehiclesImportController } from './presentation/http/controllers/us
     UpdateVehicleDriverUseCase,
     RemoveVehicleDriverUseCase,
     ListDriverCandidatesUseCase,
+    ListVehicleOptionsUseCase,
     EmitVehicleQrUseCase,
     GetVehicleQrUseCase,
     ReissueVehicleQrUseCase,
@@ -128,9 +131,11 @@ import { UserVehiclesImportController } from './presentation/http/controllers/us
     ImportUserVehiclesProcessor,
   ],
   controllers: [
-    // Antes de `VehiclesController` para que `/vehicles/driver-candidates`
-    // (estática) não caia no `GET /vehicles/:id` (ParseUUIDPipe → 400).
+    // Antes de `VehiclesController` para que `/vehicles/driver-candidates` e
+    // `/vehicles/options` (estáticos) não caiam no `GET /vehicles/:id`
+    // (ParseUUIDPipe → 400).
     VehicleDriverCandidatesController,
+    VehicleOptionsController,
     VehicleTypesController,
     VehiclesController,
     VehicleDepartmentController,

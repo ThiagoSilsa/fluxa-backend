@@ -61,6 +61,20 @@ export function ApiListUsers(): MethodDecorator {
   );
 }
 
+export function ApiListUserOptions(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Lista opções de usuário (seleção enxuta)',
+      description:
+        'Acessível a quem tem CREATE_ACCESS_REQUEST ou CREATE_BLOCK_REQUEST (ADR 0011). Usuários ativos da empresa, busca por nome ou e-mail; resposta mínima { id, name, email } no formato padrão { limit, offset, data, count }, escopada pela empresa da sessão.',
+    }),
+    ApiResponse({ status: 200, description: 'Página de opções de usuário.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+  );
+}
+
 export function ApiGetUser(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),

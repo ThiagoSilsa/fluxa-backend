@@ -32,6 +32,7 @@ import { GetUserUseCase } from './application/use-cases/get-user.use-case';
 import { ImportUsersUseCase } from './application/use-cases/import-users.use-case';
 import { ListUserRolesUseCase } from './application/use-cases/list-user-roles.use-case';
 import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
+import { ListUserOptionsUseCase } from './application/use-cases/list-user-options.use-case';
 import { RemoveRoleFromUserUseCase } from './application/use-cases/remove-role-from-user.use-case';
 import { UpdateUserUseCase } from './application/use-cases/update-user.use-case';
 
@@ -40,6 +41,7 @@ import { ImportUsersProcessor } from './application/processors/import-users.proc
 
 // Presentation
 import { UserRolesController } from './presentation/http/controllers/user-roles.controller';
+import { UserOptionsController } from './presentation/http/controllers/user-options.controller';
 import { UsersController } from './presentation/http/controllers/users.controller';
 import { UsersImportController } from './presentation/http/controllers/users-import.controller';
 
@@ -68,6 +70,7 @@ import { UsersImportController } from './presentation/http/controllers/users-imp
     ...usersProviders,
     CreateUserUseCase,
     ListUsersUseCase,
+    ListUserOptionsUseCase,
     GetUserUseCase,
     EmailStatusUseCase,
     UpdateUserUseCase,
@@ -79,7 +82,14 @@ import { UsersImportController } from './presentation/http/controllers/users-imp
     ImportUsersUseCase,
     ImportUsersProcessor,
   ],
-  controllers: [UsersController, UserRolesController, UsersImportController],
+  // `UserOptionsController` antes de `UsersController` para que `/users/options`
+  // (estático) não caia no `GET /users/:id` (ParseUUIDPipe → 400).
+  controllers: [
+    UserOptionsController,
+    UsersController,
+    UserRolesController,
+    UsersImportController,
+  ],
   exports: [USER_REPOSITORY],
 })
 export class UsersModule {}
