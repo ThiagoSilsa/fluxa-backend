@@ -187,3 +187,17 @@
   - **Texto puro: sem negrito, sem bullets, sem YAML front matter.** Não invente campos de cabeçalho — `**Status:**`, `**Relacionado:**`, `**Autor:**` e afins são proibidos. ADRs relacionados são linkados **inline na seção `## Contexto`**, nunca no cabeçalho.
   - Antes de escrever um novo ADR, abra o mais recente e copie o formato do cabeçalho verbatim.
 - **Seções do corpo do ADR**, nesta ordem: `## Contexto`, `## Decisão` (com subseções `###` numeradas, uma por decisão), `## Consequências` e `## Alternativas consideradas` quando opções foram rejeitadas.
+
+## Agent skills
+
+### Issue tracker
+
+Rastreamento de trabalho de engenharia desta repo: issues vivem como markdown local em `.scratch/<feature-slug>/` (`spec.md` + `issues/NN-<slug>.md`). Veja `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Vocabulário de triagem: os cinco labels canônicos padrão (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). Veja `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Layout single-context: `CONTEXT.md` na raiz (ainda não criado — criado sob demanda pelo `/domain-modeling`) + ADRs em `docs/arquitetura/adr/` e regras de negócio em `docs/produto/`. Veja `docs/agents/domain.md`.
