@@ -23,6 +23,8 @@ export interface ListAccessRequestsRepositoryFilters {
   status?: AccessRequestStatus;
   /** Busca por placa (parcial). */
   plate?: string;
+  /** Filtra pelo porteiro solicitante (somente as próprias — ADR 0012). */
+  requestedBy?: string;
   /** Quantidade de registros por página. */
   limit: number;
   /** Offset da página. */

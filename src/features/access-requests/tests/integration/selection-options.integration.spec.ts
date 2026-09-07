@@ -95,7 +95,9 @@ describe('Options de seleção para solicitantes — ADR 0011', () => {
         .expect(200);
 
       expect(
-        res.body.data.some((vehicle: { plate: string }) => vehicle.plate === 'ABC1D23'),
+        res.body.data.some(
+          (vehicle: { plate: string }) => vehicle.plate === 'ABC1D23',
+        ),
       ).toBe(true);
     });
 

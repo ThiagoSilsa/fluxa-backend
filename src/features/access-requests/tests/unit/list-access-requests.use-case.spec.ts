@@ -163,4 +163,38 @@ describe('ListAccessRequestsUseCase', () => {
     expect(result.data).toEqual([]);
     expect(result.count).toBe(0);
   });
+
+  it('solicitante sem gestão lista apenas as próprias (requestedBy = ator)', async () => {
+    const porteiro: AuthenticatedUserEntity = {
+      id: doormanUser.id,
+      companyId: admin.companyId,
+      email: 'porteiro@somar.local',
+      name: 'Porteiro Silva',
+      type: UserType.EMPLOYEE,
+      isAdmin: false,
+      roleCodes: ['Portaria'],
+      permissions: [PermissionCode.CREATE_ACCESS_REQUEST],
+    };
+    accessRequestRepoMock.list.mockResolvedValue({ data: [pending], count: 1 });
+    userRepoMock.findById.mockResolvedValue(doormanUser);
+
+    const result = await useCase.execute(
+      porteiro,
+      new ListAccessRequestsInputDto(undefined, undefined, 20, 0),
+    );
+
+    expect(accessRequestRepoMock.list).toHaveBeenCalledWith(
+      porteiro.companyId,
+      {
+        limit: 20,
+        offset: 0,
+        requestedBy: porteiro.id,
+      },
+    );
+    expect(result.count).toBe(1);
+    expect(result.data[0].requestedBy).toEqual({
+      id: doormanUser.id,
+      name: doormanUser.name,
+    });
+  });
 });

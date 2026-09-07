@@ -18,9 +18,11 @@ import {
 import { PermissionCode } from '../../../../../shared/constants/access-control.constant';
 
 // Decorators
+import { RequireAnyPermission } from '../../../../../shared/decorators/require-any-permission.decorator';
 import { RequirePermissions } from '../../../../../shared/decorators/require-permissions.decorator';
 
 // Guards
+import { AnyPermissionsGuard } from '../../../../../shared/guards/any-permissions.guard';
 import { JwtAuthGuard } from '../../../../../shared/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../../shared/guards/permissions.guard';
 
@@ -70,8 +72,10 @@ import {
  * Solicitações de acesso (por empresa) — regra 41.
  *
  * Permissões por método: criar (`CREATE_ACCESS_REQUEST`) e cancelar a própria
- * (`CANCEL_ACCESS_REQUEST`) são do porteiro; listar/detalhar/aceitar/rejeitar/
- * em-contato exigem `MANAGE_ACCESS_REQUESTS` (admin/segurança).
+ * (`CANCEL_ACCESS_REQUEST`) são do porteiro; listar/detalhar são escalonadas
+ * por papel (gestor vê todas; solicitante só as próprias — ADR 0012);
+ * aceitar/rejeitar/em-contato exigem `MANAGE_ACCESS_REQUESTS`
+ * (admin/segurança).
  */
 @Controller('access-requests')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -109,7 +113,11 @@ export class AccessRequestsController {
   }
 
   @Get()
-  @RequirePermissions(PermissionCode.MANAGE_ACCESS_REQUESTS)
+  @UseGuards(AnyPermissionsGuard)
+  @RequireAnyPermission(
+    PermissionCode.MANAGE_ACCESS_REQUESTS,
+    PermissionCode.CREATE_ACCESS_REQUEST,
+  )
   @ApiListAccessRequests()
   public listAccessRequests(
     @Req() request: AuthenticatedRequest,
@@ -127,7 +135,11 @@ export class AccessRequestsController {
   }
 
   @Get(':id')
-  @RequirePermissions(PermissionCode.MANAGE_ACCESS_REQUESTS)
+  @UseGuards(AnyPermissionsGuard)
+  @RequireAnyPermission(
+    PermissionCode.MANAGE_ACCESS_REQUESTS,
+    PermissionCode.CREATE_ACCESS_REQUEST,
+  )
   @ApiGetAccessRequest()
   public getAccessRequest(
     @Req() request: AuthenticatedRequest,

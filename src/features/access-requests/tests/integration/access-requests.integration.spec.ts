@@ -182,11 +182,14 @@ describe('Access requests integration — solicitações de acesso (Testcontaine
       }
     });
 
-    it('devolve 403 para o porteiro (sem MANAGE_ACCESS_REQUESTS)', async () => {
-      await request(context.httpServer)
+    it('porteiro lista apenas as próprias solicitações (200, sem MANAGE_ACCESS_REQUESTS)', async () => {
+      const res = await request(context.httpServer)
         .get('/access-requests')
         .set('Authorization', `Bearer ${porteiroToken}`)
-        .expect(403);
+        .expect(200);
+      expect(res.body.count).toBeGreaterThanOrEqual(1);
+      const ids = res.body.data.map((item: { id: string }) => item.id);
+      expect(ids).toContain(newUserRequestId);
     });
 
     it('detalha uma solicitação por id (200) e 404 para id desconhecido', async () => {
@@ -440,6 +443,89 @@ describe('Access requests integration — solicitações de acesso (Testcontaine
         .post(`/access-requests/${created.body.id}/cancel`)
         .set('Authorization', `Bearer ${outroPorteiroToken}`)
         .expect(403);
+    });
+  });
+
+  describe('Listagem e detalhe escalonados por papel (ADR 0012)', () => {
+    let minhaRequestId: string;
+    let deOutroRequestId: string;
+
+    beforeAll(async () => {
+      // Solicitação do próprio porteiro.
+      const minha = await request(context.httpServer)
+        .post('/access-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'MIN1A23',
+          type: 'BOTH',
+          contactPhone: '11922222222',
+          payload: {
+            driver: { name: 'Minha', email: 'minha@somar.local' },
+            vehicle: { model: 'Gol' },
+          },
+        })
+        .expect(201);
+      minhaRequestId = minha.body.id;
+
+      // Solicitação de outro porteiro (não deve aparecer na lista do porteiro).
+      const deOutro = await request(context.httpServer)
+        .post('/access-requests')
+        .set('Authorization', `Bearer ${outroPorteiroToken}`)
+        .send({
+          plate: 'OUT1A23',
+          type: 'BOTH',
+          contactPhone: '11911111111',
+          payload: {
+            driver: { name: 'De outro', email: 'deoutro@somar.local' },
+            vehicle: { model: 'Palio' },
+          },
+        })
+        .expect(201);
+      deOutroRequestId = deOutro.body.id;
+    });
+
+    it('porteiro lista apenas as próprias solicitações (200)', async () => {
+      const res = await request(context.httpServer)
+        .get('/access-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .expect(200);
+
+      const plates = res.body.data.map((item: { plate: string }) => item.plate);
+      expect(plates).toContain('MIN1A23');
+      expect(plates).not.toContain('OUT1A23');
+    });
+
+    it('porteiro detalha a própria solicitação (200)', async () => {
+      const res = await request(context.httpServer)
+        .get(`/access-requests/${minhaRequestId}`)
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .expect(200);
+      expect(res.body.id).toBe(minhaRequestId);
+    });
+
+    it('porteiro recebe 404 ao detalhar solicitação de outro porteiro', async () => {
+      await request(context.httpServer)
+        .get(`/access-requests/${deOutroRequestId}`)
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .expect(404);
+    });
+
+    it('admin vê e detalha a solicitação do outro porteiro', async () => {
+      const list = await request(context.httpServer)
+        .get('/access-requests')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const plates = list.body.data.map(
+        (item: { plate: string }) => item.plate,
+      );
+      expect(plates).toContain('OUT1A23');
+      expect(plates).toContain('MIN1A23');
+
+      const res = await request(context.httpServer)
+        .get(`/access-requests/${deOutroRequestId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(res.body.id).toBe(deOutroRequestId);
     });
   });
 });

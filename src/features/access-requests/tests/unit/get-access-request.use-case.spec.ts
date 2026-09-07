@@ -147,4 +147,59 @@ describe('GetAccessRequestUseCase', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(userRepoMock.findById).not.toHaveBeenCalled();
   });
+
+  it('solicitante (porteiro) detalha apenas a própria solicitação', async () => {
+    const porteiro: AuthenticatedUserEntity = {
+      id: doormanUser.id,
+      companyId: admin.companyId,
+      email: 'porteiro@somar.local',
+      name: 'Porteiro Silva',
+      type: UserType.EMPLOYEE,
+      isAdmin: false,
+      roleCodes: ['Portaria'],
+      permissions: [PermissionCode.CREATE_ACCESS_REQUEST],
+    };
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    userRepoMock.findById.mockImplementation((id) =>
+      id === doormanUser.id
+        ? Promise.resolve(doormanUser)
+        : Promise.resolve(null),
+    );
+
+    const result = await useCase.execute(
+      porteiro,
+      new HandleAccessRequestInputDto(request.id),
+    );
+
+    expect(accessRequestRepoMock.findByIdAndCompanyId).toHaveBeenCalledWith(
+      request.id,
+      porteiro.companyId,
+    );
+    expect(result.requestedBy).toEqual({
+      id: doormanUser.id,
+      name: doormanUser.name,
+    });
+  });
+
+  it('solicitante recebe 404 ao detalhar solicitação de OUTRO porteiro', async () => {
+    const outroPorteiro: AuthenticatedUserEntity = {
+      id: '30000000-0000-0000-0000-000000000004',
+      companyId: admin.companyId,
+      email: 'outro@somar.local',
+      name: 'Outro Porteiro',
+      type: UserType.EMPLOYEE,
+      isAdmin: false,
+      roleCodes: ['Portaria'],
+      permissions: [PermissionCode.CREATE_ACCESS_REQUEST],
+    };
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+
+    await expect(
+      useCase.execute(
+        outroPorteiro,
+        new HandleAccessRequestInputDto(request.id),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(userRepoMock.findById).not.toHaveBeenCalled();
+  });
 });

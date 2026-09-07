@@ -87,6 +87,9 @@ export class AccessRequestsTypeormRepository implements AccessRequestRepository 
     if (filters.plate) {
       where.plate = ILike(`%${filters.plate}%`);
     }
+    if (filters.requestedBy) {
+      where.requestedBy = filters.requestedBy;
+    }
 
     const [rows, count] = await this.accessRequestRepo.findAndCount({
       where,

@@ -1,6 +1,9 @@
 // NestJS
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
+// Shared
+import { PermissionCode } from '../../../../shared/constants/access-control.constant';
+
 // Repositories
 import { ACCESS_REQUEST_REPOSITORY } from '../../domain/repositories/access-request.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
@@ -36,9 +39,11 @@ export class ListAccessRequestsUseCase {
   ) {}
 
   /**
-   * Lista as solicitações escopadas pela empresa do ator.
+   * Lista as solicitações escopadas pela empresa do ator — escalonada por
+   * papel (ADR 0012 §1): o gestor vê todas; o solicitante vê apenas as
+   * próprias.
    *
-   * @param actor Ator autenticado (admin — empresa da sessão).
+   * @param actor Ator autenticado (empresa da sessão).
    * @param input Filtro de status, busca por placa e paginação.
    * @returns Página de solicitações com o total sem paginação.
    */
@@ -51,6 +56,7 @@ export class ListAccessRequestsUseCase {
       {
         status: input.status,
         plate: input.plate,
+        ...(this.canManageAll(actor) ? {} : { requestedBy: actor.id }),
         limit: input.limit,
         offset: input.offset,
       },
@@ -109,5 +115,20 @@ export class ListAccessRequestsUseCase {
       }
     }
     return map;
+  }
+
+  /**
+   * Indica se o ator gerencia todas as solicitações da empresa (`is_admin` ou
+   * com `MANAGE_ACCESS_REQUESTS`). Solicitantes (`CREATE_ACCESS_REQUEST`) sem
+   * gestão veem apenas as próprias (ADR 0012 §1).
+   *
+   * @param actor Ator autenticado.
+   * @returns `true` quando o ator pode listar todas as solicitações.
+   */
+  private canManageAll(actor: AuthenticatedUserEntity): boolean {
+    return (
+      actor.isAdmin ||
+      actor.permissions.includes(PermissionCode.MANAGE_ACCESS_REQUESTS)
+    );
   }
 }

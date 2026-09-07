@@ -1,6 +1,9 @@
 // NestJS
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
+// Shared
+import { PermissionCode } from '../../../../shared/constants/access-control.constant';
+
 // Repositories
 import { ACCESS_REQUEST_REPOSITORY } from '../../domain/repositories/access-request.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
@@ -31,13 +34,15 @@ export class GetAccessRequestUseCase {
   ) {}
 
   /**
-   * Detalha uma solicitação da empresa do ator.
+   * Detalha uma solicitação da empresa do ator — escalonada por papel (ADR
+   * 0012 §2): o gestor vê qualquer; o solicitante vê apenas a própria (as
+   * demais respondem como não encontradas).
    *
    * @param actor Ator autenticado (empresa da sessão).
    * @param input Id da solicitação.
    * @returns Solicitação da empresa.
-   * @throws {NotFoundException} Quando a solicitação não existe na empresa
-   * (cross-tenant não revelado).
+   * @throws {NotFoundException} Quando a solicitação não existe na empresa ou
+   * o solicitante não é o dono (cross-tenant/terceiro não revelado).
    */
   public async execute(
     actor: AuthenticatedUserEntity,
@@ -47,7 +52,10 @@ export class GetAccessRequestUseCase {
       input.requestId,
       actor.companyId,
     );
-    if (!request) {
+    if (
+      !request ||
+      (!this.canManageAll(actor) && request.requestedBy !== actor.id)
+    ) {
       throw new NotFoundException('Solicitação não encontrada.');
     }
 
@@ -62,6 +70,21 @@ export class GetAccessRequestUseCase {
       requestedBy ?? { id: request.requestedBy, name: '—' },
       handledBy,
       authorizedBy,
+    );
+  }
+
+  /**
+   * Indica se o ator gerencia todas as solicitações da empresa (`is_admin` ou
+   * com `MANAGE_ACCESS_REQUESTS`). Solicitantes (`CREATE_ACCESS_REQUEST`) sem
+   * gestão veem apenas as próprias (ADR 0012 §2).
+   *
+   * @param actor Ator autenticado.
+   * @returns `true` quando o ator pode detalhar qualquer solicitação.
+   */
+  private canManageAll(actor: AuthenticatedUserEntity): boolean {
+    return (
+      actor.isAdmin ||
+      actor.permissions.includes(PermissionCode.MANAGE_ACCESS_REQUESTS)
     );
   }
 
