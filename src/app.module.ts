@@ -4,6 +4,9 @@ import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './features/auth/auth.module';
+import { AccessModule } from './features/access/access.module';
+import { AccessRequestsModule } from './features/access-requests/access-requests.module';
+import { BlocksModule } from './features/blocks/blocks.module';
 import { DepartmentsModule } from './features/departments/departments.module';
 import { DevicesModule } from './features/devices/devices.module';
 import { EntrancesModule } from './features/entrances/entrances.module';
@@ -30,6 +33,9 @@ import { validateEnvironment } from './shared/validators/environment.validator';
     ThrottlerConfigModule,
     QueueModule,
     AuthModule,
+    AccessModule,
+    AccessRequestsModule,
+    BlocksModule,
     RolesModule,
     UsersModule,
     DepartmentsModule,

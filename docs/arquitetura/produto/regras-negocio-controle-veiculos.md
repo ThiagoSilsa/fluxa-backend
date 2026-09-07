@@ -9,6 +9,7 @@
 
 1. **Busca**: o porteiro busca por **placa** ou lê o **QR code** (adesivo no veículo).
 2. **Veículo bloqueado** (`vehicle_block` ACTIVE) → aviso **"VEÍCULO PROIBIDO DE ENTRAR"** + motivo; entrada negada; o porteiro **registra o impedimento** (`entry_denial`, `reason = BLOCKED`). O porteiro **não altera** o estado de bloqueio.
+   > Implementação (ADR 0010 §3): o endpoint de entrada **registra o `entry_denial` automaticamente** ao negar (reason derivado, `doorman_id` = ator, vínculo com o `vehicle_block` que motivou) — o ledger fica sempre consistente, sem o client coordenar dois endpoints.
 3. **Veículo cadastrado com `free_pass`** → libera direto, **não pergunta** quem está dentro (privacidade/segurança).
 4. **Veículo cadastrado sem `free_pass`** → mostra os usuários vinculados; porteiro verifica quem pode dirigir (`can_drive`) e seleciona o condutor.
 5. **Veículo não cadastrado ou motorista não vinculado** → solicitação (`access_request`) conforme o cenário e decisão de liberar com dados temporários (ver seção 6).
@@ -90,6 +91,9 @@
 43. **Contato**: `contact_phone` (whatsapp) é **obrigatório** em `NEW_USER`/`NEW_VEHICLE`/`BOTH`; dispensável em `LINK` (ambos já existem).
 44. **Resolução retroativa (opção A)**: ao aceitar, o sistema atualiza **todas** as `vehicle_access` (abertas INSIDE **e** já fechadas OUT/NO_EXIT) daquele veículo/placa — preenche `vehicle_id` e troca o condutor temporário pelo usuário criado. O `vehicle_movement` (ledger) **permanece imutável** (`vehicle_id` null + `plate_snapshot`).
 45. **Entrada com dados temporários** é possível para motorista (`temporary_driver_name`) e/ou veículo (`temporary_plate`, `vehicle_id` NULL).
+
+> Implementação (ADR 0010 §4): entrada temporária **só é aceita com `access_request` em `entry_authorized = true`** (aceite/liberação da administração); sem solicitação autorizada → entrada negada (regra 5). O `access_request_id` é gravado no `vehicle_access`.
+
 46. **Departamento**: o porteiro só pode selecionar um departamento **já criado**; se o setor não existir, a solicitação é feita **sem departamento** (conta nas vagas livres).
 47. **Duplicidade**: status `DUPLICATED` foi **removido** — duplicidade vira `REJECTED` (+ observação); ao buscar o veículo, o porteiro vê que ele está cadastrado normalmente. Unique parcial evita solicitação aberta duplicada da mesma placa.
 48. Ao buscar veículo **não cadastrado**: solicitação em `PENDING`/`IN_CONTACT` → mostra "**em análise**"; `REJECTED`/`CANCELLED`/`REGISTERED` → **nenhum aviso**.

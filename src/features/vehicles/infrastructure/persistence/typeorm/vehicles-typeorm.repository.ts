@@ -63,6 +63,25 @@ export class VehiclesTypeormRepository implements VehicleRepository {
   }
 
   /**
+   * Busca um veículo por **placa normalizada** dentro da empresa (com o tipo
+   * agregado) — fluxo de acesso/bloqueio (ADR 0010).
+   *
+   * @param plate Placa normalizada.
+   * @param companyId Empresa da sessão.
+   * @returns Veículo da empresa ou `null` se não existir/não pertencer.
+   */
+  public async findByPlateAndCompanyId(
+    plate: string,
+    companyId: string,
+  ): Promise<VehicleWithTypeEntity | null> {
+    const orm = await this.vehicleRepo.findOne({
+      where: { plate, companyId },
+      relations: { vehicleType: true },
+    });
+    return orm ? this.toDomainWithType(orm) : null;
+  }
+
+  /**
    * Lista veículos da empresa com paginação, busca (placa normalizada ou
    * modelo) e filtros (com o tipo agregado).
    *
@@ -247,6 +266,30 @@ export class VehiclesTypeormRepository implements VehicleRepository {
       orm.isActive = data.isActive;
     }
 
+    const saved = await this.vehicleRepo.save(orm);
+    return this.toDomain(saved);
+  }
+
+  /**
+   * Atualiza o `is_blocked` de um veículo da empresa (derivado — ADR 0010 §2:
+   * a feature de bloqueio é a única que escreve essa coluna).
+   *
+   * @param id Id do veículo.
+   * @param companyId Empresa da sessão.
+   * @param isBlocked Novo valor derivado.
+   * @returns Veículo atualizado ou `null` se não existir/não pertencer.
+   */
+  public async updateIsBlockedByIdAndCompanyId(
+    id: string,
+    companyId: string,
+    isBlocked: boolean,
+  ): Promise<VehicleEntity | null> {
+    const orm = await this.vehicleRepo.findOne({ where: { id, companyId } });
+    if (!orm) {
+      return null;
+    }
+
+    orm.isBlocked = isBlocked;
     const saved = await this.vehicleRepo.save(orm);
     return this.toDomain(saved);
   }

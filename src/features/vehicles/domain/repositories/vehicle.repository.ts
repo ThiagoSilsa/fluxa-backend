@@ -80,6 +80,34 @@ export interface VehicleRepository {
   ): Promise<VehicleWithTypeEntity | null>;
 
   /**
+   * Busca um veículo por **placa normalizada** dentro da empresa (com o tipo
+   * agregado) — usado pelo fluxo de acesso/bloqueio (M1/M3).
+   *
+   * @param plate Placa normalizada (trim + uppercase + sem hífen/espaço).
+   * @param companyId Empresa da sessão.
+   * @returns Veículo da empresa ou `null` se não existir/não pertencer.
+   */
+  findByPlateAndCompanyId(
+    plate: string,
+    companyId: string,
+  ): Promise<VehicleWithTypeEntity | null>;
+
+  /**
+   * Atualiza o `is_blocked` de um veículo da empresa (derivado — ADR 0010 §2: a
+   * feature de bloqueio é a única que escreve essa coluna).
+   *
+   * @param id Id do veículo.
+   * @param companyId Empresa da sessão.
+   * @param isBlocked Novo valor derivado.
+   * @returns Veículo atualizado ou `null` se não existir/não pertencer.
+   */
+  updateIsBlockedByIdAndCompanyId(
+    id: string,
+    companyId: string,
+    isBlocked: boolean,
+  ): Promise<VehicleEntity | null>;
+
+  /**
    * Lista veículos da empresa com paginação, busca e filtros (com o tipo
    * agregado).
    *
