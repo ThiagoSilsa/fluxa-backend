@@ -1,6 +1,9 @@
 // NestJS
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
+// Shared
+import { PermissionCode } from '../../../../shared/constants/access-control.constant';
+
 // Repositories
 import { BLOCK_REQUEST_REPOSITORY } from '../../domain/repositories/block-request.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
@@ -20,8 +23,8 @@ import type {
 } from '../dto/block-request-response';
 
 /**
- * Lista solicitações de bloqueio da empresa da sessão (admin/segurança) com
- * paginação e filtro de status (formato padrão do AGENTS.md §3).
+ * Lista solicitações de bloqueio da empresa da sessão — escalonada por papel
+ * (ADR 0012 §1): o gestor vê todas; o porteiro vê apenas as próprias.
  */
 @Injectable()
 export class ListBlockRequestsUseCase {
@@ -35,7 +38,9 @@ export class ListBlockRequestsUseCase {
   ) {}
 
   /**
-   * Lista as solicitações escopadas pela empresa do ator.
+   * Lista as solicitações escopadas pela empresa do ator — escalonada por
+   * papel (ADR 0012 §1): o gestor vê todas; o solicitante vê apenas as
+   * próprias.
    *
    * @param actor Ator autenticado (empresa da sessão).
    * @param input Filtro de status e paginação.
@@ -49,6 +54,7 @@ export class ListBlockRequestsUseCase {
       actor.companyId,
       {
         status: input.status,
+        ...(this.canManageAll(actor) ? {} : { requestedBy: actor.id }),
         limit: input.limit,
         offset: input.offset,
       },
@@ -102,5 +108,19 @@ export class ListBlockRequestsUseCase {
       }
     }
     return map;
+  }
+
+  /**
+   * Indica se o ator gerencia todas as solicitações da empresa (`is_admin` ou
+   * com `MANAGE_BLOCKS`). Solicitantes (`CREATE_BLOCK_REQUEST`) sem gestão veem
+   * apenas as próprias (ADR 0012 §1).
+   *
+   * @param actor Ator autenticado.
+   * @returns `true` quando o ator pode listar todas as solicitações.
+   */
+  private canManageAll(actor: AuthenticatedUserEntity): boolean {
+    return (
+      actor.isAdmin || actor.permissions.includes(PermissionCode.MANAGE_BLOCKS)
+    );
   }
 }

@@ -23,6 +23,7 @@ import { ApproveBlockRequestUseCase } from './application/use-cases/approve-bloc
 import { CancelBlockRequestUseCase } from './application/use-cases/cancel-block-request.use-case';
 import { CreateBlockRequestUseCase } from './application/use-cases/create-block-request.use-case';
 import { CreateVehicleBlockUseCase } from './application/use-cases/create-vehicle-block.use-case';
+import { GetBlockRequestUseCase } from './application/use-cases/get-block-request.use-case';
 import { GetVehicleBlockUseCase } from './application/use-cases/get-vehicle-block.use-case';
 import { ListBlockRequestsUseCase } from './application/use-cases/list-block-requests.use-case';
 import { ListVehicleBlocksUseCase } from './application/use-cases/list-vehicle-blocks.use-case';
@@ -66,6 +67,7 @@ import { EntryDenialsController } from './presentation/http/controllers/entry-de
     RejectBlockRequestUseCase,
     CancelBlockRequestUseCase,
     ListBlockRequestsUseCase,
+    GetBlockRequestUseCase,
   ],
   controllers: [
     BlocksController,

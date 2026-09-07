@@ -294,11 +294,15 @@ describe('Blocks integration — bloqueios, impedimentos e solicitações (Testc
       }
     });
 
-    it('devolve 403 para o porteiro (sem MANAGE_BLOCKS)', async () => {
-      await request(context.httpServer)
+    it('porteiro lista apenas as próprias solicitações (200, sem MANAGE_BLOCKS)', async () => {
+      const res = await request(context.httpServer)
         .get('/block-requests')
         .set('Authorization', `Bearer ${porteiroToken}`)
-        .expect(403);
+        .expect(200);
+      expect(res.body.count).toBeGreaterThanOrEqual(1);
+      for (const item of res.body.data) {
+        expect(item.requestedBy).toMatchObject({ name: 'Usuário de teste' });
+      }
     });
   });
 
@@ -397,6 +401,73 @@ describe('Blocks integration — bloqueios, impedimentos e solicitações (Testc
         .post(`/block-requests/${created.body.id}/cancel`)
         .set('Authorization', `Bearer ${outroPorteiroToken}`)
         .expect(403);
+    });
+  });
+
+  describe('Listagem e detalhe escalonados por papel — /block-requests (ADR 0012)', () => {
+    let minhaRequestId: string;
+    let deOutroRequestId: string;
+
+    beforeAll(async () => {
+      // Solicitação do próprio porteiro.
+      const minha = await request(context.httpServer)
+        .post('/block-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({ plate: 'REQ6F78', reason: 'Minha solicitação' })
+        .expect(201);
+      minhaRequestId = minha.body.id;
+
+      // Solicitação de outro porteiro (não deve aparecer na lista do porteiro).
+      const deOutro = await request(context.httpServer)
+        .post('/block-requests')
+        .set('Authorization', `Bearer ${outroPorteiroToken}`)
+        .send({ plate: 'REQ7G89', reason: 'Solicitação de outro' })
+        .expect(201);
+      deOutroRequestId = deOutro.body.id;
+    });
+
+    it('porteiro lista apenas as próprias solicitações de bloqueio (200)', async () => {
+      const res = await request(context.httpServer)
+        .get('/block-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .expect(200);
+
+      const plates = res.body.data.map((item: { plate: string }) => item.plate);
+      expect(plates).toContain('REQ6F78');
+      expect(plates).not.toContain('REQ7G89');
+    });
+
+    it('porteiro detalha a própria solicitação de bloqueio (200)', async () => {
+      const res = await request(context.httpServer)
+        .get(`/block-requests/${minhaRequestId}`)
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .expect(200);
+      expect(res.body.id).toBe(minhaRequestId);
+    });
+
+    it('porteiro recebe 404 ao detalhar solicitação de bloqueio de outro porteiro', async () => {
+      await request(context.httpServer)
+        .get(`/block-requests/${deOutroRequestId}`)
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .expect(404);
+    });
+
+    it('admin vê e detalha a solicitação de bloqueio do outro porteiro', async () => {
+      const list = await request(context.httpServer)
+        .get('/block-requests')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const plates = list.body.data.map(
+        (item: { plate: string }) => item.plate,
+      );
+      expect(plates).toContain('REQ7G89');
+      expect(plates).toContain('REQ6F78');
+
+      const res = await request(context.httpServer)
+        .get(`/block-requests/${deOutroRequestId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(res.body.id).toBe(deOutroRequestId);
     });
   });
 });

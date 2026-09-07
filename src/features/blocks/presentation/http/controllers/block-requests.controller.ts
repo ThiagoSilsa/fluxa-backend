@@ -18,9 +18,11 @@ import {
 import { PermissionCode } from '../../../../../shared/constants/access-control.constant';
 
 // Decorators
+import { RequireAnyPermission } from '../../../../../shared/decorators/require-any-permission.decorator';
 import { RequirePermissions } from '../../../../../shared/decorators/require-permissions.decorator';
 
 // Guards
+import { AnyPermissionsGuard } from '../../../../../shared/guards/any-permissions.guard';
 import { JwtAuthGuard } from '../../../../../shared/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../../shared/guards/permissions.guard';
 
@@ -41,6 +43,7 @@ import { ListBlockRequestsInputDto } from '../../../application/dto/list-block-r
 import { ApproveBlockRequestUseCase } from '../../../application/use-cases/approve-block-request.use-case';
 import { CancelBlockRequestUseCase } from '../../../application/use-cases/cancel-block-request.use-case';
 import { CreateBlockRequestUseCase } from '../../../application/use-cases/create-block-request.use-case';
+import { GetBlockRequestUseCase } from '../../../application/use-cases/get-block-request.use-case';
 import { ListBlockRequestsUseCase } from '../../../application/use-cases/list-block-requests.use-case';
 import { RejectBlockRequestUseCase } from '../../../application/use-cases/reject-block-request.use-case';
 
@@ -55,6 +58,7 @@ import {
   ApiApproveBlockRequest,
   ApiCancelBlockRequest,
   ApiCreateBlockRequest,
+  ApiGetBlockRequest,
   ApiListBlockRequests,
   ApiRejectBlockRequest,
 } from '../../../decorators/api-blocks.decorator';
@@ -63,7 +67,9 @@ import {
  * Solicitações de bloqueio do porteiro (por empresa).
  *
  * Permissões por método: criar/cancelar exigem `CREATE_BLOCK_REQUEST`
- * (porteiro); listar/aprovar/rejeitar exigem `MANAGE_BLOCKS` (admin/segurança).
+ * (porteiro); listar/detalhar são escalonadas por papel (gestor vê todas;
+ * solicitante só as próprias — ADR 0012); aprovar/rejeitar exigem
+ * `MANAGE_BLOCKS` (admin/segurança).
  */
 @Controller('block-requests')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -71,6 +77,7 @@ export class BlockRequestsController {
   constructor(
     private readonly createBlockRequestUseCase: CreateBlockRequestUseCase,
     private readonly listBlockRequestsUseCase: ListBlockRequestsUseCase,
+    private readonly getBlockRequestUseCase: GetBlockRequestUseCase,
     private readonly approveBlockRequestUseCase: ApproveBlockRequestUseCase,
     private readonly rejectBlockRequestUseCase: RejectBlockRequestUseCase,
     private readonly cancelBlockRequestUseCase: CancelBlockRequestUseCase,
@@ -90,7 +97,11 @@ export class BlockRequestsController {
   }
 
   @Get()
-  @RequirePermissions(PermissionCode.MANAGE_BLOCKS)
+  @UseGuards(AnyPermissionsGuard)
+  @RequireAnyPermission(
+    PermissionCode.MANAGE_BLOCKS,
+    PermissionCode.CREATE_BLOCK_REQUEST,
+  )
   @ApiListBlockRequests()
   public listBlockRequests(
     @Req() request: AuthenticatedRequest,
@@ -99,6 +110,23 @@ export class BlockRequestsController {
     return this.listBlockRequestsUseCase.execute(
       this.requireUser(request),
       new ListBlockRequestsInputDto(query.status, query.limit, query.offset),
+    );
+  }
+
+  @Get(':id')
+  @UseGuards(AnyPermissionsGuard)
+  @RequireAnyPermission(
+    PermissionCode.MANAGE_BLOCKS,
+    PermissionCode.CREATE_BLOCK_REQUEST,
+  )
+  @ApiGetBlockRequest()
+  public getBlockRequest(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<BlockRequestResponse> {
+    return this.getBlockRequestUseCase.execute(
+      this.requireUser(request),
+      new HandleBlockRequestInputDto(id),
     );
   }
 

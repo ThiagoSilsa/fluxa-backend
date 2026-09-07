@@ -130,13 +130,29 @@ export function ApiListBlockRequests(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Lista solicitações de bloqueio (admin/segurança)',
+      summary: 'Lista solicitações de bloqueio (por papel)',
       description:
-        'Exige MANAGE_BLOCKS. Paginado no formato padrão, com filtro de status.',
+        'Escalonada por papel (ADR 0012): quem tem MANAGE_BLOCKS vê todas; quem tem apenas CREATE_BLOCK_REQUEST vê somente as próprias. Paginado no formato padrão, com filtro de status.',
     }),
     ApiResponse({ status: 200, description: 'Página de solicitações.' }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+  );
+}
+
+export function ApiGetBlockRequest(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Detalha uma solicitação de bloqueio (por papel)',
+      description:
+        'Escalonada por papel (ADR 0012): o gestor vê qualquer; o solicitante vê apenas a própria. Solicitação inexistente ou de terceiro (sem gestão) retorna 404 (não revela existência).',
+    }),
+    ApiParam({ name: 'id', description: 'Id da solicitação (UUID).' }),
+    ApiResponse({ status: 200, description: 'Solicitação.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({ status: 404, description: 'Solicitação não encontrada.' }),
   );
 }
 

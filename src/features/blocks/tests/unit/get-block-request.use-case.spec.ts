@@ -1,4 +1,5 @@
 // NestJS
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 // Shared
@@ -23,17 +24,17 @@ import { BLOCK_REQUEST_REPOSITORY } from '../../domain/repositories/block-reques
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
 
 // DTOs
-import { ListBlockRequestsInputDto } from '../../application/dto/list-block-requests-input.dto';
+import { HandleBlockRequestInputDto } from '../../application/dto/list-block-requests-input.dto';
 
 // Use case
-import { ListBlockRequestsUseCase } from '../../application/use-cases/list-block-requests.use-case';
+import { GetBlockRequestUseCase } from '../../application/use-cases/get-block-request.use-case';
 
-describe('ListBlockRequestsUseCase', () => {
-  let useCase: ListBlockRequestsUseCase;
+describe('GetBlockRequestUseCase', () => {
+  let useCase: GetBlockRequestUseCase;
 
   const blockRequestRepoMock = {
-    list: jest.fn(),
-  } as jest.Mocked<Pick<BlockRequestRepository, 'list'>>;
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<Pick<BlockRequestRepository, 'findByIdAndCompanyId'>>;
 
   const userRepoMock = {
     findById: jest.fn(),
@@ -63,12 +64,12 @@ describe('ListBlockRequestsUseCase', () => {
     updatedAt: new Date('2026-08-21T00:00:00Z'),
   };
 
-  const pending: BlockRequestEntity = {
-    id: '50000000-0000-0000-0000-000000000020',
+  const request: BlockRequestEntity = {
+    id: '50000000-0000-0000-0000-000000000030',
     companyId: admin.companyId,
     vehicleId: '40000000-0000-0000-0000-000000000010',
     plate: 'ABC1D23',
-    reason: 'Veículo com condutor suspeito',
+    reason: 'Placa suspeita',
     status: BlockRequestStatus.PENDING,
     requestedBy: doormanUser.id,
     requestedAt: new Date('2026-08-24T11:00:00Z'),
@@ -84,74 +85,44 @@ describe('ListBlockRequestsUseCase', () => {
     ],
     resolvedBlockId: null,
     syncStatus: SyncStatus.SYNCED,
-    idempotencyKey: 'req-123',
+    idempotencyKey: 'req-456',
     createdAt: new Date('2026-08-24T11:00:00Z'),
     updatedAt: new Date('2026-08-24T11:00:00Z'),
-  };
-
-  const approved: BlockRequestEntity = {
-    ...pending,
-    id: '50000000-0000-0000-0000-000000000021',
-    status: BlockRequestStatus.APPROVED,
-    handledBy: admin.id,
-    handledAt: new Date('2026-08-24T12:00:00Z'),
-    resolvedBlockId: '50000000-0000-0000-0000-000000000001',
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
-        ListBlockRequestsUseCase,
+        GetBlockRequestUseCase,
         { provide: BLOCK_REQUEST_REPOSITORY, useValue: blockRequestRepoMock },
         { provide: USER_REPOSITORY, useValue: userRepoMock },
       ],
     }).compile();
-    useCase = module.get(ListBlockRequestsUseCase);
+    useCase = module.get(GetBlockRequestUseCase);
   });
 
-  it('lista solicitações no formato padrão resolvendo atores em lote', async () => {
-    blockRequestRepoMock.list.mockResolvedValue({
-      data: [pending, approved],
-      count: 2,
-    });
+  it('detalha solicitação resolvendo requested_by (gestor)', async () => {
+    blockRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
     userRepoMock.findById.mockResolvedValue(doormanUser);
 
     const result = await useCase.execute(
       admin,
-      new ListBlockRequestsInputDto(BlockRequestStatus.PENDING, 10, 0),
+      new HandleBlockRequestInputDto(request.id),
     );
 
-    expect(blockRequestRepoMock.list).toHaveBeenCalledWith(admin.companyId, {
-      status: BlockRequestStatus.PENDING,
-      limit: 10,
-      offset: 0,
-    });
-    // ids distintos: requested_by (2) + handled_by (1) = 2 findById.
-    expect(userRepoMock.findById).toHaveBeenCalledTimes(2);
-    expect(result.count).toBe(2);
-    expect(result.data[0].requestedBy).toEqual({
+    expect(blockRequestRepoMock.findByIdAndCompanyId).toHaveBeenCalledWith(
+      request.id,
+      admin.companyId,
+    );
+    expect(result.requestedBy).toEqual({
       id: doormanUser.id,
       name: doormanUser.name,
     });
-    expect(result.data[0].handledBy).toBeNull();
-    // handled_by do aprovado não resolvido (admin não está no mock) → null.
-    expect(result.data[1].handledBy).toBeNull();
+    expect(result.handledBy).toBeNull();
   });
 
-  it('retorna página vazia quando não há solicitações', async () => {
-    blockRequestRepoMock.list.mockResolvedValue({ data: [], count: 0 });
-
-    const result = await useCase.execute(
-      admin,
-      new ListBlockRequestsInputDto(undefined, 20, 0),
-    );
-
-    expect(result.data).toEqual([]);
-    expect(result.count).toBe(0);
-  });
-
-  it('solicitante sem gestão lista apenas as próprias (requestedBy = ator)', async () => {
+  it('solicitante (porteiro) detalha apenas a própria solicitação', async () => {
     const porteiro: AuthenticatedUserEntity = {
       id: doormanUser.id,
       companyId: admin.companyId,
@@ -162,23 +133,52 @@ describe('ListBlockRequestsUseCase', () => {
       roleCodes: ['Portaria'],
       permissions: [PermissionCode.CREATE_BLOCK_REQUEST],
     };
-    blockRequestRepoMock.list.mockResolvedValue({ data: [pending], count: 1 });
+    blockRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
     userRepoMock.findById.mockResolvedValue(doormanUser);
 
     const result = await useCase.execute(
       porteiro,
-      new ListBlockRequestsInputDto(undefined, 20, 0),
+      new HandleBlockRequestInputDto(request.id),
     );
 
-    expect(blockRequestRepoMock.list).toHaveBeenCalledWith(porteiro.companyId, {
-      limit: 20,
-      offset: 0,
-      requestedBy: porteiro.id,
-    });
-    expect(result.count).toBe(1);
-    expect(result.data[0].requestedBy).toEqual({
+    expect(blockRequestRepoMock.findByIdAndCompanyId).toHaveBeenCalledWith(
+      request.id,
+      porteiro.companyId,
+    );
+    expect(result.requestedBy).toEqual({
       id: doormanUser.id,
       name: doormanUser.name,
     });
+  });
+
+  it('solicitante recebe 404 ao detalhar solicitação de OUTRO porteiro', async () => {
+    const outroPorteiro: AuthenticatedUserEntity = {
+      id: '30000000-0000-0000-0000-000000000004',
+      companyId: admin.companyId,
+      email: 'outro@somar.local',
+      name: 'Outro Porteiro',
+      type: UserType.EMPLOYEE,
+      isAdmin: false,
+      roleCodes: ['Portaria'],
+      permissions: [PermissionCode.CREATE_BLOCK_REQUEST],
+    };
+    blockRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+
+    await expect(
+      useCase.execute(
+        outroPorteiro,
+        new HandleBlockRequestInputDto(request.id),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(userRepoMock.findById).not.toHaveBeenCalled();
+  });
+
+  it('lança 404 quando a solicitação não existe na empresa (cross-tenant oculto)', async () => {
+    blockRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(admin, new HandleBlockRequestInputDto(request.id)),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(userRepoMock.findById).not.toHaveBeenCalled();
   });
 });
