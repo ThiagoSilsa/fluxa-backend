@@ -55,6 +55,20 @@ export function ApiListRoles(): MethodDecorator {
   );
 }
 
+export function ApiListRoleOptions(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Lista opções de cargo (seleção enxuta)',
+      description:
+        'Acessível a quem aceita solicitação de acesso (MANAGE_ACCESS_REQUESTS) ou gerencia usuários (MANAGE_USERS) — ADR 0011. Retorna apenas os cargos ativos da empresa da sessão, no item enxuto { id, name }, no formato padrão { limit, offset, data, count }; não expõe permissões nem campos administrativos.',
+    }),
+    ApiResponse({ status: 200, description: 'Página de opções de cargo.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+  );
+}
+
 export function ApiGetRole(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),

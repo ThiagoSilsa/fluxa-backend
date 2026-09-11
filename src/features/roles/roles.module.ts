@@ -21,6 +21,7 @@ import { CreateRoleUseCase } from './application/use-cases/create-role.use-case'
 import { DeleteRoleUseCase } from './application/use-cases/delete-role.use-case';
 import { GetRoleUseCase } from './application/use-cases/get-role.use-case';
 import { ListPermissionsUseCase } from './application/use-cases/list-permissions.use-case';
+import { ListRoleOptionsUseCase } from './application/use-cases/list-role-options.use-case';
 import { ListRolePermissionsUseCase } from './application/use-cases/list-role-permissions.use-case';
 import { ListRolesUseCase } from './application/use-cases/list-roles.use-case';
 import { RemovePermissionFromRoleUseCase } from './application/use-cases/remove-permission-from-role.use-case';
@@ -28,6 +29,7 @@ import { UpdateRoleUseCase } from './application/use-cases/update-role.use-case'
 
 // Presentation
 import { PermissionsController } from './presentation/http/controllers/permissions.controller';
+import { RoleOptionsController } from './presentation/http/controllers/role-options.controller';
 import { RolesController } from './presentation/http/controllers/roles.controller';
 
 /**
@@ -52,6 +54,7 @@ import { RolesController } from './presentation/http/controllers/roles.controlle
     ...rolesProviders,
     CreateRoleUseCase,
     ListRolesUseCase,
+    ListRoleOptionsUseCase,
     GetRoleUseCase,
     UpdateRoleUseCase,
     DeleteRoleUseCase,
@@ -60,7 +63,13 @@ import { RolesController } from './presentation/http/controllers/roles.controlle
     RemovePermissionFromRoleUseCase,
     ListRolePermissionsUseCase,
   ],
-  controllers: [RolesController, PermissionsController],
+  controllers: [
+    // Antes de `RolesController` para que `/roles/options` (estático) não
+    // caia no `GET /roles/:id` (ParseUUIDPipe → 400).
+    RoleOptionsController,
+    RolesController,
+    PermissionsController,
+  ],
   exports: [ROLE_REPOSITORY, PERMISSION_REPOSITORY],
 })
 export class RolesModule {}

@@ -7,8 +7,11 @@ export interface UserOptionResponse {
   id: string;
   /** Nome da pessoa. */
   name: string;
-  /** E-mail (identidade global) — ajuda a desambiguar homônimos. */
-  email: string;
+  /**
+   * E-mail (identidade global) — ajuda a desambiguar homônimos; `null` para
+   * Visitante sem e-mail (ADR 0013).
+   */
+  email: string | null;
 }
 
 /** Envelope paginado de opções de usuário. */

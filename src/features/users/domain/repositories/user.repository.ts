@@ -17,10 +17,10 @@ export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
  */
 export interface CreateUserRepositoryData {
   name: string;
-  /** E-mail normalizado (lowercase + trim). */
-  email: string;
-  /** Hash bcrypt da senha (nunca texto puro). */
-  passwordHash: string;
+  /** E-mail normalizado (lowercase + trim); `null` p/ Visitante sem e-mail. */
+  email: string | null;
+  /** Hash bcrypt da senha; `null` p/ Visitante sem credenciais (ADR 0013). */
+  passwordHash: string | null;
   phone: string | null;
   document: string | null;
   /** Empresa do vínculo a criar junto (sempre a da sessão). */

@@ -4,6 +4,7 @@ import type {
   AccessRequestType,
   ContactChannel,
 } from '../constants/access-request.constant';
+import type { UserType } from '../../../auth/domain/constants/user-type.constant';
 
 /**
  * Dados de criação enviados pelo porteiro no `payload` (jsonb).
@@ -55,6 +56,11 @@ export interface AccessRequestEntity {
   idempotencyKey: string;
   /** `NEW_USER` / `NEW_VEHICLE` / `LINK` / `BOTH`. */
   type: AccessRequestType;
+  /**
+   * Tipo de usuário pretendido para o motorista a criar (cenários
+   * `NEW_USER`/`BOTH`) — default `VISITOR` (ADR 0013).
+   */
+  userType: UserType;
   /** Placa normalizada (coluna própria p/ busca e duplicidade). */
   plate: string;
   /** Veículo existente (cenários `NEW_USER`/`LINK`). */

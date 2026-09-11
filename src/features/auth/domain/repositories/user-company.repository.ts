@@ -22,8 +22,8 @@ export interface UserCompanyWithUserEntity {
   userId: string;
   /** Nome da pessoa. */
   name: string;
-  /** E-mail (identidade global). */
-  email: string;
+  /** E-mail (identidade global) — `null` p/ Visitante sem e-mail (ADR 0013). */
+  email: string | null;
   /** Telefone (opcional). */
   phone: string | null;
   /** Documento (opcional, único global). */

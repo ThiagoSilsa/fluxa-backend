@@ -129,6 +129,7 @@ describe('CreateAccessRequestUseCase', () => {
     companyId: actor.companyId,
     idempotencyKey: 'req-123',
     type: AccessRequestType.NEW_USER,
+    userType: UserType.VISITOR,
     plate: vehicle.plate,
     vehicleId: vehicle.id,
     userId: null,

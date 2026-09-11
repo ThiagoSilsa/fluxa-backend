@@ -5,6 +5,7 @@ import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 
 // Constants
 import { AccessRequestStatus } from '../../../domain/constants/access-request.constant';
+import { UserType } from '../../../../auth/domain/constants/user-type.constant';
 
 // Types
 import type { AccessRequestEntity } from '../../../domain/entities/access-request.entity';
@@ -115,6 +116,7 @@ export class AccessRequestsTypeormRepository implements AccessRequestRepository 
       companyId: data.companyId,
       idempotencyKey: data.idempotencyKey,
       type: data.type,
+      userType: data.userType ?? UserType.VISITOR,
       plate: data.plate,
       vehicleId: data.vehicleId,
       userId: data.userId,
@@ -210,6 +212,7 @@ export class AccessRequestsTypeormRepository implements AccessRequestRepository 
       companyId: orm.companyId,
       idempotencyKey: orm.idempotencyKey,
       type: orm.type,
+      userType: orm.userType,
       plate: orm.plate,
       vehicleId: orm.vehicleId,
       userId: orm.userId,

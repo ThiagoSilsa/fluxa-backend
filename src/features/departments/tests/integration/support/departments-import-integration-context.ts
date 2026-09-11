@@ -17,6 +17,8 @@ import { CreateUserCompanySchema1760000000005 } from '../../../../../shared/data
 import { AddLastLoginAtToUser1760000000007 } from '../../../../../shared/database/typeorm/migrations/0008-add-last-login-at-to-user';
 import { UniqueUserRolePerUserCompany1760000000008 } from '../../../../../shared/database/typeorm/migrations/0009-unique-user-role-per-user-company';
 import { DropUserObservation1760000000009 } from '../../../../../shared/database/typeorm/migrations/0010-drop-user-observation';
+import { UserCredentialsNullable1760000000011 } from '../../../../../shared/database/typeorm/migrations/0012-user-credentials-nullable';
+import { AddAccessRequestUserType1760000000012 } from '../../../../../shared/database/typeorm/migrations/0013-access-request-user-type';
 import { AdaptImportJobSchema1760000000010 } from '../../../../../shared/database/typeorm/migrations/0011-adapt-import-job-schema';
 
 // Seeds
@@ -103,6 +105,8 @@ export async function createDepartmentsImportIntegrationContext(): Promise<Depar
       UniqueUserRolePerUserCompany1760000000008,
       DropUserObservation1760000000009,
       AdaptImportJobSchema1760000000010,
+      UserCredentialsNullable1760000000011,
+      AddAccessRequestUserType1760000000012,
       SeedInitialPermissions1760001000000,
       SeedDefaultCompanyRolesAdminVehicleTypes1760001000001,
     ],

@@ -9,10 +9,16 @@ export interface UserEntity {
   id: string;
   /** Nome da pessoa. */
   name: string;
-  /** E-mail (identidade global, normalizado em lowercase). */
-  email: string;
-  /** Hash da senha (bcrypt) — é da pessoa, não da empresa. */
-  passwordHash: string;
+  /**
+   * E-mail (identidade global, normalizado em lowercase) — `null` para
+   * Visitante sem credenciais (ADR 0013).
+   */
+  email: string | null;
+  /**
+   * Hash da senha (bcrypt) — `null` para quem não acessa o sistema (Visitante
+   * sem credenciais, ADR 0013).
+   */
+  passwordHash: string | null;
   /** Telefone (opcional). */
   phone: string | null;
   /** Documento (opcional, único global). */

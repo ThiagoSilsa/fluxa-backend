@@ -171,7 +171,9 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
     );
     const userIdByEmail = new Map<string, string>();
     for (const user of users) {
-      if (user) {
+      // Pessoa sem e-mail (Visitante sem credenciais) não é candidata a
+      // vínculo — o import casa veículo↔pessoa pelo e-mail.
+      if (user && user.email) {
         userIdByEmail.set(user.email, user.userId);
       }
     }

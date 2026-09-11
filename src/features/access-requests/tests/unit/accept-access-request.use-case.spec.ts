@@ -173,6 +173,7 @@ describe('AcceptAccessRequestUseCase', () => {
       companyId: admin.companyId,
       idempotencyKey: 'req-1',
       type,
+      userType: UserType.VISITOR,
       plate: 'ABC1D23',
       vehicleId: null,
       userId: null,

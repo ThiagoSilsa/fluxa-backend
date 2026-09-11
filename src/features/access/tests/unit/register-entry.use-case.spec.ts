@@ -471,6 +471,7 @@ describe('RegisterEntryUseCase', () => {
       companyId: actor.companyId,
       idempotencyKey: 'req-1',
       type: 'BOTH' as never,
+      userType: UserType.VISITOR,
       plate: 'XYZ9A99',
       vehicleId: null,
       userId: null,

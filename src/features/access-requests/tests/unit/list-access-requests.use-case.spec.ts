@@ -69,6 +69,7 @@ describe('ListAccessRequestsUseCase', () => {
     companyId: admin.companyId,
     idempotencyKey: 'req-1',
     type: AccessRequestType.NEW_USER,
+    userType: UserType.VISITOR,
     plate: 'ABC1D23',
     vehicleId: '40000000-0000-0000-0000-000000000010',
     userId: null,

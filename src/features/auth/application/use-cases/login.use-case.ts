@@ -87,10 +87,16 @@ export class LoginUseCase {
       throw new UnauthorizedException('Credenciais inválidas.');
     }
 
+    // Pessoa sem senha (ex.: Visitante sem credenciais) nunca autentica.
+    const passwordHash = candidates[0].passwordHash;
+    if (!passwordHash) {
+      throw new UnauthorizedException('Credenciais inválidas.');
+    }
+
     // O hash é da pessoa (email único global) — verificar uma vez é suficiente.
     const passwordOk = this.passwordVerify.execute(
       input.password,
-      candidates[0].passwordHash,
+      passwordHash,
     );
     if (!passwordOk) {
       throw new UnauthorizedException('Credenciais inválidas.');

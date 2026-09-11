@@ -29,11 +29,11 @@ export class UserOrmEntity {
   @Column({ type: 'varchar', length: 255 })
   name!: string;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
-  email!: string;
+  @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
+  email!: string | null;
 
-  @Column({ type: 'varchar', length: 255 })
-  password!: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  password!: string | null;
 
   @Column({ type: 'varchar', length: 32, nullable: true })
   phone!: string | null;

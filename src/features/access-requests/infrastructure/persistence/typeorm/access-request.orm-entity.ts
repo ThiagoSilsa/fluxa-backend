@@ -13,6 +13,7 @@ import {
   AccessRequestType,
   ContactChannel,
 } from '../../../domain/constants/access-request.constant';
+import { UserType } from '../../../../auth/domain/constants/user-type.constant';
 
 // Types
 import type { AccessRequestPayload } from '../../../domain/entities/access-request.entity';
@@ -40,6 +41,15 @@ export class AccessRequestOrmEntity {
     enumName: 'access_request_type',
   })
   type!: AccessRequestType;
+
+  @Column({
+    name: 'user_type',
+    type: 'enum',
+    enum: UserType,
+    enumName: 'user_type',
+    default: UserType.VISITOR,
+  })
+  userType!: UserType;
 
   @Column({ type: 'varchar', length: 10 })
   plate!: string;

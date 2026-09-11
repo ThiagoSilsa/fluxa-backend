@@ -3,6 +3,7 @@ import type {
   AccessRequestStatus,
   ContactChannel,
 } from '../constants/access-request.constant';
+import type { UserType } from '../../../auth/domain/constants/user-type.constant';
 
 // Types
 import type {
@@ -39,6 +40,11 @@ export interface CreateAccessRequestRepositoryData {
   /** Evita duplicar no sync (UNIQUE por empresa). */
   idempotencyKey: string;
   type: AccessRequestEntity['type'];
+  /**
+   * Tipo de usuário pretendido p/ o motorista a criar (default `VISITOR`).
+   * Opcional aqui até o create expor o campo (ticket 03).
+   */
+  userType?: UserType;
   /** Placa normalizada. */
   plate: string;
   /** Veículo existente (cenários NEW_USER/LINK). */

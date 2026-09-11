@@ -196,7 +196,9 @@ export class AuthTypeormRepository implements AuthRepository {
     return {
       id: user.id,
       name: user.name,
-      email: user.email,
+      // Candidatos são buscados por e-mail, logo `user.email` nunca é nulo aqui
+      // (o domínio admite `null` por causa de Visitante sem credenciais).
+      email: user.email ?? '',
       passwordHash: user.password,
       companyId: link.companyId,
       companyName: link.company?.name ?? '',

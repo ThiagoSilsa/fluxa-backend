@@ -87,6 +87,7 @@ describe('CancelAccessRequestUseCase', () => {
     companyId: doorman.companyId,
     idempotencyKey: 'req-1',
     type: AccessRequestType.NEW_VEHICLE,
+    userType: UserType.VISITOR,
     plate: 'XYZ9A99',
     vehicleId: null,
     userId: doorman.id,

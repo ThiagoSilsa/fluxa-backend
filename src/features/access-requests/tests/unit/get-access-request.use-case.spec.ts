@@ -70,6 +70,7 @@ describe('GetAccessRequestUseCase', () => {
     companyId: admin.companyId,
     idempotencyKey: 'req-1',
     type: AccessRequestType.BOTH,
+    userType: UserType.VISITOR,
     plate: 'XYZ9A99',
     vehicleId: null,
     userId: null,

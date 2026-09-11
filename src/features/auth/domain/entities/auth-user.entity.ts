@@ -15,8 +15,11 @@ export interface AuthUserEntity {
   name: string;
   /** E-mail (identidade global). */
   email: string;
-  /** Hash da senha (bcrypt) — é da pessoa. */
-  passwordHash: string;
+  /**
+   * Hash da senha (bcrypt) — `null` para Visitante sem credenciais
+   * (ADR 0013); nesse caso o login nunca autentica.
+   */
+  passwordHash: string | null;
   /** Empresa do vínculo. */
   companyId: string;
   /** Nome da empresa (para a lista de escolha). */
