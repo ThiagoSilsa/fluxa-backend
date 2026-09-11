@@ -28,7 +28,7 @@ export function ApiCreateAccessRequest(): MethodDecorator {
     ApiOperation({
       summary: 'Cria uma solicitação de acesso (porteiro)',
       description:
-        'Exige CREATE_ACCESS_REQUEST. Cenários NEW_USER/NEW_VEHICLE/LINK/BOTH (regra 41); contato obrigatório em NEW_USER/NEW_VEHICLE/BOTH; departamento só aceita depto já criado. 409 se já existe solicitação aberta da placa.',
+        'Exige CREATE_ACCESS_REQUEST. Cenários NEW_USER/NEW_VEHICLE/LINK/BOTH (regra 41); contato obrigatório em NEW_USER/NEW_VEHICLE/BOTH; departamento só aceita depto já criado. O e-mail do motorista é obrigatório apenas quando userType = EMPLOYEE (Colaborador); VISITOR pode não ter e-mail (ADR 0013). 409 se já existe solicitação aberta da placa.',
     }),
     ApiBody({ type: CreateAccessRequestDto }),
     ApiResponse({ status: 201, description: 'Solicitação criada (PENDING).' }),
@@ -84,7 +84,7 @@ export function ApiAcceptAccessRequest(): MethodDecorator {
       summary:
         'Aceita uma solicitação com resolução retroativa (administração)',
       description:
-        'Exige MANAGE_ACCESS_REQUESTS. Resolve cadastros/vínculo por cenário (cria user VISITOR, cria vehicle com tipo escolhido, cria user_vehicle) e autoriza a entrada (entry_authorized = true — ADR 0010 §4). 409 se não está aberta ou vínculo já existe.',
+        'Exige MANAGE_ACCESS_REQUESTS. Resolve cadastros/vínculo por cenário e autoriza a entrada (entry_authorized = true — ADR 0010 §4). O usuário criado segue o user_type da solicitação (ADR 0013): VISITOR sem credenciais/cargo; EMPLOYEE exige roleId e password no aceite (400 sem eles) e grava hash + cargo. Telefone: payload.driver.phone, senão contactPhone. 409 se não está aberta ou vínculo/e-mail já existe.',
     }),
     ApiParam({ name: 'id', description: 'Id da solicitação (UUID).' }),
     ApiBody({ type: AcceptAccessRequestDto }),
@@ -92,11 +92,15 @@ export function ApiAcceptAccessRequest(): MethodDecorator {
       status: 200,
       description: 'Solicitação registrada (REGISTERED).',
     }),
+    ApiResponse({
+      status: 400,
+      description: 'Colaborador sem cargo ou senha no aceite.',
+    }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
     ApiResponse({
       status: 404,
-      description: 'Solicitação/veículo/usuário/tipo não encontrado.',
+      description: 'Solicitação/veículo/usuário/tipo/cargo não encontrado.',
     }),
     ApiResponse({
       status: 409,

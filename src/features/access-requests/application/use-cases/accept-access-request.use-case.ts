@@ -1,12 +1,13 @@
 // NestJS
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 // Shared
 import { normalizeEmail } from '../../../../shared/utils/email.util';
@@ -14,6 +15,7 @@ import { PasswordHashUseCase } from '../../../../shared/security/password-hash.u
 
 // Repositories
 import { ACCESS_REQUEST_REPOSITORY } from '../../domain/repositories/access-request.repository';
+import { ROLE_REPOSITORY } from '../../../roles/domain/repositories/role.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
 import { USER_VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/user-vehicle.repository';
 import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle.repository';
@@ -31,8 +33,10 @@ import { toAccessRequestResponse } from '../utils/access-request-response.mapper
 
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
+import type { RoleEntity } from '../../../roles/domain/entities/role.entity';
 import type { AccessRequestEntity } from '../../domain/entities/access-request.entity';
 import type { AccessRequestRepository } from '../../domain/repositories/access-request.repository';
+import type { RoleRepository } from '../../../roles/domain/repositories/role.repository';
 import type { UserRepository } from '../../../users/domain/repositories/user.repository';
 import type { UserVehicleRepository } from '../../../vehicles/domain/repositories/user-vehicle.repository';
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
@@ -53,7 +57,8 @@ interface ResolutionResult {
  * **resolução retroativa** (regra 44 — opção A).
  *
  * Por cenário:
- * - `NEW_USER` — cria `user` (`VISITOR`) e vincula ao veículo existente;
+ * - `NEW_USER` — cria `user` (`VISITOR`/`EMPLOYEE`, conforme `user_type` da
+ *   solicitação) e vincula ao veículo existente;
  * - `NEW_VEHICLE` — cria `vehicle` (tipo escolhido pela admin — regra 22) e
  *   vincula ao usuário existente;
  * - `LINK` — cria apenas o vínculo `user_vehicle`;
@@ -74,6 +79,8 @@ export class AcceptAccessRequestUseCase {
     private readonly accessRequestRepository: AccessRequestRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(ROLE_REPOSITORY)
+    private readonly roleRepository: RoleRepository,
     @Inject(VEHICLE_REPOSITORY)
     private readonly vehicleRepository: VehicleRepository,
     @Inject(VEHICLE_TYPE_REPOSITORY)
@@ -81,7 +88,6 @@ export class AcceptAccessRequestUseCase {
     @Inject(USER_VEHICLE_REPOSITORY)
     private readonly userVehicleRepository: UserVehicleRepository,
     private readonly passwordHash: PasswordHashUseCase,
-    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -158,7 +164,7 @@ export class AcceptAccessRequestUseCase {
     switch (request.type) {
       case AccessRequestType.NEW_USER: {
         const vehicle = await this.requireVehicle(actor, request.vehicleId);
-        const user = await this.createVisitorUser(actor, request);
+        const user = await this.createRequestedUser(actor, request, input);
         await this.createLink(actor, user.id, vehicle.id, input, false);
         return { resolvedUserId: user.id, resolvedVehicleId: vehicle.id };
       }
@@ -175,7 +181,7 @@ export class AcceptAccessRequestUseCase {
         return { resolvedUserId: user.id, resolvedVehicleId: vehicle.id };
       }
       case AccessRequestType.BOTH: {
-        const user = await this.createVisitorUser(actor, request);
+        const user = await this.createRequestedUser(actor, request, input);
         const vehicle = await this.createVehicle(actor, request, input);
         await this.createLink(actor, user.id, vehicle.id, input, false);
         return { resolvedUserId: user.id, resolvedVehicleId: vehicle.id };
@@ -186,42 +192,104 @@ export class AcceptAccessRequestUseCase {
   }
 
   /**
-   * Cria o usuário visitante (`VISITOR`) a partir do payload — senha padrão
-   * da administração (mesmo padrão do importador de usuários).
+   * Cria o usuário (motorista) solicitado conforme o `user_type` da
+   * solicitação (ADR 0013):
+   *
+   * - `VISITOR` — sem credenciais e sem cargo (não acessa o sistema); e-mail
+   *   opcional;
+   * - `EMPLOYEE` — exige cargo e senha no aceite; grava hash + cargo.
+   *
+   * Telefone: `payload.driver.phone` quando informado; senão o
+   * `contactPhone` da solicitação.
    *
    * @param actor Ator autenticado (admin).
    * @param request Solicitação com o payload do motorista.
+   * @param input Dados do aceite (`roleId`/`password` quando Colaborador).
    * @returns Usuário criado.
+   * @throws {BadRequestException} Nome/e-mail/cargo/senha ausentes.
+   * @throws {ConflictException} E-mail já cadastrado.
+   * @throws {ForbiddenException} Não-admin atribuindo cargo de administração.
    */
-  private async createVisitorUser(
+  private async createRequestedUser(
     actor: AuthenticatedUserEntity,
     request: AccessRequestEntity,
+    input: AcceptAccessRequestInputDto,
   ) {
     const name = request.payload?.driver?.name?.trim();
-    const email = normalizeEmail(request.payload?.driver?.email ?? '');
-    if (!name || !email) {
-      throw new ConflictException('Dados do motorista incompletos no payload.');
-    }
-    const existing = await this.userRepository.findByEmail(email);
-    if (existing) {
-      throw new ConflictException('E-mail já cadastrado.');
+    if (!name) {
+      throw new BadRequestException(
+        'Dados do motorista incompletos no payload.',
+      );
     }
 
-    const defaultPassword = this.config.get<string>(
-      'ADMIN_DEFAULT_PASSWORD',
-      'admin123',
-    );
+    const isEmployee = request.userType === UserType.EMPLOYEE;
+    const rawEmail = request.payload?.driver?.email?.trim();
+    const email = rawEmail ? normalizeEmail(rawEmail) : null;
+    if (isEmployee && !email) {
+      throw new BadRequestException('Informe o e-mail do colaborador.');
+    }
+    if (email) {
+      const existing = await this.userRepository.findByEmail(email);
+      if (existing) {
+        throw new ConflictException('E-mail já cadastrado.');
+      }
+    }
+
+    const role = isEmployee
+      ? await this.resolveEmployeeRole(actor, input)
+      : null;
+    if (isEmployee && !input.password) {
+      throw new BadRequestException('Informe a senha do colaborador.');
+    }
 
     return this.userRepository.create({
       name,
       email,
-      passwordHash: this.passwordHash.execute(defaultPassword),
-      phone: request.payload?.driver?.phone?.trim() || null,
+      passwordHash: isEmployee
+        ? this.passwordHash.execute(input.password as string)
+        : null,
+      phone:
+        request.payload?.driver?.phone?.trim() || request.contactPhone || null,
       document: request.payload?.driver?.document?.trim() || null,
       companyId: actor.companyId,
-      type: UserType.VISITOR,
+      type: isEmployee ? UserType.EMPLOYEE : UserType.VISITOR,
       isActive: true,
+      ...(role ? { roleId: role.id } : {}),
     });
+  }
+
+  /**
+   * Valida o cargo escolhido no aceite do Colaborador.
+   *
+   * Cargo de administração só pode ser atribuído por admin (ADR 0004 §3).
+   *
+   * @param actor Ator autenticado.
+   * @param input Dados do aceite (`roleId`).
+   * @returns Cargo validado da empresa.
+   * @throws {BadRequestException} `roleId` ausente.
+   * @throws {NotFoundException} Cargo não existe na empresa.
+   * @throws {ForbiddenException} Não-admin atribuindo cargo admin.
+   */
+  private async resolveEmployeeRole(
+    actor: AuthenticatedUserEntity,
+    input: AcceptAccessRequestInputDto,
+  ): Promise<RoleEntity> {
+    if (!input.roleId) {
+      throw new BadRequestException('Selecione o cargo do colaborador.');
+    }
+    const role = await this.roleRepository.findByIdAndCompanyId(
+      input.roleId,
+      actor.companyId,
+    );
+    if (!role) {
+      throw new NotFoundException('Cargo não encontrado.');
+    }
+    if (role.isAdmin && !actor.isAdmin) {
+      throw new ForbiddenException(
+        'Apenas administradores podem atribuir um cargo de administração.',
+      );
+    }
+    return role;
   }
 
   /**

@@ -1,6 +1,9 @@
 // NestJS
-import { ConflictException, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 // Shared
@@ -23,13 +26,16 @@ import type { VehicleWithTypeEntity } from '../../../vehicles/domain/entities/ve
 import type { VehicleTypeEntity } from '../../../vehicles/domain/entities/vehicle-type.entity';
 import type { UserVehicleEntity } from '../../../vehicles/domain/entities/user-vehicle.entity';
 import type { AccessRequestRepository } from '../../domain/repositories/access-request.repository';
+import type { RoleEntity } from '../../../roles/domain/entities/role.entity';
 import type { UserRepository } from '../../../users/domain/repositories/user.repository';
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
 import type { VehicleTypeRepository } from '../../../vehicles/domain/repositories/vehicle-type.repository';
 import type { UserVehicleRepository } from '../../../vehicles/domain/repositories/user-vehicle.repository';
+import type { RoleRepository } from '../../../roles/domain/repositories/role.repository';
 
 // Repositories
 import { ACCESS_REQUEST_REPOSITORY } from '../../domain/repositories/access-request.repository';
+import { ROLE_REPOSITORY } from '../../../roles/domain/repositories/role.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
 import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle.repository';
 import { VEHICLE_TYPE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle-type.repository';
@@ -60,6 +66,10 @@ describe('AcceptAccessRequestUseCase', () => {
     create: jest.fn(),
   } as jest.Mocked<Pick<UserRepository, 'findById' | 'findByEmail' | 'create'>>;
 
+  const roleRepoMock = {
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<Pick<RoleRepository, 'findByIdAndCompanyId'>>;
+
   const vehicleRepoMock = {
     findByIdAndCompanyId: jest.fn(),
     findByPlateAndCompanyId: jest.fn(),
@@ -89,8 +99,15 @@ describe('AcceptAccessRequestUseCase', () => {
     execute: jest.fn(() => 'hash'),
   };
 
-  const configMock = {
-    get: jest.fn(() => 'admin123'),
+  const role: RoleEntity = {
+    id: '70000000-0000-0000-0000-000000000001',
+    companyId: '10000000-0000-0000-0000-000000000001',
+    name: 'Porteiro',
+    description: null,
+    isAdmin: false,
+    isActive: true,
+    createdAt: new Date('2026-08-21T00:00:00Z'),
+    updatedAt: new Date('2026-08-21T00:00:00Z'),
   };
 
   const admin: AuthenticatedUserEntity = {
@@ -206,11 +223,11 @@ describe('AcceptAccessRequestUseCase', () => {
         AcceptAccessRequestUseCase,
         { provide: ACCESS_REQUEST_REPOSITORY, useValue: accessRequestRepoMock },
         { provide: USER_REPOSITORY, useValue: userRepoMock },
+        { provide: ROLE_REPOSITORY, useValue: roleRepoMock },
         { provide: VEHICLE_REPOSITORY, useValue: vehicleRepoMock },
         { provide: VEHICLE_TYPE_REPOSITORY, useValue: vehicleTypeRepoMock },
         { provide: USER_VEHICLE_REPOSITORY, useValue: userVehicleRepoMock },
         { provide: PasswordHashUseCase, useValue: passwordHashMock },
-        { provide: ConfigService, useValue: configMock },
       ],
     }).compile();
     useCase = module.get(AcceptAccessRequestUseCase);
@@ -250,17 +267,19 @@ describe('AcceptAccessRequestUseCase', () => {
       new AcceptAccessRequestInputDto(request.id, undefined, true, false),
     );
 
-    // Cria VISITOR com senha padrão e vínculo can_drive.
+    // Cria VISITOR sem credenciais (ADR 0013) e vinculo can_drive.
     expect(userRepoMock.create).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Visitante',
         email: 'visitante@somar.local',
-        passwordHash: 'hash',
+        passwordHash: null,
+        phone: '11999999999',
         companyId: admin.companyId,
         type: UserType.VISITOR,
         isActive: true,
       }),
     );
+    expect(passwordHashMock.execute).not.toHaveBeenCalled();
     expect(userVehicleRepoMock.create).toHaveBeenCalledWith({
       companyId: admin.companyId,
       userId: driverUserId,
@@ -478,6 +497,179 @@ describe('AcceptAccessRequestUseCase', () => {
     await expect(
       useCase.execute(admin, new AcceptAccessRequestInputDto(request.id)),
     ).rejects.toBeInstanceOf(ConflictException);
+    expect(userRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('aceita NEW_USER VISITOR sem e-mail usando contactPhone como telefone', async () => {
+    const request = buildRequest(AccessRequestType.NEW_USER, {
+      vehicleId,
+      contactPhone: '11888887777',
+      payload: { driver: { name: 'Visitante sem e-mail' } },
+    });
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    userRepoMock.create.mockResolvedValue(driverUser);
+    accessRequestRepoMock.updateStatusByIdAndCompanyId.mockResolvedValue(
+      buildRequest(AccessRequestType.NEW_USER, {
+        vehicleId,
+        status: AccessRequestStatus.REGISTERED,
+        resolvedUserId: driverUserId,
+        resolvedVehicleId: vehicleId,
+        entryAuthorized: true,
+        authorizedBy: admin.id,
+      }),
+    );
+
+    await useCase.execute(
+      admin,
+      new AcceptAccessRequestInputDto(request.id, undefined, true, false),
+    );
+
+    expect(userRepoMock.findByEmail).not.toHaveBeenCalled();
+    expect(userRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: null,
+        passwordHash: null,
+        phone: '11888887777',
+        type: UserType.VISITOR,
+      }),
+    );
+  });
+
+  it('aceita NEW_USER EMPLOYEE com cargo e senha (ADR 0013)', async () => {
+    const request = buildRequest(AccessRequestType.NEW_USER, {
+      vehicleId,
+      userType: UserType.EMPLOYEE,
+      payload: {
+        driver: { name: 'Colaboradora', email: 'colaboradora@somar.local' },
+      },
+    });
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(role);
+    userRepoMock.findByEmail.mockResolvedValue(null);
+    userRepoMock.create.mockResolvedValue(driverUser);
+    accessRequestRepoMock.updateStatusByIdAndCompanyId.mockResolvedValue(
+      buildRequest(AccessRequestType.NEW_USER, {
+        vehicleId,
+        userType: UserType.EMPLOYEE,
+        status: AccessRequestStatus.REGISTERED,
+        resolvedUserId: driverUserId,
+        resolvedVehicleId: vehicleId,
+        entryAuthorized: true,
+        authorizedBy: admin.id,
+      }),
+    );
+
+    await useCase.execute(
+      admin,
+      new AcceptAccessRequestInputDto(
+        request.id,
+        undefined,
+        true,
+        false,
+        undefined,
+        role.id,
+        'senha-secreta',
+      ),
+    );
+
+    expect(passwordHashMock.execute).toHaveBeenCalledWith('senha-secreta');
+    expect(userRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'colaboradora@somar.local',
+        passwordHash: 'hash',
+        type: UserType.EMPLOYEE,
+        roleId: role.id,
+      }),
+    );
+  });
+
+  it('lança 400 para NEW_USER EMPLOYEE sem cargo', async () => {
+    const request = buildRequest(AccessRequestType.NEW_USER, {
+      vehicleId,
+      userType: UserType.EMPLOYEE,
+      payload: {
+        driver: { name: 'Colaboradora', email: 'colaboradora@somar.local' },
+      },
+    });
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    userRepoMock.findByEmail.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        admin,
+        new AcceptAccessRequestInputDto(
+          request.id,
+          undefined,
+          true,
+          false,
+          undefined,
+          undefined,
+          'senha-secreta',
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(userRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('lança 400 para NEW_USER EMPLOYEE sem senha', async () => {
+    const request = buildRequest(AccessRequestType.NEW_USER, {
+      vehicleId,
+      userType: UserType.EMPLOYEE,
+      payload: {
+        driver: { name: 'Colaboradora', email: 'colaboradora@somar.local' },
+      },
+    });
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(role);
+    userRepoMock.findByEmail.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        admin,
+        new AcceptAccessRequestInputDto(
+          request.id,
+          undefined,
+          true,
+          false,
+          undefined,
+          role.id,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(userRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('lança 404 para NEW_USER EMPLOYEE com cargo inexistente', async () => {
+    const request = buildRequest(AccessRequestType.NEW_USER, {
+      vehicleId,
+      userType: UserType.EMPLOYEE,
+      payload: {
+        driver: { name: 'Colaboradora', email: 'colaboradora@somar.local' },
+      },
+    });
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(null);
+    userRepoMock.findByEmail.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        admin,
+        new AcceptAccessRequestInputDto(
+          request.id,
+          undefined,
+          true,
+          false,
+          undefined,
+          role.id,
+          'senha-secreta',
+        ),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(userRepoMock.create).not.toHaveBeenCalled();
   });
 });

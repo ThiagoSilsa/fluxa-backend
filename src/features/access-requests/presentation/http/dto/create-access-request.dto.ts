@@ -21,6 +21,7 @@ import {
   AccessRequestType,
   ContactChannel,
 } from '../../../domain/constants/access-request.constant';
+import { UserType } from '../../../../auth/domain/constants/user-type.constant';
 
 /** Dados do motorista no payload (usado quando será criado). */
 class DriverPayloadDto {
@@ -82,6 +83,14 @@ export class CreateAccessRequestDto {
 
   @IsEnum(AccessRequestType)
   type!: AccessRequestType;
+
+  /**
+   * Tipo do usuário a criar (NEW_USER/BOTH) — default `VISITOR`. Nos demais
+   * cenários é ignorado (permanece `VISITOR`).
+   */
+  @IsOptional()
+  @IsEnum(UserType)
+  userType?: UserType;
 
   @IsOptional()
   @Matches(UUID_ANY_VERSION_PATTERN)

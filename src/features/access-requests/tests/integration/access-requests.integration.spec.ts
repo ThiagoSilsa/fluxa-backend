@@ -19,6 +19,7 @@ describe('Access requests integration — solicitações de acesso (Testcontaine
   let departmentId: string;
   let motoristaId: string;
   let newUserRequestId: string;
+  let visitorNoEmailRequestId: string;
 
   beforeAll(async () => {
     context = await createAccessRequestsIntegrationContext();
@@ -96,6 +97,7 @@ describe('Access requests integration — solicitações de acesso (Testcontaine
       expect(res.body).toMatchObject({
         plate: 'ABC1D23',
         type: 'NEW_USER',
+        userType: 'VISITOR',
         vehicleId,
         status: 'PENDING',
         entryAuthorized: false,
@@ -166,6 +168,41 @@ describe('Access requests integration — solicitações de acesso (Testcontaine
         .send({ plate: 'ABC12', type: 'LINK', vehicleId, userId: motoristaId })
         .expect(400);
     });
+
+    it('cria NEW_USER VISITOR sem e-mail do motorista (user_type default)', async () => {
+      const res = await request(context.httpServer)
+        .post('/access-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'VIS1A23',
+          type: 'NEW_USER',
+          vehicleId,
+          contactPhone: '11777776666',
+          payload: { driver: { name: 'Visitante sem e-mail' } },
+        })
+        .expect(201);
+
+      visitorNoEmailRequestId = res.body.id;
+      expect(res.body.userType).toBe('VISITOR');
+      expect(res.body.payload).toMatchObject({
+        driver: { name: 'Visitante sem e-mail' },
+      });
+    });
+
+    it('devolve 400 para NEW_USER EMPLOYEE sem e-mail do motorista', async () => {
+      await request(context.httpServer)
+        .post('/access-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'EMP0A23',
+          type: 'NEW_USER',
+          userType: 'EMPLOYEE',
+          vehicleId,
+          contactPhone: '11955556666',
+          payload: { driver: { name: 'Colaborador sem e-mail' } },
+        })
+        .expect(400);
+    });
   });
 
   describe('GET /access-requests (admin, MANAGE_ACCESS_REQUESTS)', () => {
@@ -233,6 +270,12 @@ describe('Access requests integration — solicitações de acesso (Testcontaine
       expect(
         await context.isLinkByUserAndVehicle(visitanteId as string, vehicleId),
       ).toBe(true);
+
+      // Visitante não tem credenciais nem cargo (ADR 0013).
+      const account = await context.findAccountByEmail('visitante@somar.local');
+      expect(account?.type).toBe('VISITOR');
+      expect(account?.passwordHash).toBeNull();
+      expect(account?.roleId).toBeNull();
     });
 
     it('devolve 409 ao aceitar solicitação já registrada', async () => {
@@ -332,6 +375,92 @@ describe('Access requests integration — solicitações de acesso (Testcontaine
           res.body.resolvedVehicleId,
         ),
       ).toBe(true);
+    });
+
+    it('aceita NEW_USER VISITOR sem e-mail usando contactPhone como telefone', async () => {
+      const res = await request(context.httpServer)
+        .post(`/access-requests/${visitorNoEmailRequestId}/accept`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({})
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        id: visitorNoEmailRequestId,
+        status: 'REGISTERED',
+        userType: 'VISITOR',
+      });
+
+      const account = await context.findAccountByPhone('11777776666');
+      expect(account).not.toBeNull();
+      expect(account?.type).toBe('VISITOR');
+      expect(account?.passwordHash).toBeNull();
+      expect(account?.roleId).toBeNull();
+    });
+
+    it('aceita NEW_USER EMPLOYEE com cargo e senha (ADR 0013)', async () => {
+      const created = await request(context.httpServer)
+        .post('/access-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'EMP1A23',
+          type: 'NEW_USER',
+          userType: 'EMPLOYEE',
+          vehicleId,
+          contactPhone: '11955554444',
+          payload: {
+            driver: { name: 'Colaboradora', email: 'colaboradora@somar.local' },
+          },
+        })
+        .expect(201);
+      expect(created.body.userType).toBe('EMPLOYEE');
+
+      const res = await request(context.httpServer)
+        .post(`/access-requests/${created.body.id}/accept`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          roleId: ACCESS_REQUESTS_SEEDED.PORTEIRO_ROLE_ID,
+          password: 'senha123',
+        })
+        .expect(200);
+
+      expect(res.body.status).toBe('REGISTERED');
+      const account = await context.findAccountByEmail(
+        'colaboradora@somar.local',
+      );
+      expect(account?.type).toBe('EMPLOYEE');
+      expect(account?.passwordHash).toBeTruthy();
+      expect(account?.passwordHash).not.toBe('senha123');
+      expect(account?.roleId).toBe(ACCESS_REQUESTS_SEEDED.PORTEIRO_ROLE_ID);
+    });
+
+    it('devolve 400 ao aceitar EMPLOYEE sem cargo e senha', async () => {
+      const created = await request(context.httpServer)
+        .post('/access-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'EMP2A23',
+          type: 'NEW_USER',
+          userType: 'EMPLOYEE',
+          vehicleId,
+          contactPhone: '11955553333',
+          payload: {
+            driver: {
+              name: 'Colaborador dois',
+              email: 'colaborador2@somar.local',
+            },
+          },
+        })
+        .expect(201);
+
+      await request(context.httpServer)
+        .post(`/access-requests/${created.body.id}/accept`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({})
+        .expect(400);
+
+      expect(await context.isUserByEmail('colaborador2@somar.local')).toBe(
+        false,
+      );
     });
   });
 

@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 // Modules
 import { AuthModule } from '../auth/auth.module';
 import { DepartmentsModule } from '../departments/departments.module';
+import { RolesModule } from '../roles/roles.module';
 import { UsersModule } from '../users/users.module';
 import { VehiclesModule } from '../vehicles/vehicles.module';
 
@@ -31,16 +32,18 @@ import { AccessRequestsController } from './presentation/http/controllers/access
  * Módulo de solicitações de acesso (ADR 0010 — M2).
  *
  * Importa `AuthModule` (guards + `USER_COMPANY_REPOSITORY`), `UsersModule`
- * (`USER_REPOSITORY` — nomes de atores e criação de VISITOR), `VehiclesModule`
- * (`VEHICLE_REPOSITORY`/`VEHICLE_TYPE_REPOSITORY`/`USER_VEHICLE_REPOSITORY` —
- * resolução retroativa) e `DepartmentsModule` (`DEPARTMENT_REPOSITORY` —
- * validação do departamento). **Sem ciclo**: users/vehicles/departments não
- * importam access-requests.
+ * (`USER_REPOSITORY` — nomes de atores e criação de VISITOR/EMPLOYEE),
+ * `RolesModule` (`ROLE_REPOSITORY` — cargo do Colaborador no aceite),
+ * `VehiclesModule` (`VEHICLE_REPOSITORY`/`VEHICLE_TYPE_REPOSITORY`/
+ * `USER_VEHICLE_REPOSITORY` — resolução retroativa) e `DepartmentsModule`
+ * (`DEPARTMENT_REPOSITORY` — validação do departamento). **Sem ciclo**:
+ * users/roles/vehicles/departments não importam access-requests.
  */
 @Module({
   imports: [
     AuthModule,
     UsersModule,
+    RolesModule,
     VehiclesModule,
     DepartmentsModule,
     TypeOrmModule.forFeature([AccessRequestOrmEntity]),

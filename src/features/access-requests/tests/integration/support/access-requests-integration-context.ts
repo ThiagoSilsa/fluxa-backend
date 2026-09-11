@@ -61,7 +61,26 @@ export interface AccessRequestsIntegrationContext {
     userId: string,
     vehicleId: string,
   ) => Promise<boolean>;
+  /** Snapshot da conta (user + user_company + user_role) por e-mail. */
+  findAccountByEmail: (
+    email: string,
+  ) => Promise<AccessRequestAccountSnapshot | null>;
+  /** Snapshot da conta (user + user_company + user_role) por telefone. */
+  findAccountByPhone: (
+    phone: string,
+  ) => Promise<AccessRequestAccountSnapshot | null>;
   close: () => Promise<void>;
+}
+
+/**
+ * Snapshot da conta criada/viculada no aceite — `user` + `user_company` +
+ * `user_role` da empresa SOMAR.
+ */
+export interface AccessRequestAccountSnapshot {
+  id: string;
+  passwordHash: string | null;
+  type: string | null;
+  roleId: string | null;
 }
 
 /**
@@ -129,6 +148,8 @@ export async function createAccessRequestsIntegrationContext(): Promise<AccessRe
     isVehicleByPlate: (plate) => isVehicleByPlate(dataSource, plate),
     isLinkByUserAndVehicle: (userId, vehicleId) =>
       isLinkByUserAndVehicle(dataSource, userId, vehicleId),
+    findAccountByEmail: (email) => findAccount(dataSource, 'email', email),
+    findAccountByPhone: (phone) => findAccount(dataSource, 'phone', phone),
     close: async () => {
       await app.close();
       if (dataSource.isInitialized) {
@@ -252,4 +273,35 @@ async function isLinkByUserAndVehicle(
     [userId, vehicleId],
   );
   return rows.length > 0;
+}
+
+/**
+ * Lê a conta criada no aceite na SOMAR — senha, tipo do vínculo e cargo —
+ * filtrando por e-mail ou telefone.
+ *
+ * @param dataSource Conexão com o banco de teste.
+ * @param filter Campo do filtro (`email` ou `phone`).
+ * @param value Valor do filtro.
+ * @returns Snapshot da conta ou `null` se não existir.
+ */
+async function findAccount(
+  dataSource: DataSource,
+  filter: 'email' | 'phone',
+  value: string,
+): Promise<AccessRequestAccountSnapshot | null> {
+  const column = filter === 'email' ? '"email"' : '"phone"';
+  const rows = await dataSource.query(
+    `SELECT u."id" AS "id",
+            u."password" AS "passwordHash",
+            uc."type" AS "type",
+            ur."role_id" AS "roleId"
+       FROM "user" u
+       LEFT JOIN "user_company" uc
+         ON uc."user_id" = u."id" AND uc."company_id" = $2
+       LEFT JOIN "user_role" ur
+         ON ur."user_id" = u."id" AND ur."company_id" = $2
+      WHERE u.${column} = $1`,
+    [value, ACCESS_REQUESTS_SEEDED.SOMAR_COMPANY_ID],
+  );
+  return (rows[0] as AccessRequestAccountSnapshot | undefined) ?? null;
 }

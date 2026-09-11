@@ -108,6 +108,7 @@ export class AccessRequestsController {
         dto.contactPhone,
         dto.departmentId,
         dto.payload,
+        dto.userType,
       ),
     );
   }
@@ -168,6 +169,8 @@ export class AccessRequestsController {
         dto?.canDrive ?? true,
         dto?.isPrimary ?? false,
         dto?.observation,
+        dto?.roleId,
+        dto?.password,
       ),
     );
   }

@@ -14,5 +14,15 @@ export class AcceptAccessRequestInputDto {
     readonly isPrimary: boolean = false,
     /** Observação da avaliação. */
     readonly observation?: string,
+    /**
+     * Cargo a vincular quando o motorista for **Colaborador** (`user_type =
+     * EMPLOYEE`) — obrigatório nesse caso (ADR 0013 §4).
+     */
+    readonly roleId?: string,
+    /**
+     * Senha do **Colaborador** (`user_type = EMPLOYEE`) — obrigatória nesse
+     * caso (ADR 0013 §4). Ignorada para Visitante.
+     */
+    readonly password?: string,
   ) {}
 }

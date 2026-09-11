@@ -1,5 +1,12 @@
 // class-validator
-import { IsBoolean, IsOptional, IsString, Matches } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 // Shared
 import { UUID_ANY_VERSION_PATTERN } from '../../../../../shared/validators/uuid.pattern';
@@ -23,4 +30,16 @@ export class AcceptAccessRequestDto {
   @IsOptional()
   @IsString()
   observation?: string;
+
+  /** Cargo do Colaborador (obrigatório quando `user_type = EMPLOYEE`). */
+  @IsOptional()
+  @Matches(UUID_ANY_VERSION_PATTERN)
+  roleId?: string;
+
+  /** Senha do Colaborador (obrigatória quando `user_type = EMPLOYEE`). */
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  @MaxLength(128)
+  password?: string;
 }

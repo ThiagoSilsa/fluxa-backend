@@ -4,6 +4,7 @@ import type {
   AccessRequestType,
   ContactChannel,
 } from '../../domain/constants/access-request.constant';
+import type { UserType } from '../../../auth/domain/constants/user-type.constant';
 
 // Types
 import type { AccessRequestPayload } from '../../domain/entities/access-request.entity';
@@ -27,6 +28,8 @@ export interface AccessRequestResponse {
   id: string;
   /** `NEW_USER` / `NEW_VEHICLE` / `LINK` / `BOTH`. */
   type: AccessRequestType;
+  /** Tipo de usuário do motorista (NEW_USER/BOTH; `VISITOR` nos demais). */
+  userType: UserType;
   /** Placa normalizada. */
   plate: string;
   /** Veículo existente (cenários NEW_USER/LINK). */

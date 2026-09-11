@@ -3,6 +3,7 @@ import type {
   AccessRequestType,
   ContactChannel,
 } from '../../domain/constants/access-request.constant';
+import { UserType } from '../../../auth/domain/constants/user-type.constant';
 
 // Types
 import type { AccessRequestPayload } from '../../domain/entities/access-request.entity';
@@ -29,5 +30,10 @@ export class CreateAccessRequestInputDto {
     readonly departmentId?: string,
     /** Dados para criar o que falta. */
     readonly payload: AccessRequestPayload = {},
+    /**
+     * Tipo de usuário do motorista (NEW_USER/BOTH) — default `VISITOR`. Nos
+     * demais cenários é ignorado (permanece `VISITOR`).
+     */
+    readonly userType: UserType = UserType.VISITOR,
   ) {}
 }

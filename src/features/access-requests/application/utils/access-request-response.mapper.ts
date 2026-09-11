@@ -24,6 +24,7 @@ export function toAccessRequestResponse(
   return {
     id: request.id,
     type: request.type,
+    userType: request.userType,
     plate: request.plate,
     vehicleId: request.vehicleId,
     userId: request.userId,

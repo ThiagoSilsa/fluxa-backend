@@ -30,6 +30,7 @@ import {
   AccessRequestType,
   ContactChannel,
 } from '../../domain/constants/access-request.constant';
+import { UserType } from '../../../auth/domain/constants/user-type.constant';
 
 // Mapper
 import { toAccessRequestResponse } from '../utils/access-request-response.mapper';
@@ -92,7 +93,15 @@ export class CreateAccessRequestUseCase {
     const payload = input.payload ?? {};
     const contactPhone = input.contactPhone?.trim() || null;
 
-    await this.validateScenario(actor, input, plate, payload, contactPhone);
+    // O tipo de usuário só tem efeito nos cenários que criam motorista; nos
+    // demais a solicitação permanece `VISITOR` (ADR 0013).
+    const userType =
+      input.type === AccessRequestType.NEW_USER ||
+      input.type === AccessRequestType.BOTH
+        ? (input.userType ?? UserType.VISITOR)
+        : UserType.VISITOR;
+
+    await this.validateScenario(actor, input, userType, payload, contactPhone);
 
     // Duplicidade: solicitação aberta (PENDING/IN_CONTACT) da mesma placa.
     const open = await this.accessRequestRepository.findOpenByPlateAndCompanyId(
@@ -109,6 +118,7 @@ export class CreateAccessRequestUseCase {
       companyId: actor.companyId,
       idempotencyKey: randomUUID(),
       type: input.type,
+      userType,
       plate,
       vehicleId: input.vehicleId ?? null,
       userId: input.userId ?? null,
@@ -141,7 +151,7 @@ export class CreateAccessRequestUseCase {
   private async validateScenario(
     actor: AuthenticatedUserEntity,
     input: CreateAccessRequestInputDto,
-    plate: string,
+    userType: UserType,
     payload: CreateAccessRequestInputDto['payload'],
     contactPhone: string | null,
   ): Promise<void> {
@@ -159,7 +169,7 @@ export class CreateAccessRequestUseCase {
         if (!vehicle) {
           throw new NotFoundException('Veículo não encontrado.');
         }
-        this.requireDriverPayload(payload);
+        this.requireDriverPayload(payload, userType);
         this.requireContact(contactPhone);
         break;
       }
@@ -191,7 +201,7 @@ export class CreateAccessRequestUseCase {
         break;
       }
       case AccessRequestType.BOTH: {
-        this.requireDriverPayload(payload);
+        this.requireDriverPayload(payload, userType);
         this.requireVehiclePayload(payload);
         this.requireContact(contactPhone);
         break;
@@ -226,17 +236,22 @@ export class CreateAccessRequestUseCase {
   /**
    * Valida os dados do motorista no payload (NEW_USER/BOTH).
    *
+   * Nome é sempre obrigatório; e-mail apenas para **Colaborador** — Visitante
+   * pode não ter e-mail (ADR 0013).
+   *
    * @param payload Payload da solicitação.
+   * @param userType Tipo de usuário pretendido para o motorista.
    */
   private requireDriverPayload(
     payload: CreateAccessRequestInputDto['payload'],
+    userType: UserType,
   ): void {
     const name = payload?.driver?.name?.trim();
-    const email = payload?.driver?.email?.trim();
     if (!name) {
       throw new BadRequestException('Informe o nome do motorista.');
     }
-    if (!email) {
+    const email = payload?.driver?.email?.trim();
+    if (userType === UserType.EMPLOYEE && !email) {
       throw new BadRequestException('Informe o e-mail do motorista.');
     }
   }

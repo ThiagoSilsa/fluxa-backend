@@ -399,4 +399,117 @@ describe('CreateAccessRequestUseCase', () => {
       actor.companyId,
     );
   });
+
+  it('cria NEW_USER VISITOR sem e-mail e persiste user_type VISITOR', async () => {
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    accessRequestRepoMock.findOpenByPlateAndCompanyId.mockResolvedValue(null);
+    accessRequestRepoMock.create.mockResolvedValue(request);
+
+    await useCase.execute(
+      actor,
+      new CreateAccessRequestInputDto(
+        'ABC1D23',
+        AccessRequestType.NEW_USER,
+        vehicle.id,
+        undefined,
+        ContactChannel.WHATSAPP,
+        '11999999999',
+        undefined,
+        { driver: { name: 'Visitante sem e-mail' } },
+      ),
+    );
+
+    expect(userRepoMock.findByEmail).not.toHaveBeenCalled();
+    expect(accessRequestRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({ userType: UserType.VISITOR }),
+    );
+  });
+
+  it('cria NEW_USER EMPLOYEE persistindo user_type EMPLOYEE', async () => {
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    userRepoMock.findByEmail.mockResolvedValue(null);
+    accessRequestRepoMock.findOpenByPlateAndCompanyId.mockResolvedValue(null);
+    accessRequestRepoMock.create.mockResolvedValue({
+      ...request,
+      userType: UserType.EMPLOYEE,
+    });
+
+    await useCase.execute(
+      actor,
+      new CreateAccessRequestInputDto(
+        'ABC1D23',
+        AccessRequestType.NEW_USER,
+        vehicle.id,
+        undefined,
+        ContactChannel.WHATSAPP,
+        '11999999999',
+        undefined,
+        { driver: { name: 'Colaborador', email: 'colaborador@somar.local' } },
+        UserType.EMPLOYEE,
+      ),
+    );
+
+    expect(accessRequestRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({ userType: UserType.EMPLOYEE }),
+    );
+  });
+
+  it('lança 400 para NEW_USER EMPLOYEE sem e-mail do motorista', async () => {
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+
+    await expect(
+      useCase.execute(
+        actor,
+        new CreateAccessRequestInputDto(
+          'ABC1D23',
+          AccessRequestType.NEW_USER,
+          vehicle.id,
+          undefined,
+          ContactChannel.WHATSAPP,
+          '11999999999',
+          undefined,
+          { driver: { name: 'Colaborador' } },
+          UserType.EMPLOYEE,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(accessRequestRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('força user_type VISITOR em NEW_VEHICLE mesmo com EMPLOYEE informado', async () => {
+    userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue({
+      id: '60000000-0000-0000-0000-000000000001',
+      userId: existingUser.id,
+      companyId: actor.companyId,
+      type: UserType.EMPLOYEE,
+      isActive: true,
+      createdAt: new Date('2026-08-21T00:00:00Z'),
+      updatedAt: new Date('2026-08-21T00:00:00Z'),
+    } as never);
+    accessRequestRepoMock.findOpenByPlateAndCompanyId.mockResolvedValue(null);
+    accessRequestRepoMock.create.mockResolvedValue({
+      ...request,
+      type: AccessRequestType.NEW_VEHICLE,
+      userType: UserType.VISITOR,
+    });
+
+    await useCase.execute(
+      actor,
+      new CreateAccessRequestInputDto(
+        'ABC1D23',
+        AccessRequestType.NEW_VEHICLE,
+        undefined,
+        existingUser.id,
+        ContactChannel.WHATSAPP,
+        '11999999999',
+        undefined,
+        { vehicle: { model: 'Onix' } },
+        UserType.EMPLOYEE,
+      ),
+    );
+
+    expect(accessRequestRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({ userType: UserType.VISITOR }),
+    );
+  });
 });
