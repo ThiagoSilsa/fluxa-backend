@@ -13,6 +13,7 @@ jest.setTimeout(120000);
 describe('Users integration — troca de senha (Testcontainers)', () => {
   let context: UsersIntegrationContext;
   let token: string;
+  let porteiroId: string | null;
 
   const createUser = (
     email: string,
@@ -22,7 +23,8 @@ describe('Users integration — troca de senha (Testcontainers)', () => {
     request(context.httpServer)
       .post('/users')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name, email, password, type: 'EMPLOYEE' });
+      // Colaborador (com login) exige e-mail + senha + cargo (ADR 0013).
+      .send({ name, email, password, type: 'EMPLOYEE', roleId: porteiroId });
 
   const seedGestorToken = async (email: string): Promise<string> => {
     const roleRes = await request(context.httpServer)
@@ -49,6 +51,7 @@ describe('Users integration — troca de senha (Testcontainers)', () => {
       USERS_SEEDED.ADMIN_EMAIL,
       USERS_SEEDED.ADMIN_PASSWORD,
     );
+    porteiroId = await context.findRoleIdByName('Porteiro');
   });
 
   afterAll(async () => {

@@ -34,13 +34,15 @@ export class CreateUserDto {
   @MaxLength(255)
   name?: string;
 
-  // Normaliza (trim + lowercase) antes de validar — o UNIQUE de `user.email`
+  // Opcional: Visitante pode não ter e-mail (ADR 0013). Quando enviado,
+  // normaliza (trim + lowercase) antes de validar — o UNIQUE de `user.email`
   // é case-sensitive (Fase 0).
+  @IsOptional()
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? normalizeEmail(value) : value,
   )
   @IsEmail()
-  email!: string;
+  email?: string;
 
   @IsOptional()
   @IsString()

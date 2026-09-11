@@ -1,5 +1,6 @@
 // NestJS
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -10,6 +11,9 @@ import {
 
 // Shared
 import { normalizeEmail } from '../../../../shared/utils/email.util';
+
+// Constants
+import { UserType } from '../../../auth/domain/constants/user-type.constant';
 
 // Repositories
 import { AUTH_REPOSITORY } from '../../../auth/domain/repositories/auth.repository';
@@ -26,6 +30,7 @@ import type { AuthRepository } from '../../../auth/domain/repositories/auth.repo
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { UpdateUserCompanyRepositoryData } from '../../../auth/domain/repositories/user-company.repository';
 import type { UserCompanyRepository } from '../../../auth/domain/repositories/user-company.repository';
+import type { UserCompanyWithUserEntity } from '../../../auth/domain/repositories/user-company.repository';
 import type { RoleEntity } from '../../../roles/domain/entities/role.entity';
 import type { RoleRepository } from '../../../roles/domain/repositories/role.repository';
 import type { UpdateUserRepositoryData } from '../../domain/repositories/user.repository';
@@ -100,6 +105,7 @@ export class UpdateUserUseCase {
       await this.enforceLastAdminInvariant(actor.companyId);
     }
 
+    await this.enforceEmployeeRequirements(actor, input, link);
     await this.updatePerson(input);
     await this.updateLink(link.linkId, input);
 
@@ -191,6 +197,56 @@ export class UpdateUserUseCase {
     }
     if (newRole) {
       await this.userRoleRepository.create(userId, newRole.id, actor.companyId);
+    }
+  }
+
+  /**
+   * Garante os requisitos do vínculo **Colaborador** (ADR 0013): e-mail, cargo
+   * e senha. A senha é definida pelo fluxo próprio
+   * (`PATCH /users/:id/password`) **antes** da promoção — aqui apenas
+   * verificamos que ela já existe.
+   *
+   * @param actor Ator autenticado (empresa da sessão).
+   * @param input Campos de edição.
+   * @param link Vínculo atual pessoa ↔ empresa.
+   * @throws {BadRequestException} Sem e-mail, cargo ou senha para Colaborador.
+   */
+  private async enforceEmployeeRequirements(
+    actor: AuthenticatedUserEntity,
+    input: UpdateUserInputDto,
+    link: UserCompanyWithUserEntity,
+  ): Promise<void> {
+    // Só a **promoção** Visitante → Colaborador impõe os requisitos; edições de
+    // um Colaborador já existente seguem as regras anteriores (ADR 0013).
+    const isPromotion =
+      input.type === UserType.EMPLOYEE && link.type !== UserType.EMPLOYEE;
+    if (!isPromotion) {
+      return;
+    }
+
+    const nextEmail =
+      input.email !== undefined ? normalizeEmail(input.email) : link.email;
+    if (!nextEmail) {
+      throw new BadRequestException('E-mail é obrigatório para colaborador.');
+    }
+
+    const currentRoles = await this.userRoleRepository.listByUserIdAndCompanyId(
+      input.id,
+      actor.companyId,
+    );
+    const nextRoleId =
+      input.roleId !== undefined
+        ? input.roleId
+        : (currentRoles[0]?.roleId ?? null);
+    if (!nextRoleId) {
+      throw new BadRequestException('Cargo é obrigatório para colaborador.');
+    }
+
+    const person = await this.userRepository.findById(input.id);
+    if (!person?.passwordHash) {
+      throw new BadRequestException(
+        'Senha é obrigatória para colaborador: defina a senha antes de promover o usuário.',
+      );
     }
   }
 

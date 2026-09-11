@@ -10,8 +10,11 @@ import { UserType } from '../../../auth/domain/constants/user-type.constant';
  */
 export class CreateUserInputDto {
   constructor(
-    /** E-mail (identidade global — normalizado no use case). */
-    readonly email: string,
+    /**
+     * E-mail (identidade global — normalizado no use case); ausente quando o
+     * Visitante não tem e-mail (ADR 0013).
+     */
+    readonly email?: string,
     /** Tipo no vínculo (EMPLOYEE/VISITOR — obrigatório). */
     readonly type: UserType = UserType.EMPLOYEE,
     /** Nome da pessoa (obrigatório quando a pessoa é nova; proibido no vínculo). */

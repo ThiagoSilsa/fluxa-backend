@@ -23,7 +23,8 @@ describe('Users integration — CRUD (Testcontainers)', () => {
     request(context.httpServer)
       .post('/users')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name, email, password, type: 'EMPLOYEE' });
+      // Colaborador exige e-mail + senha + cargo (ADR 0013).
+      .send({ name, email, password, type: 'EMPLOYEE', roleId: porteiroId });
 
   /** Envia apenas e-mail + type — para vincular pessoa já existente. */
   const linkUser = (email: string): request.Test =>

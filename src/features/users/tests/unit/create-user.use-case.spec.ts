@@ -164,6 +164,7 @@ describe('CreateUserUseCase', () => {
   it('cria pessoa nova + vínculo na mesma operação (ADR 0005)', async () => {
     userRepoMock.findByEmail.mockResolvedValue(null);
     userRepoMock.create.mockResolvedValue(newPerson);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(porteiroRole);
 
     const result = await useCase.execute(
       actor,
@@ -172,6 +173,9 @@ describe('CreateUserUseCase', () => {
         UserType.EMPLOYEE,
         'Novo Usuário',
         'senha123',
+        undefined,
+        undefined,
+        porteiroRole.id,
       ),
     );
 
@@ -186,7 +190,7 @@ describe('CreateUserUseCase', () => {
       companyId: actor.companyId,
       type: UserType.EMPLOYEE,
       isActive: true,
-      roleId: undefined,
+      roleId: porteiroRole.id,
     });
     expect(result).toEqual({
       id: newPerson.id,
@@ -319,6 +323,7 @@ describe('CreateUserUseCase', () => {
   it('normaliza o e-mail antes de buscar e criar', async () => {
     userRepoMock.findByEmail.mockResolvedValue(null);
     userRepoMock.create.mockResolvedValue(newPerson);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(porteiroRole);
 
     await useCase.execute(
       actor,
@@ -327,6 +332,9 @@ describe('CreateUserUseCase', () => {
         UserType.EMPLOYEE,
         'Novo Usuário',
         'senha123',
+        undefined,
+        undefined,
+        porteiroRole.id,
       ),
     );
 
@@ -428,6 +436,7 @@ describe('CreateUserUseCase', () => {
   it('rejeita documento de outra pessoa (409)', async () => {
     userRepoMock.findByEmail.mockResolvedValue(null);
     userRepoMock.findByDocument.mockResolvedValue(existingPerson);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(porteiroRole);
 
     await expect(
       useCase.execute(
@@ -439,6 +448,7 @@ describe('CreateUserUseCase', () => {
           'senha123',
           undefined,
           '12345678900',
+          porteiroRole.id,
         ),
       ),
     ).rejects.toThrow(ConflictException);
@@ -459,6 +469,7 @@ describe('CreateUserUseCase', () => {
 
   it('traduz violação de unique em 409 (concorrência)', async () => {
     userRepoMock.findByEmail.mockResolvedValue(null);
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(porteiroRole);
     const driverError = new Error(
       'duplicate key value violates unique constraint',
     ) as Error & { code: string };
@@ -475,9 +486,96 @@ describe('CreateUserUseCase', () => {
           UserType.EMPLOYEE,
           'Novo Usuário',
           'senha123',
+          undefined,
+          undefined,
+          porteiroRole.id,
         ),
       ),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('cria Visitante sem e-mail, senha e cargo (credenciais nulas — ADR 0013)', async () => {
+    userRepoMock.findByEmail.mockResolvedValue(null);
+    userRepoMock.create.mockResolvedValue({
+      ...newPerson,
+      email: null,
+      passwordHash: null,
+    });
+
+    const result = await useCase.execute(
+      actor,
+      new CreateUserInputDto(undefined, UserType.VISITOR, 'Visitante'),
+    );
+
+    expect(userRepoMock.findByEmail).not.toHaveBeenCalled();
+    expect(passwordHashMock.execute).not.toHaveBeenCalled();
+    expect(userRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Visitante',
+        email: null,
+        passwordHash: null,
+        type: UserType.VISITOR,
+        roleId: undefined,
+      }),
+    );
+    expect(result.createdUser).toBe(true);
+  });
+
+  it('exige e-mail para criar colaborador (400)', async () => {
+    userRepoMock.findByEmail.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        actor,
+        new CreateUserInputDto(
+          undefined,
+          UserType.EMPLOYEE,
+          'Colaborador',
+          'senha123',
+          undefined,
+          undefined,
+          porteiroRole.id,
+        ),
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(userRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('exige senha para criar colaborador (400)', async () => {
+    userRepoMock.findByEmail.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        actor,
+        new CreateUserInputDto(
+          'novo@somar.local',
+          UserType.EMPLOYEE,
+          'Colaborador',
+          undefined,
+          undefined,
+          undefined,
+          porteiroRole.id,
+        ),
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(userRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('exige cargo para criar colaborador (400)', async () => {
+    userRepoMock.findByEmail.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        actor,
+        new CreateUserInputDto(
+          'novo@somar.local',
+          UserType.EMPLOYEE,
+          'Colaborador',
+          'senha123',
+        ),
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(userRepoMock.create).not.toHaveBeenCalled();
   });
 
   it('traduz violação de unique no vínculo em 409', async () => {

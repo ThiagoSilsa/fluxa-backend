@@ -14,6 +14,9 @@ import { QueryFailedError } from 'typeorm';
 import { PasswordHashUseCase } from '../../../../shared/security/password-hash.use-case';
 import { normalizeEmail } from '../../../../shared/utils/email.util';
 
+// Constants
+import { UserType } from '../../../auth/domain/constants/user-type.constant';
+
 // Repositories
 import { USER_COMPANY_REPOSITORY } from '../../../auth/domain/repositories/user-company.repository';
 import { ROLE_REPOSITORY } from '../../../roles/domain/repositories/role.repository';
@@ -76,8 +79,10 @@ export class CreateUserUseCase {
     actor: AuthenticatedUserEntity,
     input: CreateUserInputDto,
   ): Promise<CreateUserResponse> {
-    const email = normalizeEmail(input.email);
-    const existing = await this.userRepository.findByEmail(email);
+    const email = this.normalizeOptionalEmail(input.email);
+    const existing = email
+      ? await this.userRepository.findByEmail(email)
+      : null;
 
     if (existing) {
       return this.linkExistingPerson(actor, input, existing);
@@ -96,12 +101,33 @@ export class CreateUserUseCase {
   private async createNewPerson(
     actor: AuthenticatedUserEntity,
     input: CreateUserInputDto,
-    email: string,
+    email: string | null,
   ): Promise<CreateUserResponse> {
-    if (!this.hasValue(input.name) || !this.hasValue(input.password)) {
+    if (!this.hasValue(input.name)) {
       throw new BadRequestException(
-        'Nome e senha são obrigatórios para criar um usuário.',
+        'Nome é obrigatório para criar um usuário.',
       );
+    }
+
+    // Colaborador acessa o sistema: exige e-mail, senha e cargo (ADR 0013).
+    // Visitante não tem credenciais nem cargo.
+    const isEmployee = input.type === UserType.EMPLOYEE;
+    if (isEmployee) {
+      if (!email) {
+        throw new BadRequestException(
+          'E-mail é obrigatório para criar um colaborador.',
+        );
+      }
+      if (!this.hasValue(input.password)) {
+        throw new BadRequestException(
+          'Senha é obrigatória para criar um colaborador.',
+        );
+      }
+      if (!this.hasValue(input.roleId)) {
+        throw new BadRequestException(
+          'Cargo é obrigatório para criar um colaborador.',
+        );
+      }
     }
 
     if (this.hasValue(input.document)) {
@@ -113,13 +139,18 @@ export class CreateUserUseCase {
       }
     }
 
-    const role = await this.resolveRole(actor, input.roleId);
+    const role = isEmployee
+      ? await this.resolveRole(actor, input.roleId)
+      : null;
 
     try {
       const user = await this.userRepository.create({
         name: input.name as string,
         email,
-        passwordHash: this.passwordHash.execute(input.password as string),
+        // Visitante nunca recebe senha (ADR 0013).
+        passwordHash: isEmployee
+          ? this.passwordHash.execute(input.password as string)
+          : null,
         phone: input.phone ?? null,
         document: input.document ?? null,
         companyId: actor.companyId,
@@ -271,6 +302,19 @@ export class CreateUserUseCase {
    */
   private hasValue(value: unknown): boolean {
     return value !== undefined && value !== null;
+  }
+
+  /**
+   * Normaliza um e-mail opcional (Visitante pode não ter e-mail — ADR 0013).
+   *
+   * @param email E-mail cru (ou ausente).
+   * @returns E-mail normalizado ou `null` quando ausente/vazio.
+   */
+  private normalizeOptionalEmail(email?: string): string | null {
+    if (!this.hasValue(email) || (email as string).trim() === '') {
+      return null;
+    }
+    return normalizeEmail(email as string);
   }
 
   /**

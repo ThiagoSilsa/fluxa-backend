@@ -20,7 +20,9 @@ describe('Users integration — edição/desativação (Testcontainers)', () => 
     request(context.httpServer)
       .post('/users')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name, email, password: 'senha123', type: 'EMPLOYEE' });
+      // Visitante: sem credenciais/cargo — os testes atribuem cargo depois
+      // (Colaborador exige e-mail + senha + cargo — ADR 0013).
+      .send({ name, email, type: 'VISITOR' });
 
   /**
    * Cria um cargo com a permissão `MANAGE_USERS` e um usuário vinculado —

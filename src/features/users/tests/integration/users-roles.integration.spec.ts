@@ -19,7 +19,9 @@ describe('Users integration — cargos do usuário (Testcontainers)', () => {
     request(context.httpServer)
       .post('/users')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name, email, password: 'senha123', type: 'EMPLOYEE' });
+      // Visitante: sem credenciais/cargo — os testes atribuem cargo depois
+      // (Colaborador exige e-mail + senha + cargo — ADR 0013).
+      .send({ name, email, type: 'VISITOR' });
 
   const seedGestorToken = async (email: string): Promise<string> => {
     const roleRes = await request(context.httpServer)

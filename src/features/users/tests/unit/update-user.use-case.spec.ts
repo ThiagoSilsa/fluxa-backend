@@ -1,5 +1,6 @@
 // NestJS
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -42,9 +43,13 @@ describe('UpdateUserUseCase', () => {
   const userRepoMock = {
     findByEmail: jest.fn(),
     findByDocument: jest.fn(),
+    findById: jest.fn(),
     updateById: jest.fn(),
   } as jest.Mocked<
-    Pick<UserRepository, 'findByEmail' | 'findByDocument' | 'updateById'>
+    Pick<
+      UserRepository,
+      'findByEmail' | 'findByDocument' | 'findById' | 'updateById'
+    >
   >;
 
   const userCompanyRepoMock = {
@@ -105,6 +110,14 @@ describe('UpdateUserUseCase', () => {
     isActive: true,
   };
 
+  /** Vínculo de Visitante (sem e-mail, sem credenciais) — promoção (ADR 0013). */
+  const visitorLink = {
+    ...link,
+    linkId: '70000000-0000-0000-0000-000000000002',
+    email: null,
+    type: UserType.VISITOR,
+  };
+
   const anotherPerson: UserEntity = {
     id: '60000000-0000-0000-0000-000000000002',
     name: 'Outra',
@@ -158,6 +171,7 @@ describe('UpdateUserUseCase', () => {
     jest.clearAllMocks();
     authRepoMock.findHasAdminRoleByUserIdAndCompanyId.mockResolvedValue(false);
     authRepoMock.countAdminsByCompanyId.mockResolvedValue(2);
+    userRepoMock.findById.mockResolvedValue(null);
     userRepoMock.updateById.mockResolvedValue(null);
     userCompanyRepoMock.updateById.mockResolvedValue(null);
     userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([]);
@@ -500,5 +514,118 @@ describe('UpdateUserUseCase', () => {
       ),
     ).rejects.toThrow(ConflictException);
     expect(userRoleRepoMock.remove).not.toHaveBeenCalled();
+  });
+
+  // -----------------------------------------------------------------------
+  // Promoção Visitante → Colaborador (ADR 0013)
+  // -----------------------------------------------------------------------
+
+  it('promove Visitante → Colaborador com e-mail, cargo e senha já definidos', async () => {
+    userCompanyRepoMock.findByUserIdAndCompanyId
+      .mockResolvedValueOnce(visitorLink)
+      .mockResolvedValueOnce({
+        ...visitorLink,
+        type: UserType.EMPLOYEE,
+        email: 'maria@somar.local',
+      });
+    userRepoMock.findByEmail.mockResolvedValue(null);
+    userRepoMock.findById.mockResolvedValue({
+      ...anotherPerson,
+      id: visitorLink.userId,
+      email: null,
+      passwordHash: '$2b$10$hash',
+    });
+    roleRepoMock.findByIdAndCompanyId.mockResolvedValue(porteiroRole);
+    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([]);
+
+    await useCase.execute(
+      adminActor,
+      new UpdateUserInputDto(
+        visitorLink.userId,
+        undefined,
+        'maria@somar.local',
+        undefined,
+        undefined,
+        UserType.EMPLOYEE,
+        undefined,
+        porteiroRole.id,
+      ),
+    );
+
+    expect(userCompanyRepoMock.updateById).toHaveBeenCalledWith(
+      visitorLink.linkId,
+      { type: UserType.EMPLOYEE },
+    );
+  });
+
+  it('rejeita promover Visitante → Colaborador sem e-mail (400)', async () => {
+    userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue(visitorLink);
+
+    await expect(
+      useCase.execute(
+        adminActor,
+        new UpdateUserInputDto(
+          visitorLink.userId,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          UserType.EMPLOYEE,
+        ),
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(userCompanyRepoMock.updateById).not.toHaveBeenCalled();
+  });
+
+  it('rejeita promover Visitante → Colaborador sem cargo (400)', async () => {
+    userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue(visitorLink);
+    userRepoMock.findById.mockResolvedValue({
+      ...anotherPerson,
+      id: visitorLink.userId,
+      passwordHash: '$2b$10$hash',
+    });
+    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([]);
+
+    await expect(
+      useCase.execute(
+        adminActor,
+        new UpdateUserInputDto(
+          visitorLink.userId,
+          undefined,
+          'maria@somar.local',
+          undefined,
+          undefined,
+          UserType.EMPLOYEE,
+        ),
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(userCompanyRepoMock.updateById).not.toHaveBeenCalled();
+  });
+
+  it('rejeita promover Visitante → Colaborador sem senha (400)', async () => {
+    userCompanyRepoMock.findByUserIdAndCompanyId.mockResolvedValue(visitorLink);
+    userRepoMock.findById.mockResolvedValue({
+      ...anotherPerson,
+      id: visitorLink.userId,
+      passwordHash: null,
+    });
+    userRoleRepoMock.listByUserIdAndCompanyId.mockResolvedValue([]);
+
+    await expect(
+      useCase.execute(
+        adminActor,
+        new UpdateUserInputDto(
+          visitorLink.userId,
+          undefined,
+          'maria@somar.local',
+          undefined,
+          undefined,
+          UserType.EMPLOYEE,
+          undefined,
+          porteiroRole.id,
+        ),
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(userCompanyRepoMock.updateById).not.toHaveBeenCalled();
   });
 });
