@@ -60,7 +60,7 @@ class VehiclePayloadDto {
 }
 
 /** Payload da solicitação (dados para criar o que falta). */
-class AccessRequestPayloadDto {
+export class AccessRequestPayloadDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => DriverPayloadDto)

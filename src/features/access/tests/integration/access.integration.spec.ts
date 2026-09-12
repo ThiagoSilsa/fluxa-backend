@@ -224,9 +224,9 @@ describe('Access integration — entrada/saída/ocupação (Testcontainers, ADR 
     });
   });
 
-  describe('Entrada temporária com solicitação autorizada (ADR 0010 §4)', () => {
-    it('libera veículo não cadastrado com access_request entry_authorized', async () => {
-      // Porteiro cria solicitação BOTH; admin aceita (resolve + autoriza).
+  describe('Entrada com solicitação registrada (Modelo B — ADR 0014 §1)', () => {
+    it('libera usando os cadastros resolvidos no aceite da solicitação', async () => {
+      // Porteiro cria solicitação BOTH; admin aceita (resolve os cadastros).
       const created = await request(context.httpServer)
         .post('/access-requests')
         .set('Authorization', `Bearer ${porteiroToken}`)
@@ -253,9 +253,13 @@ describe('Access integration — entrada/saída/ocupação (Testcontainers, ADR 
         .expect(201);
 
       expect(res.body.granted).toBe(true);
+      // Solicitação `REGISTERED`: o aceite já criou veículo + usuário + vínculo,
+      // então a entrada registra o **condutor real** (não um nome temporário).
       expect(res.body.access).toMatchObject({
         accessRequestId: created.body.id,
-        temporaryDriverName: 'Visitante',
+        vehicleId: expect.any(String),
+        driverUserId: expect.any(String),
+        temporaryDriverName: null,
       });
       expect(await context.countInsideByPlate('TMP1A23')).toBe(1);
     });

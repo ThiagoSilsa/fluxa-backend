@@ -16,6 +16,10 @@ import {
   SyncStatus as BlockSyncStatus,
 } from '../../../blocks/domain/constants/block.constant';
 import {
+  AccessRequestStatus,
+  AccessRequestType,
+} from '../../../access-requests/domain/constants/access-request.constant';
+import {
   AccessStatus,
   MovementSource,
   MovementType,
@@ -59,6 +63,10 @@ import { ENTRANCE_REPOSITORY } from '../../../entrances/domain/repositories/entr
 
 // DTOs
 import { RegisterEntryInputDto } from '../../application/dto/register-entry-input.dto';
+import { RegisterEntryRequestInputDto } from '../../application/dto/register-entry-request-input.dto';
+
+// Use cases (solicitação criada junto com a entrada — ADR 0014 §5)
+import { CreateAccessRequestUseCase } from '../../../access-requests/application/use-cases/create-access-request.use-case';
 
 // Use case
 import { RegisterEntryUseCase } from '../../application/use-cases/register-entry.use-case';
@@ -103,7 +111,17 @@ describe('RegisterEntryUseCase', () => {
 
   const accessRequestRepoMock = {
     findByIdAndCompanyId: jest.fn(),
-  } as jest.Mocked<Pick<AccessRequestRepository, 'findByIdAndCompanyId'>>;
+    updateStatusByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<
+    Pick<
+      AccessRequestRepository,
+      'findByIdAndCompanyId' | 'updateStatusByIdAndCompanyId'
+    >
+  >;
+
+  const createAccessRequestUseCaseMock: { execute: jest.Mock } = {
+    execute: jest.fn(),
+  };
 
   const userRepoMock = {
     findById: jest.fn(),
@@ -317,6 +335,10 @@ describe('RegisterEntryUseCase', () => {
         },
         { provide: DEPARTMENT_REPOSITORY, useValue: departmentRepoMock },
         { provide: ENTRANCE_REPOSITORY, useValue: entranceRepoMock },
+        {
+          provide: CreateAccessRequestUseCase,
+          useValue: createAccessRequestUseCaseMock,
+        },
       ],
     }).compile();
     useCase = module.get(RegisterEntryUseCase);
@@ -811,6 +833,350 @@ describe('RegisterEntryUseCase', () => {
     expect(result.granted).toBe(true);
     expect(accessRepoMock.createEntry).toHaveBeenCalledWith(
       expect.objectContaining({ idempotencyKey: 'mov-nova' }),
+    );
+  });
+
+  /**
+   * Solicitação de teste (Modelo B — ADR 0014 §1).
+   *
+   * @param overrides Campos a sobrescrever.
+   * @returns Solicitação de acesso completa.
+   */
+  const buildRequest = (
+    overrides: Partial<AccessRequestEntity> = {},
+  ): AccessRequestEntity => ({
+    id: '50000000-0000-0000-0000-000000000030',
+    companyId: actor.companyId,
+    idempotencyKey: 'req-test',
+    type: AccessRequestType.BOTH,
+    userType: UserType.VISITOR,
+    plate: 'XYZ9A99',
+    vehicleId: null,
+    userId: null,
+    status: AccessRequestStatus.PENDING,
+    entryAuthorized: false,
+    authorizedBy: null,
+    authorizedAt: null,
+    requestedBy: actor.id,
+    requestedAt: new Date(),
+    handledBy: null,
+    handledAt: null,
+    contactChannel: null,
+    contactPhone: null,
+    departmentId: null,
+    payload: { driver: { name: 'Visitante' } },
+    statusHistory: [],
+    resolvedUserId: null,
+    resolvedVehicleId: null,
+    observation: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
+
+  /**
+   * Entry com o bloco `request` (exceção documentada).
+   *
+   * @param overrides Campos do bloco.
+   * @returns DTO de entrada.
+   */
+  const entryWithRequest = (
+    overrides: Partial<{
+      type: AccessRequestType;
+      temporaryDriverName?: string;
+      driverUserId?: string;
+    }> = {},
+  ) =>
+    new RegisterEntryInputDto(
+      'XYZ9A99',
+      overrides.driverUserId,
+      overrides.temporaryDriverName,
+      undefined,
+      undefined,
+      false,
+      undefined,
+      undefined,
+      undefined,
+      new RegisterEntryRequestInputDto(
+        overrides.type ?? AccessRequestType.BOTH,
+        UserType.VISITOR,
+        { driver: { name: 'Visitante' } },
+      ),
+    );
+
+  it('cria a solicitação junto com a entrada (bloco request — ADR 0014 §5)', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(null);
+    blockRepoMock.findActiveByPlateAndCompanyId.mockResolvedValue(null);
+    createAccessRequestUseCaseMock.execute.mockResolvedValue({
+      id: '50000000-0000-0000-0000-000000000099',
+    });
+    accessRepoMock.countInsideByCompanyId.mockResolvedValue(0);
+    departmentRepoMock.list.mockResolvedValue({ data: [], count: 0 });
+    accessRepoMock.createEntry.mockResolvedValue({
+      access: {
+        ...access,
+        vehicleId: null,
+        temporaryPlate: 'XYZ9A99',
+        temporaryDriverName: 'Visitante',
+      },
+      movement: { ...movement, vehicleId: null, plateSnapshot: 'XYZ9A99' },
+      previousClosed: null,
+    });
+
+    const result = await useCase.execute(actor, entryWithRequest());
+
+    expect(createAccessRequestUseCaseMock.execute).toHaveBeenCalledWith(
+      actor,
+      expect.objectContaining({
+        plate: 'XYZ9A99',
+        type: AccessRequestType.BOTH,
+        vehicleId: undefined,
+      }),
+    );
+    expect(result.granted).toBe(true);
+    expect(result.message).toBe('Entrada registrada com solicitação.');
+    expect(accessRepoMock.createEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessRequestId: '50000000-0000-0000-0000-000000000099',
+        temporaryDriverName: 'Visitante',
+      }),
+    );
+  });
+
+  it('reverte a solicitação quando a entrada falha depois de criá-la', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(null);
+    blockRepoMock.findActiveByPlateAndCompanyId.mockResolvedValue(null);
+    createAccessRequestUseCaseMock.execute.mockResolvedValue({
+      id: '50000000-0000-0000-0000-000000000098',
+    });
+    accessRepoMock.countInsideByCompanyId.mockResolvedValue(0);
+    departmentRepoMock.list.mockResolvedValue({ data: [], count: 0 });
+    accessRepoMock.createEntry.mockRejectedValue(
+      new ConflictException('Falha de concorrência na escrita.'),
+    );
+
+    await expect(
+      useCase.execute(actor, entryWithRequest()),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(
+      accessRequestRepoMock.updateStatusByIdAndCompanyId,
+    ).toHaveBeenCalledWith(
+      '50000000-0000-0000-0000-000000000098',
+      actor.companyId,
+      expect.objectContaining({ status: AccessRequestStatus.CANCELLED }),
+    );
+  });
+
+  it('não cria solicitação quando a vaga está cheia (409 antes da escrita)', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(null);
+    blockRepoMock.findActiveByPlateAndCompanyId.mockResolvedValue(null);
+    accessRepoMock.countInsideByCompanyId.mockResolvedValue(10);
+    departmentRepoMock.list.mockResolvedValue({ data: [department], count: 1 });
+
+    await expect(
+      useCase.execute(actor, entryWithRequest()),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(createAccessRequestUseCaseMock.execute).not.toHaveBeenCalled();
+    expect(accessRepoMock.createEntry).not.toHaveBeenCalled();
+    expect(
+      accessRequestRepoMock.updateStatusByIdAndCompanyId,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('lança 400 quando informa solicitação existente e nova ao mesmo tempo', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryInputDto(
+          'XYZ9A99',
+          undefined,
+          undefined,
+          undefined,
+          '50000000-0000-0000-0000-000000000030',
+          false,
+          undefined,
+          undefined,
+          undefined,
+          new RegisterEntryRequestInputDto(AccessRequestType.BOTH),
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(accessRepoMock.createEntry).not.toHaveBeenCalled();
+  });
+
+  it('lança 400 quando a solicitação informada é de outra placa', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(null);
+    blockRepoMock.findActiveByPlateAndCompanyId.mockResolvedValue(null);
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(
+      buildRequest({ plate: 'ABC1D23' }),
+    );
+
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryInputDto(
+          'XYZ9A99',
+          undefined,
+          undefined,
+          undefined,
+          '50000000-0000-0000-0000-000000000030',
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('lança 404 quando a solicitação informada não existe', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(null);
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryInputDto(
+          'XYZ9A99',
+          undefined,
+          undefined,
+          undefined,
+          '50000000-0000-0000-0000-000000000030',
+        ),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('nega por prazo vencido com denial OVERDUE (regras 38/39)', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(null);
+    blockRepoMock.findActiveByPlateAndCompanyId.mockResolvedValue(null);
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(
+      buildRequest({
+        requestedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      }),
+    );
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryInputDto(
+        'XYZ9A99',
+        undefined,
+        undefined,
+        undefined,
+        '50000000-0000-0000-0000-000000000030',
+      ),
+    );
+
+    expect(result.granted).toBe(false);
+    expect(denialRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: EntryDenialReason.OVERDUE }),
+    );
+    expect(accessRepoMock.createEntry).not.toHaveBeenCalled();
+  });
+
+  it('a pré-autorização da administração sobrepõe o prazo vencido (ADR 0014 §1)', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(null);
+    blockRepoMock.findActiveByPlateAndCompanyId.mockResolvedValue(null);
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(
+      buildRequest({
+        entryAuthorized: true,
+        requestedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      }),
+    );
+    accessRepoMock.countInsideByCompanyId.mockResolvedValue(0);
+    departmentRepoMock.list.mockResolvedValue({ data: [], count: 0 });
+    accessRepoMock.createEntry.mockResolvedValue({
+      access,
+      movement,
+      previousClosed: null,
+    });
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryInputDto(
+        'XYZ9A99',
+        undefined,
+        undefined,
+        undefined,
+        '50000000-0000-0000-0000-000000000030',
+      ),
+    );
+
+    expect(result.granted).toBe(true);
+    expect(accessRepoMock.createEntry).toHaveBeenCalled();
+  });
+
+  it('lança 409 quando a solicitação está rejeitada/cancelada', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(null);
+    blockRepoMock.findActiveByPlateAndCompanyId.mockResolvedValue(null);
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(
+      buildRequest({ status: AccessRequestStatus.REJECTED }),
+    );
+
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryInputDto(
+          'XYZ9A99',
+          undefined,
+          undefined,
+          undefined,
+          '50000000-0000-0000-0000-000000000030',
+        ),
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('libera com exceção documentada um motorista ainda sem vínculo (Modelo B)', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(
+      buildVehicle({ freePass: false }),
+    );
+    blockRepoMock.findActiveByVehicleIdAndCompanyId.mockResolvedValue(null);
+    userRepoMock.findById.mockResolvedValue({
+      id: '30000000-0000-0000-0000-000000000040',
+      name: 'Motorista Sem Vínculo',
+      email: null,
+      passwordHash: null,
+      phone: null,
+      document: null,
+      photoUrl: null,
+      lastLoginAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    accessRepoMock.countInsideByCompanyId.mockResolvedValue(0);
+    departmentRepoMock.list.mockResolvedValue({ data: [], count: 0 });
+    accessRepoMock.createEntry.mockResolvedValue({
+      access,
+      movement,
+      previousClosed: null,
+    });
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryInputDto(
+        'ABC1D23',
+        '30000000-0000-0000-0000-000000000040',
+        undefined,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        new RegisterEntryRequestInputDto(AccessRequestType.LINK),
+      ),
+    );
+
+    expect(result.granted).toBe(true);
+    expect(
+      userVehicleRepoMock.findByUserIdAndVehicleIdAndCompanyId,
+    ).not.toHaveBeenCalled();
+    expect(accessRepoMock.createEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        driverUserId: '30000000-0000-0000-0000-000000000040',
+        temporaryDriverName: null,
+      }),
     );
   });
 });

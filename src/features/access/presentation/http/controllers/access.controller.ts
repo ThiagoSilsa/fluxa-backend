@@ -36,6 +36,7 @@ import { RegisterExitDto } from '../dto/register-exit.dto';
 import { GetAccessContextInputDto } from '../../../application/dto/get-access-context-input.dto';
 import { GetOpenAccessInputDto } from '../../../application/dto/get-open-access-input.dto';
 import { RegisterEntryInputDto } from '../../../application/dto/register-entry-input.dto';
+import { RegisterEntryRequestInputDto } from '../../../application/dto/register-entry-request-input.dto';
 import { RegisterExitInputDto } from '../../../application/dto/register-exit-input.dto';
 
 // Use cases
@@ -125,6 +126,15 @@ export class AccessController {
         dto.idempotencyKey,
         dto.source,
         dto.entranceId,
+        dto.request
+          ? new RegisterEntryRequestInputDto(
+              dto.request.type,
+              dto.request.userType,
+              dto.request.payload ?? {},
+              dto.request.contactPhone,
+              dto.request.departmentId,
+            )
+          : undefined,
       ),
     );
   }

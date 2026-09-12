@@ -27,12 +27,13 @@ export function ApiRegisterEntry(): MethodDecorator {
     ApiOperation({
       summary: 'Registra a entrada de um veículo',
       description:
-        'Exige REGISTER_ENTRY. Ao negar (bloqueado, inativo, não cadastrado, condutor sem can_drive), registra o entry_denial automaticamente e devolve granted=false (ADR 0010 §3). Vaga cheia → 409 exigindo overCapacity. Reentrada fecha o acesso anterior com forced_exit.',
+        'Exige REGISTER_ENTRY. O porteiro é a autoridade da entrada (ADR 0014 §1): pode liberar com uma solicitação da mesma placa em PENDING/IN_CONTACT/REGISTERED (`accessRequestId`) ou criar a solicitação na mesma operação (bloco `request`). Ao negar (bloqueado, inativo, não cadastrado sem solicitação, condutor sem can_drive, solicitação vencida), registra o entry_denial automaticamente (com a portaria do device) e devolve granted=false. Vaga cheia → 409 exigindo overCapacity. Reentrada fecha o acesso anterior com forced_exit.',
     }),
     ApiBody({ type: RegisterEntryDto }),
     ApiResponse({
       status: 201,
-      description: 'Entrada registrada (granted=true).',
+      description:
+        'Entrada registrada (granted=true; com solicitação quando o bloco `request` foi enviado).',
     }),
     ApiResponse({
       status: 200,
@@ -40,15 +41,21 @@ export function ApiRegisterEntry(): MethodDecorator {
     }),
     ApiResponse({
       status: 400,
-      description: 'Validação (placa/condutor/solicitação).',
+      description:
+        'Validação (placa/condutor/solicitação de outra placa/`request` junto com `accessRequestId`).',
     }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
     ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
     ApiResponse({
       status: 404,
-      description: 'Departamento/condutor não encontrado.',
+      description:
+        'Portaria/condutor/departamento/solicitação não encontrados.',
     }),
-    ApiResponse({ status: 409, description: 'Vaga cheia sem overCapacity.' }),
+    ApiResponse({
+      status: 409,
+      description:
+        'Vaga cheia (sem overCapacity) ou solicitação fora de PENDING/IN_CONTACT/REGISTERED.',
+    }),
   );
 }
 

@@ -1,5 +1,6 @@
 // Types
 import type { MovementSource } from '../../domain/constants/access.constant';
+import type { RegisterEntryRequestInputDto } from './register-entry-request-input.dto';
 
 /**
  * Entrada do use case de registro de entrada (já validada pelo controller).
@@ -14,7 +15,7 @@ export class RegisterEntryInputDto {
     readonly temporaryDriverName?: string,
     /** Setor confirmado na entrada (opcional — usa o padrão do veículo). */
     readonly departmentId?: string,
-    /** Solicitação de acesso autorizada. */
+    /** Solicitação de acesso existente a referenciar. */
     readonly accessRequestId?: string,
     /** Liberar mesmo com vaga cheia (409 pede confirmação). */
     readonly overCapacity: boolean = false,
@@ -24,5 +25,10 @@ export class RegisterEntryInputDto {
     readonly source?: MovementSource,
     /** Portaria do device (M4 — validada ativa na empresa). */
     readonly entranceId?: string,
+    /**
+     * Solicitação a criar **junto** com a entrada (exceção — ADR 0014 §5);
+     * mutuamente exclusivo com `accessRequestId`.
+     */
+    readonly request?: RegisterEntryRequestInputDto,
   ) {}
 }

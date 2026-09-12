@@ -59,6 +59,6 @@ import { AccessRequestsController } from './presentation/http/controllers/access
     CancelAccessRequestUseCase,
   ],
   controllers: [AccessRequestsController],
-  exports: [ACCESS_REQUEST_REPOSITORY],
+  exports: [ACCESS_REQUEST_REPOSITORY, CreateAccessRequestUseCase],
 })
 export class AccessRequestsModule {}

@@ -25,6 +25,8 @@ export enum EntryDenialReason {
   BLOCKED = 'BLOCKED',
   UNREGISTERED = 'UNREGISTERED',
   UNAUTHORIZED_DRIVER = 'UNAUTHORIZED_DRIVER',
+  /** Solicitação da placa vencida (regras 38/39 — ADR 0014 §4). */
+  OVERDUE = 'OVERDUE',
   OTHER = 'OTHER',
 }
 

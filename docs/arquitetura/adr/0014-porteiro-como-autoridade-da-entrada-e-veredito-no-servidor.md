@@ -55,7 +55,9 @@ Só `ALLOW_OVER_CAPACITY` e `ALLOW_FORCED_REENTRY` pedem **uma** confirmação e
 
 ### 5. Liberar com exceção é **uma** operação
 
-`POST /access/entry` ganha o bloco **opcional** `request { type, userType?, payload?, contactPhone?, departmentId? }`: a solicitação é criada **na mesma transação** e o `access_request_id` gravado no `vehicle_access`. Sem isso, um 409 de vaga cheia deixaria solicitação órfã e o retry bateria no "já existe solicitação aberta para esta placa". O contrato é **aditivo** (o app continua funcionando sem o bloco) e `accessRequestId` passa a ser aceito também para solicitações abertas, validando **`request.plate === plate`** (fecha o buraco atual, que aceita qualquer `accessRequestId` da empresa).
+`POST /access/entry` ganha o bloco **opcional** `request { type, userType?, payload?, contactPhone?, departmentId? }`: a solicitação é criada **na mesma operação** e o `access_request_id` gravado no `vehicle_access`. Sem isso, um 409 de vaga cheia deixaria solicitação órfã e o retry bateria no "já existe solicitação aberta para esta placa". O contrato é **aditivo** (o app continua funcionando sem o bloco) e `accessRequestId` passa a ser aceito também para solicitações abertas, validando **`request.plate === plate`** (fecha o buraco atual, que aceita qualquer `accessRequestId` da empresa).
+
+A garantia de "nada fica pela metade" é obtida por **ordem de escrita + reversão**, não por uma transação de banco única: todas as validações (inclusive a capacidade, que responde 409) acontecem **antes** da criação da solicitação; se a escrita da entrada falhar depois disso, a solicitação recém-criada é marcada `CANCELLED` (com observação automática), o que libera o unique parcial da placa para nova tentativa. Uma transação única exigiria propagar o `EntityManager` pelos repositórios de duas features (cada `createEntry` abre a própria transação) — complexidade desproporcional para um caso que só ocorre em erro de banco/concorrência.
 
 ### 6. Impedimento é evento, bloqueio é estado
 
