@@ -74,29 +74,32 @@
 36. **Resolver** (`GET /qr-codes/:code`, `REGISTER_ENTRY`): devolve os dados do veículo (placa, modelo, cor, tipo, `freePass`, `isBlocked`, `isActive`, departamento, motoristas com `canDrive`) para o porteiro; QR **revogado** → **410 Gone** ("QR expirado"); `code` **desconhecido/outro tenant** → **404**.
 37. Desativar o veículo **não** revoga o QR ativo (ADR 0006 §10) — `TODO` de interação futura; veículo desativado continua podendo ter QR.
 
-## 5. Bloqueio automático por prazo de solicitação
+## 5. Prazo de solicitação (veredito da portaria)
 
-38. Solicitação em `PENDING` há mais de **3 dias** (contados do `requested_at`) e **não** em `IN_CONTACT` → o sistema gera `vehicle_block` (`block_type = AUTOMATIC`) e o veículo passa a ser tratado como proibido de entrar.
-39. Enquanto a solicitação estiver em `IN_CONTACT` (admin já em contato), o prazo de **3 dias se estende** — sem bloqueio automático — com **teto de 7 dias** total (contados do `requested_at`); após 7 dias, bloqueia automaticamente mesmo em `IN_CONTACT`.
-40. **Revogação automática**: quando a administração registra o veículo de uma solicitação com bloqueio automático, o sistema **revoga o bloqueio automaticamente** (mesma linha, `revoked_reason` = "veículo cadastrado pela administração").
+38. Solicitação em `PENDING` há mais de **3 dias** (contados do `requested_at`) e **não** em `IN_CONTACT` → a placa é tratada como **proibida de entrar**: a portaria nega a entrada e registra o impedimento (`reason = OVERDUE`).
+39. Enquanto a solicitação estiver em `IN_CONTACT` (admin já em contato), o prazo de **3 dias se estende** — sem negativa — com **teto de 7 dias** total (contados do `requested_at`); após 7 dias, nega mesmo em `IN_CONTACT`.
+40. A avaliação do prazo é feita **na leitura** (contexto/veredito da entrada — ADR 0014), devolvendo `isOverdue`, `daysOverdue` e `deadline`, e **não** altera estado. O **bloqueio automático** (`vehicle_block` `block_type = AUTOMATIC`) e a **revogação automática** ao cadastrar o veículo continuam sendo **tarefa futura** (job/worker); quando existirem, `DENY_BLOCKED` continua tendo precedência sobre o prazo. A **pré-autorização** da administração (`entry_authorized = true`) sobrepõe a negativa por prazo.
 
 ## 6. Solicitações de cadastro e vínculo (`access_request`)
 
 41. O porteiro identifica o motorista por **busca no app** (nome/documento/telefone) e cria a solicitação conforme o cenário:
     - `NEW_USER` — veículo cadastrado, motorista **não**: no aceite cria `user` + vínculo (`user_vehicle`) com o veículo existente;
     - `NEW_VEHICLE` — motorista cadastrado, veículo **não**: no aceite cria `vehicle` + vínculo com o usuário existente;
-    - `LINK` — ambos cadastrados **sem vínculo**: cria apenas `user_vehicle`; o porteiro **libera a entrada na hora** (ambos existem) e a admin só formaliza o vínculo;
+    - `LINK` — ambos cadastrados **sem vínculo**: cria apenas `user_vehicle`; o porteiro **libera a entrada na hora** (ambos existem, mesmo com `can_drive = false`) e a admin só formaliza o vínculo;
     - `BOTH` — nenhum cadastrado: no aceite cria `user` + `vehicle` + vínculo.
-42. No aceite, a admin define o vínculo: default `can_drive = true`; `is_primary` opcional (com ou sem; **apenas 1 primário por veículo**). O usuário criado na solicitação é do tipo **`VISITOR`**.
+
+> Implementação (ADR 0014 — substitui o ADR 0010 §4): a entrada com exceção é registrada em **uma única operação** — `POST /access/entry` cria a solicitação na mesma transação (bloco `request`) e grava `access_request_id`. O porteiro **não** depende de autorização prévia da administração para liberar; a solicitação **documenta** a exceção.
+
+42. No aceite, a admin define o vínculo: default `can_drive = true`; `is_primary` opcional (com ou sem; **apenas 1 primário por veículo**). O usuário criado na solicitação é do tipo **`VISITOR`**. Se o vínculo já existir com `can_drive = false`, o aceite **atualiza para `true`** em vez de recusar (a recusa só ocorre quando o vínculo já permite dirigir).
 43. **Contato**: `contact_phone` (whatsapp) é **obrigatório** em `NEW_USER`/`NEW_VEHICLE`/`BOTH`; dispensável em `LINK` (ambos já existem).
 44. **Resolução retroativa (opção A)**: ao aceitar, o sistema atualiza **todas** as `vehicle_access` (abertas INSIDE **e** já fechadas OUT/NO_EXIT) daquele veículo/placa — preenche `vehicle_id` e troca o condutor temporário pelo usuário criado. O `vehicle_movement` (ledger) **permanece imutável** (`vehicle_id` null + `plate_snapshot`).
 45. **Entrada com dados temporários** é possível para motorista (`temporary_driver_name`) e/ou veículo (`temporary_plate`, `vehicle_id` NULL).
 
-> Implementação (ADR 0010 §4): entrada temporária **só é aceita com `access_request` em `entry_authorized = true`** (aceite/liberação da administração); sem solicitação autorizada → entrada negada (regra 5). O `access_request_id` é gravado no `vehicle_access`.
+> Implementação (ADR 0014 — substitui o ADR 0010 §4): a entrada temporária é aceita quando existe uma `access_request` da **mesma placa e empresa** em `PENDING`, `IN_CONTACT` ou `REGISTERED`, ou quando a solicitação está **pré-autorizada** (`entry_authorized = true`). O `access_request_id` é gravado no `vehicle_access`. `entry_authorized` deixou de ser pré-requisito e passou a significar **pré-autorização da administração**, que sobrepõe a negativa por prazo (regra 40).
 
 46. **Departamento**: o porteiro só pode selecionar um departamento **já criado**; se o setor não existir, a solicitação é feita **sem departamento** (conta nas vagas livres).
 47. **Duplicidade**: status `DUPLICATED` foi **removido** — duplicidade vira `REJECTED` (+ observação); ao buscar o veículo, o porteiro vê que ele está cadastrado normalmente. Unique parcial evita solicitação aberta duplicada da mesma placa.
-48. Ao buscar veículo **não cadastrado**: solicitação em `PENDING`/`IN_CONTACT` → mostra "**em análise**"; `REJECTED`/`CANCELLED`/`REGISTERED` → **nenhum aviso**.
+48. Ao buscar a placa, o veredito informa o estado da solicitação: `PENDING`/`IN_CONTACT` → "**em análise**" (sem negativa); vencida → negativa por prazo (`OVERDUE`); **pré-autorizada** (`entry_authorized`) → libera; `REJECTED`/`CANCELLED`/`REGISTERED` → sem aviso (a `REGISTERED` é reaproveitada para vincular a entrada).
 49. **Rejeitar/registrar** é exclusivo da **administração**; o **porteiro pode cancelar** solicitação própria apenas em `PENDING`.
 50. O porteiro tem **tela no app** para consultar as solicitações.
 
@@ -124,11 +127,31 @@
 
 62. Padrão **brasileiro**, definido por empresa (`company.timezone`, default `America/Sao_Paulo`). Os cortes de "dia x" no dashboard e relatórios usam o fuso da empresa.
 
+## 11. Registros da portaria (entradas, saídas e impedimentos)
+
+63. A tela da portaria lista **entradas, saídas e impedimentos** em uma única linha do tempo, **mais recente primeiro** (`occurred_at`), unindo `vehicle_movement` (ENTRY/EXIT) e `entry_denial`; sem janela de tempo padrão e com filtros opcionais de tipo, placa, período e portaria (ADR 0015).
+64. Cada registro informa: tipo, placa, condutor, veículo/departamento, **portaria**, **porteiro**, motivo (impedimento) e quando ocorreu. A observação do impedimento é acessível na própria linha (expansão) — **sem** modal de detalhe.
+65. A lista é **operacional**: atualiza sozinha (polling curto) e após cada registro, porque a portaria opera em vários dispositivos ao mesmo tempo (regra 61).
+
+## 12. Registro de impedimento pelo porteiro
+
+66. Registrar impedimento grava o **evento** (`entry_denial`) com `reason` da lista fechada (`BLOCKED`, `UNREGISTERED`, `UNAUTHORIZED_DRIVER`, `OVERDUE`, `OTHER`), vínculo com o veículo (quando a placa está cadastrada), **portaria** e `doorman_id` = porteiro; a observação é obrigatória apenas em `OTHER`.
+67. No mesmo fluxo, o porteiro **pode** solicitar o bloqueio (`block_request`) — opção **desmarcada por padrão**; ele **nunca** cria `vehicle_block` diretamente (regras 51-53).
+
+## 13. Veredito de entrada (automação do porteiro)
+
+68. A portaria **não** pergunta ao porteiro o que o sistema pode decidir: buscar a placa devolve **contexto + veredito** (ADR 0014) — bloqueado, inativo, já dentro, passe livre, motoristas vinculados e sugeridos, solicitação da placa (com prazo) e ocupação do departamento.
+69. O veredito é um só: `ALLOW`, `ALLOW_WITH_REQUEST`, `ALLOW_OVER_CAPACITY`, `ALLOW_FORCED_REENTRY`, `DENY_BLOCKED`, `DENY_OVERDUE` ou `DENY_INACTIVE`. Apenas `ALLOW_OVER_CAPACITY` e `ALLOW_FORCED_REENTRY` pedem confirmação extra; os demais pedem **uma** ação.
+70. O departamento é **confirmado a cada entrada** (regra 27) no próprio contexto, pré-selecionado com o padrão do veículo; a vaga cheia é avaliada no departamento escolhido.
+71. A portaria do dispositivo (regra 61) é registrada em todos os eventos (`entrance_id`); os registros e filtros da tela usam essa portaria.
+
 ## Referências
 
 - [Modelagem — Controle de veículos e fluxo de acesso](../modelagem/modelagem-controle-veiculos.md)
 - [Modelagem — Usuários, empresas e permissões](../modelagem/modelagem-usuarios-empresas-permissoes.md)
 - [ADR 0001 — Migrations e seeds iniciais](../adr/0001-migrations-seeds-iniciais.md)
 - [ADR 0009 — Emissão de QR code para veículos](../adr/0009-emissao-de-qr-code-para-veiculos.md)
+- [ADR 0014 — O porteiro é a autoridade da entrada; o sistema decide por ele](../adr/0014-porteiro-como-autoridade-da-entrada-e-veredito-no-servidor.md)
+- [ADR 0015 — Registros da portaria em um feed unificado](../adr/0015-feed-unificado-de-registros-da-portaria.md)
 - [Regras de negócio — Usuários, empresas e permissões](./regras-negocio-usuarios-empresas-permissoes.md)
 - Fonte consolidada: `planejamento/planejamento-geral.md` (Decisões de negócio resolvidas) e `planejamento/planejamento-frontend/planejamento-aplicativo-celular.md` (offline/sync)
