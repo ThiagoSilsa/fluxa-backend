@@ -20,6 +20,7 @@ import { VehicleAccessOrmEntity } from './infrastructure/persistence/typeorm/veh
 import { VehicleMovementOrmEntity } from './infrastructure/persistence/typeorm/vehicle-movement.orm-entity';
 
 // Use cases
+import { GetAccessContextUseCase } from './application/use-cases/get-access-context.use-case';
 import { GetOccupancyUseCase } from './application/use-cases/get-occupancy.use-case';
 import { GetOpenAccessUseCase } from './application/use-cases/get-open-access.use-case';
 import { RegisterEntryUseCase } from './application/use-cases/register-entry.use-case';
@@ -59,6 +60,7 @@ import { AccessController } from './presentation/http/controllers/access.control
     RegisterExitUseCase,
     GetOpenAccessUseCase,
     GetOccupancyUseCase,
+    GetAccessContextUseCase,
   ],
   controllers: [AccessController],
   exports: [VEHICLE_ACCESS_REPOSITORY],

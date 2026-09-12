@@ -97,6 +97,49 @@ export function ApiGetOpenAccess(): MethodDecorator {
   );
 }
 
+export function ApiGetAccessContext(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Contexto + veredito da entrada (ficha da portaria)',
+      description:
+        'Exige REGISTER_ENTRY, REGISTER_EXIT ou REGISTER_DENIAL (OR). Dada uma placa, devolve a ficha completa (veículo, bloqueio ativo, departamento com ocupação, motoristas vinculados e sugestões, solicitações da placa com prazo, acessos abertos) e um veredito único (ALLOW/ALLOW_WITH_REQUEST/ALLOW_OVER_CAPACITY/ALLOW_FORCED_REENTRY/DENY_BLOCKED/DENY_OVERDUE/DENY_INACTIVE) — ADR 0014.',
+    }),
+    ApiQuery({
+      name: 'plate',
+      description: 'Placa digitada/lida na portaria.',
+      required: true,
+    }),
+    ApiQuery({
+      name: 'search',
+      description: 'Busca de motorista (nome/telefone/documento).',
+      required: false,
+    }),
+    ApiQuery({
+      name: 'departmentId',
+      description: 'Setor para o qual a ocupação é avaliada.',
+      required: false,
+    }),
+    ApiQuery({
+      name: 'driverUserId',
+      description:
+        'Motorista escolhido na ficha — o veredito passa a refletir esse motorista.',
+      required: false,
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Ficha completa com o veredito da entrada.',
+    }),
+    ApiResponse({ status: 400, description: 'Placa inválida.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 404,
+      description: 'Departamento não encontrado.',
+    }),
+  );
+}
+
 export function ApiGetOccupancy(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),

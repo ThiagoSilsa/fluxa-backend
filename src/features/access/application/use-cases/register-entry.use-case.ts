@@ -50,6 +50,7 @@ import {
 } from '../../../blocks/domain/constants/block.constant';
 
 // Mappers
+import { resolveCapacity } from '../utils/resolve-capacity.util';
 import { toEntryDenialResponse } from '../../../blocks/application/utils/entry-denial-response.mapper';
 import {
   toAccessResponse,
@@ -251,7 +252,10 @@ export class RegisterEntryUseCase {
 
     // 5. Capacidade — vaga cheia exige confirmação (overCapacity). Só há
     // restrição quando há capacidade configurada (regra 23: obrigatória).
-    const capacity = await this.resolveCapacity(companyId, department);
+    const capacity = await resolveCapacity(companyId, department, {
+      vehicleAccessRepository: this.vehicleAccessRepository,
+      departmentRepository: this.departmentRepository,
+    });
     if (
       capacity.capacity > 0 &&
       capacity.occupied >= capacity.capacity &&
@@ -486,36 +490,6 @@ export class RegisterEntryUseCase {
       }
     }
     return null;
-  }
-
-  /**
-   * Resolve a capacidade/ocupação (regra 21/24): por departamento ou vagas
-   * livres (soma dos departamentos ativos).
-   *
-   * @param companyId Empresa da sessão.
-   * @param department Departamento da entrada (ou null).
-   * @returns Ocupação e capacidade atuais.
-   */
-  private async resolveCapacity(
-    companyId: string,
-    department: DepartmentEntity | null,
-  ): Promise<{ occupied: number; capacity: number }> {
-    if (department) {
-      const occupied =
-        await this.vehicleAccessRepository.countInsideByDepartmentIdAndCompanyId(
-          department.id,
-          companyId,
-        );
-      return { occupied, capacity: department.parkingSpace };
-    }
-    const occupied =
-      await this.vehicleAccessRepository.countInsideByCompanyId(companyId);
-    const { data: departments } = await this.departmentRepository.list(
-      companyId,
-      { isActive: true, limit: 100, offset: 0 },
-    );
-    const capacity = departments.reduce((sum, d) => sum + d.parkingSpace, 0);
-    return { occupied, capacity };
   }
 
   /**
