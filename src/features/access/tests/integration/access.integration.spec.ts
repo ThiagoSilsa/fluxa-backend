@@ -335,6 +335,7 @@ describe('Access integration — entrada/saída/ocupação (Testcontainers, ADR 
       expect(entry.driver).toEqual({
         id: motoristaId,
         name: 'Usuário de teste',
+        phone: null,
       });
     });
   });

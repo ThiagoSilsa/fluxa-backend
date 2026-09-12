@@ -62,6 +62,7 @@ import {
 // Mappers
 import { resolveCapacity } from '../utils/resolve-capacity.util';
 import { resolveAccessRequestDeadline } from '../../../access-requests/application/utils/access-request-deadline.util';
+import { resolveAccessFicha } from '../utils/resolve-access-ficha.util';
 import { toEntryDenialResponse } from '../../../blocks/application/utils/entry-denial-response.mapper';
 import {
   toAccessResponse,
@@ -83,8 +84,11 @@ import type { DepartmentRepository } from '../../../departments/domain/repositor
 import type { UserRepository } from '../../../users/domain/repositories/user.repository';
 import type { EntranceRepository } from '../../../entrances/domain/repositories/entrance.repository';
 import type { RegisterEntryInputDto } from '../dto/register-entry-input.dto';
+import type { VehicleAccessEntity } from '../../domain/entities/vehicle-access.entity';
+import type { VehicleMovementEntity } from '../../domain/entities/vehicle-movement.entity';
 import type {
   AccessEntryResponse,
+  ClosedAccessResponse,
   EntryDenialSummary,
 } from '../dto/access-response';
 import type { DepartmentEntity } from '../../../departments/domain/entities/department.entity';
@@ -340,9 +344,10 @@ export class RegisterEntryUseCase {
         access: toAccessResponse(result.access),
         movement: toMovementResponse(result.movement),
         previousClosed: result.previousClosed
-          ? toClosedAccessResponse(
+          ? await this.toEnrichedClosedResponse(
               result.previousClosed.access,
               result.previousClosed.movement,
+              companyId,
             )
           : null,
       };
@@ -352,6 +357,28 @@ export class RegisterEntryUseCase {
       }
       throw error;
     }
+  }
+
+  /**
+   * Monta o par visita+movimento com a ficha resolvida (condutor, setor e
+   * veículo) — usada no acesso anterior encerrado pela reentrada (regra 9).
+   *
+   * @param access Visita encerrada.
+   * @param movement Movimento EXIT gerado.
+   * @param companyId Empresa da sessão.
+   * @returns Par no formato de resposta, com a ficha.
+   */
+  private async toEnrichedClosedResponse(
+    access: VehicleAccessEntity,
+    movement: VehicleMovementEntity,
+    companyId: string,
+  ): Promise<ClosedAccessResponse> {
+    const ficha = await resolveAccessFicha(access, companyId, {
+      vehicleRepository: this.vehicleRepository,
+      departmentRepository: this.departmentRepository,
+      userRepository: this.userRepository,
+    });
+    return toClosedAccessResponse(access, movement, ficha);
   }
 
   /**

@@ -1,5 +1,10 @@
 // NestJS
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 // Shared
@@ -17,14 +22,17 @@ import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/auth
 import type { EntryDenialEntity } from '../../domain/entities/entry-denial.entity';
 import type { VehicleBlockEntity } from '../../domain/entities/vehicle-block.entity';
 import type { VehicleWithTypeEntity } from '../../../vehicles/domain/entities/vehicle.entity';
+import type { EntranceEntity } from '../../../entrances/domain/entities/entrance.entity';
 import type { EntryDenialRepository } from '../../domain/repositories/entry-denial.repository';
 import type { VehicleBlockRepository } from '../../domain/repositories/vehicle-block.repository';
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
+import type { EntranceRepository } from '../../../entrances/domain/repositories/entrance.repository';
 
 // Repositories
 import { ENTRY_DENIAL_REPOSITORY } from '../../domain/repositories/entry-denial.repository';
 import { VEHICLE_BLOCK_REPOSITORY } from '../../domain/repositories/vehicle-block.repository';
 import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle.repository';
+import { ENTRANCE_REPOSITORY } from '../../../entrances/domain/repositories/entrance.repository';
 
 // Constants
 import {
@@ -37,6 +45,7 @@ import { RegisterEntryDenialInputDto } from '../../application/dto/register-entr
 
 // Use case
 import { RegisterEntryDenialUseCase } from '../../application/use-cases/register-entry-denial.use-case';
+import { CreateBlockRequestUseCase } from '../../application/use-cases/create-block-request.use-case';
 
 describe('RegisterEntryDenialUseCase', () => {
   let useCase: RegisterEntryDenialUseCase;
@@ -53,6 +62,14 @@ describe('RegisterEntryDenialUseCase', () => {
     findByPlateAndCompanyId: jest.fn(),
   } as jest.Mocked<Pick<VehicleRepository, 'findByPlateAndCompanyId'>>;
 
+  const entranceRepoMock = {
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<Pick<EntranceRepository, 'findByIdAndCompanyId'>>;
+
+  const createBlockRequestUseCaseMock: { execute: jest.Mock } = {
+    execute: jest.fn(),
+  };
+
   const actor: AuthenticatedUserEntity = {
     id: '30000000-0000-0000-0000-000000000002',
     companyId: '10000000-0000-0000-0000-000000000001',
@@ -61,7 +78,19 @@ describe('RegisterEntryDenialUseCase', () => {
     type: UserType.EMPLOYEE,
     isAdmin: false,
     roleCodes: ['Portaria'],
-    permissions: [PermissionCode.REGISTER_DENIAL],
+    permissions: [
+      PermissionCode.REGISTER_DENIAL,
+      PermissionCode.CREATE_BLOCK_REQUEST,
+    ],
+  };
+
+  const entrance: EntranceEntity = {
+    id: '60000000-0000-0000-0000-000000000001',
+    companyId: actor.companyId,
+    name: 'Portaria Principal',
+    isActive: true,
+    createdAt: new Date('2026-08-01T00:00:00Z'),
+    updatedAt: new Date('2026-08-01T00:00:00Z'),
   };
 
   const vehicle: VehicleWithTypeEntity = {
@@ -127,6 +156,11 @@ describe('RegisterEntryDenialUseCase', () => {
         { provide: ENTRY_DENIAL_REPOSITORY, useValue: entryDenialRepoMock },
         { provide: VEHICLE_BLOCK_REPOSITORY, useValue: vehicleBlockRepoMock },
         { provide: VEHICLE_REPOSITORY, useValue: vehicleRepoMock },
+        { provide: ENTRANCE_REPOSITORY, useValue: entranceRepoMock },
+        {
+          provide: CreateBlockRequestUseCase,
+          useValue: createBlockRequestUseCaseMock,
+        },
       ],
     }).compile();
     useCase = module.get(RegisterEntryDenialUseCase);
@@ -229,5 +263,206 @@ describe('RegisterEntryDenialUseCase', () => {
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(entryDenialRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('exige observação quando o motivo é OTHER', async () => {
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryDenialInputDto('ABC1D23', EntryDenialReason.OTHER),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(entryDenialRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('aceita OTHER com observação', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(vehicle);
+    entryDenialRepoMock.create.mockResolvedValue({
+      ...denial,
+      reason: EntryDenialReason.OTHER,
+    });
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryDenialInputDto(
+        'ABC1D23',
+        EntryDenialReason.OTHER,
+        '  Sem autorização do setor  ',
+      ),
+    );
+
+    expect(entryDenialRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({ observation: 'Sem autorização do setor' }),
+    );
+    expect(result.blockRequest).toBeNull();
+    expect(result.blockRequestError).toBeNull();
+  });
+
+  it('grava a portaria do device validada (M4)', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(vehicle);
+    entranceRepoMock.findByIdAndCompanyId.mockResolvedValue(entrance);
+    entryDenialRepoMock.create.mockImplementation((data) =>
+      Promise.resolve({ ...denial, entranceId: data.entranceId }),
+    );
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryDenialInputDto(
+        'ABC1D23',
+        EntryDenialReason.UNREGISTERED,
+        undefined,
+        undefined,
+        undefined,
+        entrance.id,
+      ),
+    );
+
+    expect(entryDenialRepoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({ entranceId: entrance.id }),
+    );
+    expect(result.id).toBe(denial.id);
+  });
+
+  it('lança 404 para portaria inexistente e 400 para inativa', async () => {
+    entranceRepoMock.findByIdAndCompanyId.mockResolvedValue(null);
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryDenialInputDto(
+          'ABC1D23',
+          EntryDenialReason.UNREGISTERED,
+          undefined,
+          undefined,
+          undefined,
+          '60000000-0000-0000-0000-000000000099',
+        ),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    entranceRepoMock.findByIdAndCompanyId.mockResolvedValue({
+      ...entrance,
+      isActive: false,
+    });
+    await expect(
+      useCase.execute(
+        actor,
+        new RegisterEntryDenialInputDto(
+          'ABC1D23',
+          EntryDenialReason.UNREGISTERED,
+          undefined,
+          undefined,
+          undefined,
+          entrance.id,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(entryDenialRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('cria o pedido de bloqueio junto com o impedimento (desmarcado por padrão)', async () => {
+    vehicleBlockRepoMock.findByIdAndCompanyId.mockResolvedValue(block);
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(vehicle);
+    entryDenialRepoMock.create.mockResolvedValue(denial);
+    createBlockRequestUseCaseMock.execute.mockResolvedValue({
+      id: '70000000-0000-0000-0000-000000000001',
+      plate: 'ABC1D23',
+      status: 'PENDING',
+    });
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryDenialInputDto(
+        'ABC1D23',
+        EntryDenialReason.BLOCKED,
+        'Veículo em ocorrência',
+        block.id,
+        undefined,
+        undefined,
+        true,
+      ),
+    );
+
+    expect(createBlockRequestUseCaseMock.execute).toHaveBeenCalledWith(
+      actor,
+      expect.objectContaining({
+        plate: 'ABC1D23',
+        reason: 'Veículo em ocorrência',
+      }),
+    );
+    expect(result.blockRequest).toEqual({
+      id: '70000000-0000-0000-0000-000000000001',
+      plate: 'ABC1D23',
+      status: 'PENDING',
+    });
+    expect(result.blockRequestError).toBeNull();
+  });
+
+  it('não cria o pedido de bloqueio quando não foi pedido', async () => {
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(vehicle);
+    entryDenialRepoMock.create.mockResolvedValue(denial);
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryDenialInputDto(
+        'ABC1D23',
+        EntryDenialReason.UNREGISTERED,
+      ),
+    );
+
+    expect(createBlockRequestUseCaseMock.execute).not.toHaveBeenCalled();
+    expect(result.blockRequest).toBeNull();
+  });
+
+  it('lança 403 ao pedir bloqueio sem a permissão específica', async () => {
+    const restricted: AuthenticatedUserEntity = {
+      ...actor,
+      permissions: [PermissionCode.REGISTER_DENIAL],
+    };
+
+    await expect(
+      useCase.execute(
+        restricted,
+        new RegisterEntryDenialInputDto(
+          'ABC1D23',
+          EntryDenialReason.OTHER,
+          'Sem autorização',
+          undefined,
+          undefined,
+          undefined,
+          true,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(entryDenialRepoMock.create).not.toHaveBeenCalled();
+  });
+
+  it('mantém o impedimento quando o pedido de bloqueio falha (pendente duplicado)', async () => {
+    vehicleBlockRepoMock.findByIdAndCompanyId.mockResolvedValue(block);
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(vehicle);
+    entryDenialRepoMock.create.mockResolvedValue(denial);
+    createBlockRequestUseCaseMock.execute.mockRejectedValue(
+      new ConflictException(
+        'Já existe uma solicitação de bloqueio pendente para esta placa.',
+      ),
+    );
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterEntryDenialInputDto(
+        'ABC1D23',
+        EntryDenialReason.BLOCKED,
+        'Veículo em ocorrência',
+        block.id,
+        undefined,
+        undefined,
+        true,
+      ),
+    );
+
+    expect(result.id).toBe(denial.id);
+    expect(result.blockRequest).toBeNull();
+    expect(result.blockRequestError).toBe(
+      'Já existe uma solicitação de bloqueio pendente para esta placa.',
+    );
   });
 });

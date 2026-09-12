@@ -93,7 +93,10 @@ describe('RegisterEntryUseCase', () => {
 
   const vehicleRepoMock = {
     findByPlateAndCompanyId: jest.fn(),
-  } as jest.Mocked<Pick<VehicleRepository, 'findByPlateAndCompanyId'>>;
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<
+    Pick<VehicleRepository, 'findByPlateAndCompanyId' | 'findByIdAndCompanyId'>
+  >;
 
   const blockRepoMock = {
     findActiveByVehicleIdAndCompanyId: jest.fn(),

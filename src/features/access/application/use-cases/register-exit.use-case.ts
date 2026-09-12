@@ -21,6 +21,7 @@ import { VEHICLE_ACCESS_REPOSITORY } from '../../domain/repositories/vehicle-acc
 
 // Repositories (vehicles/users)
 import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle.repository';
+import { DEPARTMENT_REPOSITORY } from '../../../departments/domain/repositories/department.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
 
 // Repositories (entrances — M4)
@@ -35,15 +36,22 @@ import {
 
 // Mappers
 import { toClosedAccessResponse } from '../utils/access-response.mapper';
+import { resolveAccessFicha } from '../utils/resolve-access-ficha.util';
 
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
+import type { VehicleAccessEntity } from '../../domain/entities/vehicle-access.entity';
+import type { VehicleMovementEntity } from '../../domain/entities/vehicle-movement.entity';
 import type { VehicleAccessRepository } from '../../domain/repositories/vehicle-access.repository';
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
+import type { DepartmentRepository } from '../../../departments/domain/repositories/department.repository';
 import type { UserRepository } from '../../../users/domain/repositories/user.repository';
 import type { EntranceRepository } from '../../../entrances/domain/repositories/entrance.repository';
 import type { RegisterExitInputDto } from '../dto/register-exit-input.dto';
-import type { AccessExitResponse } from '../dto/access-response';
+import type {
+  AccessExitResponse,
+  ClosedAccessResponse,
+} from '../dto/access-response';
 
 /**
  * Registra a saída de um veículo (REGISTER_EXIT) — ADR 0010 §6.
@@ -77,6 +85,8 @@ export class RegisterExitUseCase {
     private readonly vehicleRepository: VehicleRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(DEPARTMENT_REPOSITORY)
+    private readonly departmentRepository: DepartmentRepository,
   ) {}
 
   /**
@@ -115,11 +125,17 @@ export class RegisterExitUseCase {
           if (access.status === AccessStatus.NO_EXIT) {
             return {
               closedAccesses: [],
-              noExit: toClosedAccessResponse(access, existing),
+              noExit: await this.toEnrichedClosedResponse(
+                access,
+                existing,
+                companyId,
+              ),
             };
           }
           return {
-            closedAccesses: [toClosedAccessResponse(access, existing)],
+            closedAccesses: [
+              await this.toEnrichedClosedResponse(access, existing, companyId),
+            ],
             noExit: null,
           };
         }
@@ -169,8 +185,10 @@ export class RegisterExitUseCase {
           occurredAt: new Date(),
         });
       return {
-        closedAccesses: closed.map(({ access, movement }) =>
-          toClosedAccessResponse(access, movement),
+        closedAccesses: await Promise.all(
+          closed.map(({ access, movement }) =>
+            this.toEnrichedClosedResponse(access, movement, companyId),
+          ),
         ),
         noExit: null,
       };
@@ -207,8 +225,34 @@ export class RegisterExitUseCase {
 
     return {
       closedAccesses: [],
-      noExit: toClosedAccessResponse(noExit.access, noExit.movement),
+      noExit: await this.toEnrichedClosedResponse(
+        noExit.access,
+        noExit.movement,
+        companyId,
+      ),
     };
+  }
+
+  /**
+   * Monta o par visita+movimento com a ficha resolvida (condutor, setor e
+   * veículo) — o porteiro confere no resultado da saída (regra 8).
+   *
+   * @param access Visita encerrada.
+   * @param movement Movimento EXIT.
+   * @param companyId Empresa da sessão.
+   * @returns Par no formato de resposta, com a ficha.
+   */
+  private async toEnrichedClosedResponse(
+    access: VehicleAccessEntity,
+    movement: VehicleMovementEntity,
+    companyId: string,
+  ): Promise<ClosedAccessResponse> {
+    const ficha = await resolveAccessFicha(access, companyId, {
+      vehicleRepository: this.vehicleRepository,
+      departmentRepository: this.departmentRepository,
+      userRepository: this.userRepository,
+    });
+    return toClosedAccessResponse(access, movement, ficha);
   }
 
   /**

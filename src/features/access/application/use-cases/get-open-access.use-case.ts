@@ -15,13 +15,22 @@ import {
 // Repositories
 import { VEHICLE_ACCESS_REPOSITORY } from '../../domain/repositories/vehicle-access.repository';
 import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle.repository';
+import { DEPARTMENT_REPOSITORY } from '../../../departments/domain/repositories/department.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
+
+// Mapper + util da ficha (condutor/setor/veículo — regra 8)
+import {
+  toFichaDriverResponse,
+  toFichaVehicleResponse,
+} from '../utils/access-response.mapper';
+import { resolveAccessFicha } from '../utils/resolve-access-ficha.util';
 
 // Types
 import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/authenticated-user.entity';
 import type { VehicleAccessEntity } from '../../domain/entities/vehicle-access.entity';
 import type { VehicleAccessRepository } from '../../domain/repositories/vehicle-access.repository';
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
+import type { DepartmentRepository } from '../../../departments/domain/repositories/department.repository';
 import type { UserRepository } from '../../../users/domain/repositories/user.repository';
 import type { GetOpenAccessInputDto } from '../dto/get-open-access-input.dto';
 import type { OpenAccessResponse } from '../dto/access-response';
@@ -41,6 +50,8 @@ export class GetOpenAccessUseCase {
     private readonly vehicleRepository: VehicleRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    @Inject(DEPARTMENT_REPOSITORY)
+    private readonly departmentRepository: DepartmentRepository,
   ) {}
 
   /**
@@ -87,38 +98,39 @@ export class GetOpenAccessUseCase {
     });
 
     const data = await Promise.all(
-      open.map((access) => this.toOpenResponse(access)),
+      open.map((access) => this.toOpenResponse(access, companyId)),
     );
     return { data };
   }
 
   /**
-   * Mapeia um acesso aberto para a resposta, resolvendo o nome do condutor.
+   * Mapeia um acesso aberto para a resposta, com a ficha resolvida (condutor,
+   * setor e veículo) — conferência do porteiro na saída (regra 8).
    *
    * @param access Acesso aberto.
+   * @param companyId Empresa da sessão.
    * @returns Acesso aberto no formato de resposta.
    */
   private async toOpenResponse(
     access: VehicleAccessEntity,
+    companyId: string,
   ): Promise<OpenAccessResponse> {
-    let driverId: string | null = null;
-    let driverName: string | null = null;
-    if (access.driverUserId) {
-      driverId = access.driverUserId;
-      const user = await this.userRepository.findById(access.driverUserId);
-      driverName = user?.name ?? null;
-    } else if (access.temporaryDriverName) {
-      driverName = access.temporaryDriverName;
-    }
+    const ficha = await resolveAccessFicha(access, companyId, {
+      vehicleRepository: this.vehicleRepository,
+      departmentRepository: this.departmentRepository,
+      userRepository: this.userRepository,
+    });
 
     return {
       id: access.id,
       vehicleId: access.vehicleId,
       temporaryPlate: access.temporaryPlate,
-      driver: { id: driverId, name: driverName },
+      driver: toFichaDriverResponse(ficha.driver),
       departmentId: access.departmentId,
+      departmentName: ficha.departmentName,
       entryAt: access.entryAt ? access.entryAt.toISOString() : null,
       overCapacity: access.overCapacity,
+      vehicle: toFichaVehicleResponse(ficha.vehicle),
     };
   }
 }

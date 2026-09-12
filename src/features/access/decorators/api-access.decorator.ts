@@ -65,7 +65,7 @@ export function ApiRegisterExit(): MethodDecorator {
     ApiOperation({
       summary: 'Registra a saída de um veículo',
       description:
-        'Exige REGISTER_EXIT. Encerra todos os INSIDE abertos (OUT + movimento EXIT). Sem entrada registrada → NO_EXIT (exige passageiro exceto em free_pass — regra 11).',
+        'Exige REGISTER_EXIT. Encerra todos os INSIDE abertos (OUT + movimento EXIT). Sem entrada registrada → NO_EXIT (exige passageiro exceto em free_pass — regra 11). Os acessos encerrados voltam com a **ficha** (condutor, setor e veículo) para o porteiro conferir o resultado.',
     }),
     ApiBody({ type: RegisterExitDto }),
     ApiResponse({
@@ -88,7 +88,7 @@ export function ApiGetOpenAccess(): MethodDecorator {
     ApiOperation({
       summary: 'Consulta acessos abertos de uma placa (conferência na saída)',
       description:
-        'Exige REGISTER_EXIT. Devolve quem entrou com o veículo (condutor da visita) para conferência na saída (regra 8).',
+        'Exige REGISTER_EXIT. Devolve a ficha de quem entrou com o veículo para conferência na saída (regra 8): condutor (id, nome e telefone), setor (`departmentName`), veículo cadastrado (placa, modelo, cor, tipo e `freePass`) e a placa temporária quando a entrada não é de veículo cadastrado.',
     }),
     ApiQuery({
       name: 'plate',

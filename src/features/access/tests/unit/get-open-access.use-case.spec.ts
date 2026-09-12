@@ -14,13 +14,16 @@ import type { AuthenticatedUserEntity } from '../../../auth/domain/entities/auth
 import type { VehicleWithTypeEntity } from '../../../vehicles/domain/entities/vehicle.entity';
 import type { VehicleAccessEntity } from '../../domain/entities/vehicle-access.entity';
 import type { UserEntity } from '../../../users/domain/entities/user.entity';
+import type { DepartmentEntity } from '../../../departments/domain/entities/department.entity';
 import type { VehicleAccessRepository } from '../../domain/repositories/vehicle-access.repository';
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
+import type { DepartmentRepository } from '../../../departments/domain/repositories/department.repository';
 import type { UserRepository } from '../../../users/domain/repositories/user.repository';
 
 // Repositories
 import { VEHICLE_ACCESS_REPOSITORY } from '../../domain/repositories/vehicle-access.repository';
 import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle.repository';
+import { DEPARTMENT_REPOSITORY } from '../../../departments/domain/repositories/department.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
 
 // DTOs
@@ -44,7 +47,14 @@ describe('GetOpenAccessUseCase', () => {
 
   const vehicleRepoMock = {
     findByPlateAndCompanyId: jest.fn(),
-  } as jest.Mocked<Pick<VehicleRepository, 'findByPlateAndCompanyId'>>;
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<
+    Pick<VehicleRepository, 'findByPlateAndCompanyId' | 'findByIdAndCompanyId'>
+  >;
+
+  const departmentRepoMock = {
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<Pick<DepartmentRepository, 'findByIdAndCompanyId'>>;
 
   const userRepoMock = {
     findById: jest.fn(),
@@ -122,6 +132,7 @@ describe('GetOpenAccessUseCase', () => {
         GetOpenAccessUseCase,
         { provide: VEHICLE_ACCESS_REPOSITORY, useValue: accessRepoMock },
         { provide: VEHICLE_REPOSITORY, useValue: vehicleRepoMock },
+        { provide: DEPARTMENT_REPOSITORY, useValue: departmentRepoMock },
         { provide: USER_REPOSITORY, useValue: userRepoMock },
       ],
     }).compile();
@@ -175,6 +186,55 @@ describe('GetOpenAccessUseCase', () => {
       vehicleId: null,
       temporaryPlate: 'XYZ9A99',
       driver: { id: null, name: 'Visitante' },
+    });
+  });
+
+  it('devolve a ficha completa: veículo, setor e telefone do condutor', async () => {
+    const department: DepartmentEntity = {
+      id: '50000000-0000-0000-0000-000000000001',
+      companyId: actor.companyId,
+      name: 'Recepção',
+      description: null,
+      parkingSpace: 10,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const driverWithPhone: UserEntity = {
+      ...driverUser,
+      phone: '11999990000',
+    };
+
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(vehicle);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    departmentRepoMock.findByIdAndCompanyId.mockResolvedValue(department);
+    accessRepoMock.findOpenByVehicleIdAndCompanyId.mockResolvedValue([
+      { ...open, departmentId: department.id },
+    ]);
+    accessRepoMock.findOpenByTemporaryPlateAndCompanyId.mockResolvedValue([]);
+    userRepoMock.findById.mockResolvedValue(driverWithPhone);
+
+    const result = await useCase.execute(
+      actor,
+      new GetOpenAccessInputDto('ABC1D23'),
+    );
+
+    expect(result.data[0]).toMatchObject({
+      departmentId: department.id,
+      departmentName: 'Recepção',
+      driver: {
+        id: driverWithPhone.id,
+        name: driverWithPhone.name,
+        phone: '11999990000',
+      },
+      vehicle: {
+        id: vehicle.id,
+        plate: vehicle.plate,
+        model: vehicle.model,
+        color: vehicle.color,
+        freePass: vehicle.freePass,
+        vehicleType: vehicle.vehicleType,
+      },
     });
   });
 

@@ -6,6 +6,9 @@ import type {
   SyncStatus,
 } from '../../domain/constants/access.constant';
 
+// Types (veículo — a ficha de conferência é a mesma do QR/contexto)
+import type { VehicleTypeSummary } from '../../../vehicles/application/dto/vehicle-response';
+
 // Types (bloqueios — a feature access consome o blocks no registro do
 // impedimento automático — ADR 0010 §3)
 import type { EntryDenialResponse } from '../../../blocks/application/dto/entry-denial-response';
@@ -87,6 +90,43 @@ export interface ClosedAccessResponse {
   access: AccessResponse;
   /** Movimento (ENTRY/EXIT). */
   movement: MovementResponse;
+  /** Condutor resolvido (conferência/resultado da saída — regra 8). */
+  driver: AccessFichaDriverResponse;
+  /** Nome do setor confirmado na entrada. */
+  departmentName: string | null;
+  /** Veículo cadastrado (ou `null` — placa temporária). */
+  vehicle: AccessFichaVehicleResponse | null;
+}
+
+/**
+ * Condutor de um acesso na ficha de conferência (id, nome e telefone
+ * resolvidos). O telefone é atributo da pessoa (LGPD: exibido online).
+ */
+export interface AccessFichaDriverResponse {
+  /** Id da pessoa (ou `null` para condutor temporário). */
+  id: string | null;
+  /** Nome (da pessoa ou o nome temporário). */
+  name: string | null;
+  /** Telefone da pessoa (ou `null`). */
+  phone: string | null;
+}
+
+/**
+ * Veículo da ficha de conferência (o que o porteiro confere no balcão).
+ */
+export interface AccessFichaVehicleResponse {
+  /** Id do veículo. */
+  id: string;
+  /** Placa normalizada. */
+  plate: string;
+  /** Modelo (opcional). */
+  model: string | null;
+  /** Cor (opcional). */
+  color: string | null;
+  /** Tipo de veículo agregado. */
+  vehicleType: VehicleTypeSummary | null;
+  /** Livre acesso (regra 3). */
+  freePass: boolean;
 }
 
 /**
@@ -129,14 +169,18 @@ export interface OpenAccessResponse {
   vehicleId: string | null;
   /** Placa temporária (não cadastrado). */
   temporaryPlate: string | null;
-  /** Condutor da visita (id + nome resolvido). */
-  driver: { id: string | null; name: string | null };
+  /** Condutor da visita (id + nome + telefone resolvidos). */
+  driver: AccessFichaDriverResponse;
   /** Setor confirmado na entrada. */
   departmentId: string | null;
+  /** Nome do setor confirmado na entrada. */
+  departmentName: string | null;
   /** Momento da entrada (ISO). */
   entryAt: string | null;
   /** Liberado excedendo a capacidade. */
   overCapacity: boolean;
+  /** Veículo cadastrado (ou `null` — placa temporária). */
+  vehicle: AccessFichaVehicleResponse | null;
 }
 
 /**
