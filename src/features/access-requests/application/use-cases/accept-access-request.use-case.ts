@@ -97,7 +97,8 @@ export class AcceptAccessRequestUseCase {
    * @param input Id da solicitação + tipo do veículo/vínculo a definir.
    * @returns Solicitação registrada (REGISTERED, entry_authorized = true).
    * @throws {NotFoundException} Solicitação/veículo/usuário/tipo não existem.
-   * @throws {ConflictException} Solicitação não está aberta ou vínculo já existe.
+   * @throws {ConflictException} Solicitação não está aberta, e-mail já
+   *   cadastrado ou (cenário `LINK`) vínculo que já permite dirigir.
    */
   public async execute(
     actor: AuthenticatedUserEntity,
@@ -341,18 +342,30 @@ export class AcceptAccessRequestUseCase {
    * Cria o vínculo `user_vehicle` (regra 42) — `can_drive` default true,
    * `is_primary` opcional (1 primário por veículo).
    *
+   * Vínculo que **já existe** com `can_drive = false` é **atualizado** para
+   * `can_drive = true` (e `is_primary` quando o aceite pedir): o aceite é o
+   * momento de conceder a permissão. Sem isso o veredito `ALLOW_WITH_REQUEST`
+   * da portaria não teria desfecho — a solicitação seria criada na hora e o
+   * aceite, recusado depois.
+   *
+   * No cenário `LINK` (ticket 07), vínculo que **já permite dirigir** é
+   * conflito (409). Nos demais cenários o vínculo repetido segue silencioso
+   * (defensivo — os cadastros são criados no próprio aceite), mas também
+   * promove `can_drive` quando estava `false`.
+   *
    * @param actor Ator autenticado (admin).
    * @param userId Usuário a vincular.
    * @param vehicleId Veículo a vincular.
    * @param input Dados do aceite.
-   * @param allowExisting Em LINK, se o vínculo já existe → 409.
+   * @param isLink Cenário `LINK` (vínculo já autorizado → 409).
+   * @throws {ConflictException} `LINK` com vínculo que já permite dirigir.
    */
   private async createLink(
     actor: AuthenticatedUserEntity,
     userId: string,
     vehicleId: string,
     input: AcceptAccessRequestInputDto,
-    allowExisting: boolean,
+    isLink: boolean,
   ): Promise<void> {
     const existing =
       await this.userVehicleRepository.findByUserIdAndVehicleIdAndCompanyId(
@@ -360,20 +373,37 @@ export class AcceptAccessRequestUseCase {
         vehicleId,
         actor.companyId,
       );
-    if (existing) {
-      if (allowExisting) {
-        throw new ConflictException('Vínculo motorista-veículo já existe.');
+
+    if (!existing) {
+      await this.userVehicleRepository.create({
+        companyId: actor.companyId,
+        userId,
+        vehicleId,
+        isPrimary: input.isPrimary,
+        canDrive: input.canDrive,
+      });
+      return;
+    }
+
+    if (existing.canDrive) {
+      if (isLink) {
+        throw new ConflictException(
+          'Motorista já autorizado a dirigir este veículo.',
+        );
       }
       return;
     }
 
-    await this.userVehicleRepository.create({
-      companyId: actor.companyId,
-      userId,
-      vehicleId,
-      isPrimary: input.isPrimary,
-      canDrive: input.canDrive,
-    });
+    // Aceitar a solicitação É autorizar: promove o vínculo existente em vez de
+    // criar um duplicado (o unique `user_id + vehicle_id` nem permitiria).
+    await this.userVehicleRepository.updateByIdAndCompanyId(
+      existing.id,
+      actor.companyId,
+      {
+        canDrive: true,
+        ...(input.isPrimary ? { isPrimary: true } : {}),
+      },
+    );
   }
 
   /**

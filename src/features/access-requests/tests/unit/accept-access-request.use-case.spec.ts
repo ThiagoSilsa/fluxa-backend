@@ -88,10 +88,13 @@ describe('AcceptAccessRequestUseCase', () => {
   const userVehicleRepoMock = {
     findByUserIdAndVehicleIdAndCompanyId: jest.fn(),
     create: jest.fn(),
+    updateByIdAndCompanyId: jest.fn(),
   } as jest.Mocked<
     Pick<
       UserVehicleRepository,
-      'findByUserIdAndVehicleIdAndCompanyId' | 'create'
+      | 'findByUserIdAndVehicleIdAndCompanyId'
+      | 'create'
+      | 'updateByIdAndCompanyId'
     >
   >;
 
@@ -179,6 +182,15 @@ describe('AcceptAccessRequestUseCase', () => {
     canDrive: true,
     createdAt: new Date('2026-08-24T12:00:00Z'),
     updatedAt: new Date('2026-08-24T12:00:00Z'),
+  };
+
+  /**
+   * Vínculo existente **sem** permissão de dirigir — o estado que o aceite da
+   * solicitação da portaria precisa promover (ticket 07).
+   */
+  const linkWithoutPermission: UserVehicleEntity = {
+    ...link,
+    canDrive: false,
   };
 
   function buildRequest(
@@ -465,7 +477,7 @@ describe('AcceptAccessRequestUseCase', () => {
     expect(vehicleRepoMock.create).not.toHaveBeenCalled();
   });
 
-  it('lança 409 para LINK com vínculo já existente', async () => {
+  it('lança 409 para LINK com vínculo que já permite dirigir', async () => {
     const request = buildRequest(AccessRequestType.LINK, {
       vehicleId,
       userId: driverUserId,
@@ -479,8 +491,160 @@ describe('AcceptAccessRequestUseCase', () => {
 
     await expect(
       useCase.execute(admin, new AcceptAccessRequestInputDto(request.id)),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toThrow('Motorista já autorizado a dirigir este veículo.');
     expect(userVehicleRepoMock.create).not.toHaveBeenCalled();
+    expect(userVehicleRepoMock.updateByIdAndCompanyId).not.toHaveBeenCalled();
+  });
+
+  it('LINK com vínculo canDrive=false promove a permissão em vez de recusar', async () => {
+    const request = buildRequest(AccessRequestType.LINK, {
+      vehicleId,
+      userId: driverUserId,
+    });
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    userRepoMock.findById.mockResolvedValue(driverUser);
+    userVehicleRepoMock.findByUserIdAndVehicleIdAndCompanyId.mockResolvedValue(
+      linkWithoutPermission as never,
+    );
+    userVehicleRepoMock.updateByIdAndCompanyId.mockResolvedValue({
+      ...linkWithoutPermission,
+      canDrive: true,
+    });
+    accessRequestRepoMock.updateStatusByIdAndCompanyId.mockResolvedValue(
+      buildRequest(AccessRequestType.LINK, {
+        vehicleId,
+        userId: driverUserId,
+        status: AccessRequestStatus.REGISTERED,
+        resolvedUserId: driverUserId,
+        resolvedVehicleId: vehicleId,
+        entryAuthorized: true,
+        authorizedBy: admin.id,
+      }),
+    );
+
+    await useCase.execute(
+      admin,
+      new AcceptAccessRequestInputDto(request.id, undefined, true, false),
+    );
+
+    expect(userVehicleRepoMock.create).not.toHaveBeenCalled();
+    expect(userVehicleRepoMock.updateByIdAndCompanyId).toHaveBeenCalledWith(
+      link.id,
+      admin.companyId,
+      { canDrive: true },
+    );
+  });
+
+  it('LINK com vínculo canDrive=false promove também o primário quando pedido', async () => {
+    const request = buildRequest(AccessRequestType.LINK, {
+      vehicleId,
+      userId: driverUserId,
+    });
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    userRepoMock.findById.mockResolvedValue(driverUser);
+    userVehicleRepoMock.findByUserIdAndVehicleIdAndCompanyId.mockResolvedValue(
+      linkWithoutPermission as never,
+    );
+    userVehicleRepoMock.updateByIdAndCompanyId.mockResolvedValue({
+      ...linkWithoutPermission,
+      canDrive: true,
+      isPrimary: true,
+    });
+    accessRequestRepoMock.updateStatusByIdAndCompanyId.mockResolvedValue(
+      buildRequest(AccessRequestType.LINK, {
+        vehicleId,
+        userId: driverUserId,
+        status: AccessRequestStatus.REGISTERED,
+        resolvedUserId: driverUserId,
+        resolvedVehicleId: vehicleId,
+        entryAuthorized: true,
+        authorizedBy: admin.id,
+      }),
+    );
+
+    await useCase.execute(
+      admin,
+      new AcceptAccessRequestInputDto(request.id, undefined, true, true),
+    );
+
+    // O desmarcar do primário anterior é do repositório (1 primário por veículo
+    // — ADR 0006 §9); aqui garantimos que a intenção chega até ele.
+    expect(userVehicleRepoMock.updateByIdAndCompanyId).toHaveBeenCalledWith(
+      link.id,
+      admin.companyId,
+      { canDrive: true, isPrimary: true },
+    );
+  });
+
+  it('cenários sem LINK também promovem canDrive quando o vínculo estava false', async () => {
+    const request = buildRequest(AccessRequestType.NEW_USER, {
+      vehicleId,
+      userType: UserType.VISITOR,
+      payload: { driver: { name: 'Visitante' } },
+    });
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    userRepoMock.findByEmail.mockResolvedValue(null);
+    userRepoMock.create.mockResolvedValue(driverUser);
+    userVehicleRepoMock.findByUserIdAndVehicleIdAndCompanyId.mockResolvedValue(
+      linkWithoutPermission as never,
+    );
+    accessRequestRepoMock.updateStatusByIdAndCompanyId.mockResolvedValue(
+      buildRequest(AccessRequestType.NEW_USER, {
+        vehicleId,
+        status: AccessRequestStatus.REGISTERED,
+        resolvedUserId: driverUserId,
+        resolvedVehicleId: vehicleId,
+        entryAuthorized: true,
+        authorizedBy: admin.id,
+      }),
+    );
+
+    await useCase.execute(admin, new AcceptAccessRequestInputDto(request.id));
+
+    expect(userVehicleRepoMock.create).not.toHaveBeenCalled();
+    expect(userVehicleRepoMock.updateByIdAndCompanyId).toHaveBeenCalledWith(
+      link.id,
+      admin.companyId,
+      { canDrive: true },
+    );
+  });
+
+  it('cenários sem LINK mantêm o vínculo já autorizado intacto', async () => {
+    const request = buildRequest(AccessRequestType.NEW_USER, {
+      vehicleId,
+      userType: UserType.VISITOR,
+      payload: { driver: { name: 'Visitante' } },
+    });
+    accessRequestRepoMock.findByIdAndCompanyId.mockResolvedValue(request);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    userRepoMock.findByEmail.mockResolvedValue(null);
+    userRepoMock.create.mockResolvedValue(driverUser);
+    userVehicleRepoMock.findByUserIdAndVehicleIdAndCompanyId.mockResolvedValue(
+      link as never,
+    );
+    accessRequestRepoMock.updateStatusByIdAndCompanyId.mockResolvedValue(
+      buildRequest(AccessRequestType.NEW_USER, {
+        vehicleId,
+        status: AccessRequestStatus.REGISTERED,
+        resolvedUserId: driverUserId,
+        resolvedVehicleId: vehicleId,
+        entryAuthorized: true,
+        authorizedBy: admin.id,
+      }),
+    );
+
+    await expect(
+      useCase.execute(
+        admin,
+        new AcceptAccessRequestInputDto(request.id, undefined, true, true),
+      ),
+    ).resolves.toBeDefined();
+
+    expect(userVehicleRepoMock.create).not.toHaveBeenCalled();
+    expect(userVehicleRepoMock.updateByIdAndCompanyId).not.toHaveBeenCalled();
   });
 
   it('lança 409 para NEW_USER com e-mail já cadastrado', async () => {

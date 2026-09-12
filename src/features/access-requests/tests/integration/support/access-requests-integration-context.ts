@@ -62,6 +62,21 @@ export interface AccessRequestsIntegrationContext {
     userId: string,
     vehicleId: string,
   ) => Promise<boolean>;
+  /**
+   * Cria/atualiza o vínculo motorista ↔ veículo com as flags dadas — para
+   * montar o estado "vínculo existe sem permissão" (ticket 07).
+   */
+  upsertLink: (input: {
+    userId: string;
+    vehicleId: string;
+    canDrive: boolean;
+    isPrimary?: boolean;
+  }) => Promise<void>;
+  /** Flags do vínculo motorista ↔ veículo (`null` se não existir). */
+  findLink: (
+    userId: string,
+    vehicleId: string,
+  ) => Promise<{ canDrive: boolean; isPrimary: boolean } | null>;
   /** Snapshot da conta (user + user_company + user_role) por e-mail. */
   findAccountByEmail: (
     email: string,
@@ -150,6 +165,8 @@ export async function createAccessRequestsIntegrationContext(): Promise<AccessRe
     isVehicleByPlate: (plate) => isVehicleByPlate(dataSource, plate),
     isLinkByUserAndVehicle: (userId, vehicleId) =>
       isLinkByUserAndVehicle(dataSource, userId, vehicleId),
+    upsertLink: (input) => upsertLink(dataSource, input),
+    findLink: (userId, vehicleId) => findLink(dataSource, userId, vehicleId),
     findAccountByEmail: (email) => findAccount(dataSource, 'email', email),
     findAccountByPhone: (phone) => findAccount(dataSource, 'phone', phone),
     close: async () => {
@@ -275,6 +292,64 @@ async function isLinkByUserAndVehicle(
     [userId, vehicleId],
   );
   return rows.length > 0;
+}
+
+/**
+ * Cria ou atualiza o vínculo motorista ↔ veículo na SOMAR com as flags dadas.
+ *
+ * Usado para montar o estado "vínculo existe com `can_drive = false`" — o
+ * cenário que o aceite da solicitação da portaria precisa **promover** em vez
+ * de recusar (ticket 07).
+ *
+ * @param dataSource Conexão com o banco de teste.
+ * @param input Ids do motorista/veículo e flags do vínculo.
+ */
+async function upsertLink(
+  dataSource: DataSource,
+  input: {
+    userId: string;
+    vehicleId: string;
+    canDrive: boolean;
+    isPrimary?: boolean;
+  },
+): Promise<void> {
+  await dataSource.query(
+    `INSERT INTO "user_vehicle"
+       ("company_id", "user_id", "vehicle_id", "is_primary", "can_drive")
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT ("company_id", "user_id", "vehicle_id")
+     DO UPDATE SET "is_primary" = EXCLUDED."is_primary",
+                   "can_drive" = EXCLUDED."can_drive"`,
+    [
+      AUTH_SEEDED.SOMAR_COMPANY_ID,
+      input.userId,
+      input.vehicleId,
+      input.isPrimary ?? false,
+      input.canDrive,
+    ],
+  );
+}
+
+/**
+ * Lê as flags do vínculo motorista ↔ veículo.
+ *
+ * @param dataSource Conexão com o banco de teste.
+ * @param userId Id do motorista.
+ * @param vehicleId Id do veículo.
+ * @returns `{ canDrive, isPrimary }` ou `null` se o vínculo não existir.
+ */
+async function findLink(
+  dataSource: DataSource,
+  userId: string,
+  vehicleId: string,
+): Promise<{ canDrive: boolean; isPrimary: boolean } | null> {
+  const rows = await dataSource.query(
+    `SELECT "can_drive" AS "canDrive", "is_primary" AS "isPrimary"
+       FROM "user_vehicle"
+      WHERE "user_id" = $1 AND "vehicle_id" = $2`,
+    [userId, vehicleId],
+  );
+  return rows.length > 0 ? rows[0] : null;
 }
 
 /**

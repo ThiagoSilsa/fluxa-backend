@@ -149,9 +149,8 @@ export class UserCompanyTypeormRepository implements UserCompanyRepository {
       .where('uc.company_id = :companyId', { companyId });
 
     if (filters.search) {
-      qb.andWhere('(u.name ILIKE :search OR u.email ILIKE :search)', {
-        search: `%${filters.search}%`,
-      });
+      const { where, parameters } = this.buildSearchCondition(filters.search);
+      qb.andWhere(where, parameters);
     }
     if (filters.type) {
       qb.andWhere('uc.type = :type', { type: filters.type });
@@ -167,6 +166,40 @@ export class UserCompanyTypeormRepository implements UserCompanyRepository {
 
     const [rows, count] = await qb.getManyAndCount();
     return { data: rows.map((row) => this.toDomainWithUser(row)), count };
+  }
+
+  /**
+   * Monta a condição de busca de pessoas: **nome**, **e-mail**, **telefone** e
+   * **documento** (regra 41 — o porteiro identifica o motorista por
+   * nome/documento/telefone).
+   *
+   * Telefone e documento são comparados **por dígitos** (`regexp_replace`),
+   * para o balcão encontrar "(11) 98888-7777" digitando "988887777" — e
+   * vice-versa. As condições de dígitos só entram quando o termo **tem**
+   * dígitos: um termo sem dígitos geraria `LIKE '%%'`, que casaria com
+   * qualquer telefone/documento cadastrado e devolveria a empresa inteira.
+   *
+   * @param search Termo informado (já não vazio).
+   * @returns Clausula `where` e parâmetros do query builder.
+   */
+  private buildSearchCondition(search: string): {
+    where: string;
+    parameters: Record<string, string>;
+  } {
+    const term = search.trim();
+    const digits = term.replace(/\D/g, '');
+    const conditions = ['u.name ILIKE :search', 'u.email ILIKE :search'];
+    const parameters: Record<string, string> = { search: `%${term}%` };
+
+    if (digits) {
+      conditions.push(
+        `regexp_replace(u.phone, '\\D', '', 'g') LIKE :digits`,
+        `regexp_replace(u.document, '\\D', '', 'g') LIKE :digits`,
+      );
+      parameters.digits = `%${digits}%`;
+    }
+
+    return { where: `(${conditions.join(' OR ')})`, parameters };
   }
 
   /**

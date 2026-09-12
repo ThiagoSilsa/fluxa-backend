@@ -342,6 +342,163 @@ describe('Access requests integration — solicitações de acesso (Testcontaine
       );
     });
 
+    /**
+     * Ticket 07 — o aceite da solicitação da portaria **promove** o vínculo
+     * existente sem permissão em vez de devolver 409. Sem isso o veredito
+     * `ALLOW_WITH_REQUEST` não teria desfecho: a solicitação nasceria na
+     * portaria e o aceite seria recusado.
+     *
+     * Placa/veículo próprios para não interferir no restante do arquivo (o
+     * 409 do último caso deixa a solicitação **aberta**).
+     */
+    describe('aceite de LINK promove o vínculo sem permissão (ticket 07)', () => {
+      let linkVehicleId: string;
+      /** Vinculado com `can_drive = false` — o caso do ticket. */
+      let semPermissaoId: string;
+      /** Primário atual do veículo. */
+      let primarioId: string;
+      /** Vinculado sem permissão e sem primazia — vira primário no aceite. */
+      let promovidoId: string;
+
+      const seedDriver = async (email: string): Promise<string> => {
+        await context.seedUserWithRole(
+          email,
+          ACCESS_REQUESTS_SEEDED.PORTEIRO_ROLE_ID,
+        );
+        return (await context.findUserIdByEmail(email)) as string;
+      };
+
+      beforeAll(async () => {
+        const vehicleRes = await request(context.httpServer)
+          .post('/vehicles')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            plate: 'LNK1A23',
+            vehicleTypeId: ACCESS_REQUESTS_SEEDED.FROTA_TYPE_ID,
+            model: 'Argo',
+          })
+          .expect(201);
+        linkVehicleId = vehicleRes.body.id;
+
+        semPermissaoId = await seedDriver('sem.permissao@teste.local');
+        primarioId = await seedDriver('primario@teste.local');
+        promovidoId = await seedDriver('promovido@teste.local');
+
+        await context.upsertLink({
+          userId: semPermissaoId,
+          vehicleId: linkVehicleId,
+          canDrive: false,
+        });
+        await context.upsertLink({
+          userId: primarioId,
+          vehicleId: linkVehicleId,
+          canDrive: true,
+          isPrimary: true,
+        });
+        await context.upsertLink({
+          userId: promovidoId,
+          vehicleId: linkVehicleId,
+          canDrive: false,
+        });
+      });
+
+      it('a portaria vê ALLOW_WITH_REQUEST antes e ALLOW depois do aceite', async () => {
+        const before = await request(context.httpServer)
+          .get(`/access/context?plate=LNK1A23&driverUserId=${semPermissaoId}`)
+          .set('Authorization', `Bearer ${porteiroToken}`)
+          .expect(200);
+
+        expect(before.body.verdict).toBe('ALLOW_WITH_REQUEST');
+        expect(before.body.requiresRequest).toBe(true);
+        expect(before.body.reasons).toContain('DRIVER_NOT_ALLOWED');
+
+        const created = await request(context.httpServer)
+          .post('/access-requests')
+          .set('Authorization', `Bearer ${porteiroToken}`)
+          .send({
+            plate: 'LNK1A23',
+            type: 'LINK',
+            vehicleId: linkVehicleId,
+            userId: semPermissaoId,
+          })
+          .expect(201);
+
+        const accepted = await request(context.httpServer)
+          .post(`/access-requests/${created.body.id}/accept`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ canDrive: true })
+          .expect(200);
+
+        expect(accepted.body.status).toBe('REGISTERED');
+        expect(accepted.body.resolvedUserId).toBe(semPermissaoId);
+        expect(await context.findLink(semPermissaoId, linkVehicleId)).toEqual({
+          canDrive: true,
+          isPrimary: false,
+        });
+
+        const after = await request(context.httpServer)
+          .get(`/access/context?plate=LNK1A23&driverUserId=${semPermissaoId}`)
+          .set('Authorization', `Bearer ${porteiroToken}`)
+          .expect(200);
+
+        expect(after.body.verdict).toBe('ALLOW');
+        expect(after.body.requiresRequest).toBe(false);
+        expect(after.body.reasons).toContain('DRIVER_ALLOWED');
+      });
+
+      it('o aceite com isPrimary promove o vínculo e mantém 1 primário por veículo', async () => {
+        const created = await request(context.httpServer)
+          .post('/access-requests')
+          .set('Authorization', `Bearer ${porteiroToken}`)
+          .send({
+            plate: 'LNK1A23',
+            type: 'LINK',
+            vehicleId: linkVehicleId,
+            userId: promovidoId,
+          })
+          .expect(201);
+
+        await request(context.httpServer)
+          .post(`/access-requests/${created.body.id}/accept`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ canDrive: true, isPrimary: true })
+          .expect(200);
+
+        expect(await context.findLink(promovidoId, linkVehicleId)).toEqual({
+          canDrive: true,
+          isPrimary: true,
+        });
+        // O primário anterior foi desmarcado na mesma operação (ADR 0006 §9).
+        expect(await context.findLink(primarioId, linkVehicleId)).toEqual({
+          canDrive: true,
+          isPrimary: false,
+        });
+      });
+
+      it('devolve 409 quando o vínculo já permite dirigir', async () => {
+        const created = await request(context.httpServer)
+          .post('/access-requests')
+          .set('Authorization', `Bearer ${porteiroToken}`)
+          .send({
+            plate: 'LNK1A23',
+            type: 'LINK',
+            vehicleId: linkVehicleId,
+            userId: semPermissaoId,
+          })
+          .expect(201);
+
+        const res = await request(context.httpServer)
+          .post(`/access-requests/${created.body.id}/accept`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ canDrive: true })
+          .expect(409);
+
+        expect(res.body.message).toContain(
+          'já autorizado a dirigir este veículo',
+        );
+      });
+    });
+
     it('aceita BOTH criando usuário + veículo + vínculo', async () => {
       const created = await request(context.httpServer)
         .post('/access-requests')

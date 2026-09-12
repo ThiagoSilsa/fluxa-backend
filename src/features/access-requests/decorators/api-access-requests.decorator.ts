@@ -84,7 +84,7 @@ export function ApiAcceptAccessRequest(): MethodDecorator {
       summary:
         'Aceita uma solicitação com resolução retroativa (administração)',
       description:
-        'Exige MANAGE_ACCESS_REQUESTS. Resolve cadastros/vínculo por cenário e autoriza a entrada (entry_authorized = true — ADR 0010 §4). O usuário criado segue o user_type da solicitação (ADR 0013): VISITOR sem credenciais/cargo; EMPLOYEE exige roleId e password no aceite (400 sem eles) e grava hash + cargo. Telefone: payload.driver.phone, senão contactPhone. 409 se não está aberta ou vínculo/e-mail já existe.',
+        'Exige MANAGE_ACCESS_REQUESTS. Resolve cadastros/vínculo por cenário e autoriza a entrada (entry_authorized = true — ADR 0010 §4). O usuário criado segue o user_type da solicitação (ADR 0013): VISITOR sem credenciais/cargo; EMPLOYEE exige roleId e password no aceite (400 sem eles) e grava hash + cargo. Telefone: payload.driver.phone, senão contactPhone. Vínculo existente com can_drive = false é atualizado para true (regra 42); 409 se não está aberta, se o vínculo já permite dirigir ou se o e-mail já existe.',
     }),
     ApiParam({ name: 'id', description: 'Id da solicitação (UUID).' }),
     ApiBody({ type: AcceptAccessRequestDto }),
@@ -105,7 +105,7 @@ export function ApiAcceptAccessRequest(): MethodDecorator {
     ApiResponse({
       status: 409,
       description:
-        'Não está aberta / vínculo ou e-mail já existe / tipo não informado.',
+        'Não está aberta / vínculo já autorizado a dirigir / e-mail já existe / tipo não informado.',
     }),
   );
 }

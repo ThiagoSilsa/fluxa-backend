@@ -59,6 +59,21 @@ describe('Options de seleção para solicitantes — ADR 0011', () => {
         model: 'Onix',
       })
       .expect(201);
+
+    // Pessoa com telefone e documento mascarados (busca tolerante — regra 41).
+    await request(context.httpServer)
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Marina Buscavel',
+        email: 'marina.buscavel@teste.local',
+        password: 'senha123456',
+        type: 'EMPLOYEE',
+        roleId: ACCESS_REQUESTS_SEEDED.PORTEIRO_ROLE_ID,
+        phone: '(11) 98888-7777',
+        document: '123.456.789-00',
+      })
+      .expect(201);
   });
 
   beforeEach(() => {
@@ -152,6 +167,62 @@ describe('Options de seleção para solicitantes — ADR 0011', () => {
         .get('/users/options')
         .set('Authorization', `Bearer ${semPermissaoToken}`)
         .expect(403);
+    });
+  });
+
+  describe('Busca de pessoas por nome, telefone e documento (regra 41)', () => {
+    /** Busca em `/users/options` e devolve os nomes encontrados. */
+    const searchNames = async (term: string): Promise<string[]> => {
+      const res = await request(context.httpServer)
+        .get(`/users/options?search=${encodeURIComponent(term)}`)
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .expect(200);
+      return res.body.data.map((item: { name: string }) => item.name);
+    };
+
+    it('encontra por trecho do nome', async () => {
+      await expect(searchNames('Marina')).resolves.toContain('Marina Buscavel');
+    });
+
+    it('encontra por telefone sem máscara', async () => {
+      await expect(searchNames('988887777')).resolves.toContain(
+        'Marina Buscavel',
+      );
+    });
+
+    it('encontra por telefone com máscara', async () => {
+      await expect(searchNames('(11) 98888-7777')).resolves.toContain(
+        'Marina Buscavel',
+      );
+    });
+
+    it('encontra por documento sem máscara', async () => {
+      await expect(searchNames('12345678900')).resolves.toContain(
+        'Marina Buscavel',
+      );
+    });
+
+    it('encontra por documento com máscara', async () => {
+      await expect(searchNames('123.456.789-00')).resolves.toContain(
+        'Marina Buscavel',
+      );
+    });
+
+    it('termo sem resultado devolve página vazia (não a empresa inteira)', async () => {
+      await expect(searchNames('zzzznada')).resolves.toEqual([]);
+    });
+
+    it('a mesma busca vale para /vehicles/driver-candidates (gestão)', async () => {
+      const res = await request(context.httpServer)
+        .get('/vehicles/driver-candidates?search=988887777')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(
+        res.body.data.some(
+          (candidate: { name: string }) => candidate.name === 'Marina Buscavel',
+        ),
+      ).toBe(true);
     });
   });
 });

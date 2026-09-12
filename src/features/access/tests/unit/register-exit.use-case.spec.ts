@@ -22,13 +22,16 @@ import type { VehicleMovementEntity } from '../../domain/entities/vehicle-moveme
 import type { UserEntity } from '../../../users/domain/entities/user.entity';
 import type { VehicleAccessRepository } from '../../domain/repositories/vehicle-access.repository';
 import type { VehicleRepository } from '../../../vehicles/domain/repositories/vehicle.repository';
+import type { DepartmentRepository } from '../../../departments/domain/repositories/department.repository';
 import type { UserRepository } from '../../../users/domain/repositories/user.repository';
 import type { EntranceRepository } from '../../../entrances/domain/repositories/entrance.repository';
 import type { EntranceEntity } from '../../../entrances/domain/entities/entrance.entity';
+import type { DepartmentEntity } from '../../../departments/domain/entities/department.entity';
 
 // Repositories
 import { VEHICLE_ACCESS_REPOSITORY } from '../../domain/repositories/vehicle-access.repository';
 import { VEHICLE_REPOSITORY } from '../../../vehicles/domain/repositories/vehicle.repository';
+import { DEPARTMENT_REPOSITORY } from '../../../departments/domain/repositories/department.repository';
 import { USER_REPOSITORY } from '../../../users/domain/repositories/user.repository';
 import { ENTRANCE_REPOSITORY } from '../../../entrances/domain/repositories/entrance.repository';
 
@@ -62,7 +65,14 @@ describe('RegisterExitUseCase', () => {
 
   const vehicleRepoMock = {
     findByPlateAndCompanyId: jest.fn(),
-  } as jest.Mocked<Pick<VehicleRepository, 'findByPlateAndCompanyId'>>;
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<
+    Pick<VehicleRepository, 'findByPlateAndCompanyId' | 'findByIdAndCompanyId'>
+  >;
+
+  const departmentRepoMock = {
+    findByIdAndCompanyId: jest.fn(),
+  } as jest.Mocked<Pick<DepartmentRepository, 'findByIdAndCompanyId'>>;
 
   const userRepoMock = {
     findById: jest.fn(),
@@ -159,6 +169,7 @@ describe('RegisterExitUseCase', () => {
         RegisterExitUseCase,
         { provide: VEHICLE_ACCESS_REPOSITORY, useValue: accessRepoMock },
         { provide: VEHICLE_REPOSITORY, useValue: vehicleRepoMock },
+        { provide: DEPARTMENT_REPOSITORY, useValue: departmentRepoMock },
         { provide: USER_REPOSITORY, useValue: userRepoMock },
         { provide: ENTRANCE_REPOSITORY, useValue: entranceRepoMock },
       ],
@@ -455,5 +466,62 @@ describe('RegisterExitUseCase', () => {
     expect(result.closedAccesses).toEqual([]);
     expect(result.noExit?.access.status).toBe(AccessStatus.NO_EXIT);
     expect(accessRepoMock.createNoExit).not.toHaveBeenCalled();
+  });
+
+  it('devolve a ficha (condutor, setor e veículo) nos acessos encerrados', async () => {
+    const department: DepartmentEntity = {
+      id: '50000000-0000-0000-0000-000000000001',
+      companyId: actor.companyId,
+      name: 'Recepção',
+      description: null,
+      parkingSpace: 10,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const driver: UserEntity = {
+      id: '30000000-0000-0000-0000-000000000030',
+      name: 'Ana Motorista',
+      email: 'ana@somar.local',
+      passwordHash: 'hash',
+      phone: '11999991111',
+      document: null,
+      photoUrl: null,
+      lastLoginAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    vehicleRepoMock.findByPlateAndCompanyId.mockResolvedValue(vehicle);
+    vehicleRepoMock.findByIdAndCompanyId.mockResolvedValue(vehicle);
+    departmentRepoMock.findByIdAndCompanyId.mockResolvedValue(department);
+    userRepoMock.findById.mockResolvedValue(driver);
+    accessRepoMock.findOpenByVehicleIdAndCompanyId.mockResolvedValue([
+      { ...open, driverUserId: driver.id, departmentId: department.id },
+    ]);
+    accessRepoMock.findOpenByTemporaryPlateAndCompanyId.mockResolvedValue([]);
+    accessRepoMock.closeOpenAndCreateExitMovements.mockResolvedValue([
+      {
+        access: {
+          ...open,
+          driverUserId: driver.id,
+          departmentId: department.id,
+          status: AccessStatus.OUT,
+          exitAt: new Date(),
+        },
+        movement: exitMovement,
+      },
+    ]);
+
+    const result = await useCase.execute(
+      actor,
+      new RegisterExitInputDto('ABC1D23'),
+    );
+
+    expect(result.closedAccesses[0]).toMatchObject({
+      driver: { id: driver.id, name: 'Ana Motorista', phone: '11999991111' },
+      departmentName: 'Recepção',
+      vehicle: { id: vehicle.id, plate: vehicle.plate },
+    });
   });
 });
