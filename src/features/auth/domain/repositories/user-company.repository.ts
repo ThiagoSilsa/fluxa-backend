@@ -40,7 +40,11 @@ export interface UserCompanyWithUserEntity {
  * Filtros de listagem de usuários da empresa (feature `users`).
  */
 export interface ListUsersRepositoryFilters {
-  /** Busca por nome ou e-mail (parcial, case-insensitive). */
+  /**
+   * Busca parcial por **nome**, **e-mail**, **telefone** e **documento**
+   * (case-insensitive; telefone/documento são comparados por dígitos, para
+   * aceitar busca com ou sem máscara).
+   */
   search?: string;
   /** Filtro por tipo no vínculo. */
   type?: UserType;
