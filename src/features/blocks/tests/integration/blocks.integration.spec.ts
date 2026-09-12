@@ -17,6 +17,7 @@ describe('Blocks integration — bloqueios, impedimentos e solicitações (Testc
   let outroPorteiroToken: string;
   let vehicleBlockId: string;
   let blockRequestId: string;
+  let entranceId: string;
 
   beforeAll(async () => {
     context = await createBlocksIntegrationContext();
@@ -40,6 +41,14 @@ describe('Blocks integration — bloqueios, impedimentos e solicitações (Testc
       'porteiros@teste.local',
       BLOCKS_SEEDED.ADMIN_PASSWORD,
     );
+
+    // Portaria do device (impedimento manual grava o entrance_id).
+    const entranceRes = await request(context.httpServer)
+      .post('/entrances')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Portaria Principal' })
+      .expect(201);
+    entranceId = entranceRes.body.id;
   });
 
   afterAll(async () => {
@@ -239,6 +248,96 @@ describe('Blocks integration — bloqueios, impedimentos e solicitações (Testc
         .set('Authorization', `Bearer ${porteiroToken}`)
         .send({ plate: 'ABC1D23', reason: 'INVALIDO' })
         .expect(400);
+    });
+
+    it('exige observação quando o motivo é OTHER', async () => {
+      await request(context.httpServer)
+        .post('/entry-denials')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({ plate: 'ABC1D23', reason: 'OTHER' })
+        .expect(400);
+    });
+
+    it('grava a portaria do device no impedimento', async () => {
+      const res = await request(context.httpServer)
+        .post('/entry-denials')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({ plate: 'ABC1D23', reason: 'OVERDUE', entranceId })
+        .expect(201);
+
+      expect(res.body.blockRequest).toBeNull();
+      expect(res.body.blockRequestError).toBeNull();
+
+      const rows = await context.dataSource.query(
+        `SELECT "entrance_id" FROM "entry_denial" WHERE "id" = $1`,
+        [res.body.id],
+      );
+      expect(rows[0].entrance_id).toBe(entranceId);
+    });
+
+    it('devolve 400 para portaria inativa', async () => {
+      const inactive = await request(context.httpServer)
+        .post('/entrances')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'Portaria Desativada' })
+        .expect(201);
+      await request(context.httpServer)
+        .patch(`/entrances/${inactive.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isActive: false })
+        .expect(200);
+
+      await request(context.httpServer)
+        .post('/entry-denials')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'ABC1D23',
+          reason: 'UNREGISTERED',
+          entranceId: inactive.body.id,
+        })
+        .expect(400);
+    });
+
+    it('cria o pedido de bloqueio junto com o impedimento (requestBlock)', async () => {
+      const res = await request(context.httpServer)
+        .post('/entry-denials')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'DEN1A23',
+          reason: 'UNREGISTERED',
+          observation: 'Placa desconhecida reincidente',
+          requestBlock: true,
+          entranceId,
+        })
+        .expect(201);
+
+      expect(res.body).toMatchObject({
+        plateSnapshot: 'DEN1A23',
+        blockRequest: { plate: 'DEN1A23', status: 'PENDING' },
+        blockRequestError: null,
+      });
+
+      const list = await request(context.httpServer)
+        .get('/block-requests?status=PENDING')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(
+        list.body.data.some(
+          (item: { id: string }) => item.id === res.body.blockRequest.id,
+        ),
+      ).toBe(true);
+    });
+
+    it('mantém o impedimento quando o pedido de bloqueio já existe (pendente duplicado)', async () => {
+      const res = await request(context.httpServer)
+        .post('/entry-denials')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({ plate: 'DEN1A23', reason: 'UNREGISTERED', requestBlock: true })
+        .expect(201);
+
+      expect(res.body.plateSnapshot).toBe('DEN1A23');
+      expect(res.body.blockRequest).toBeNull();
+      expect(res.body.blockRequestError).toMatch(/já existe/i);
     });
   });
 

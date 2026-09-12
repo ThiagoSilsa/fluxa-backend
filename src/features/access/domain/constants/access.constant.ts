@@ -38,6 +38,16 @@ export enum AccessStatus {
 }
 
 /**
+ * Tipo de registro no feed da portaria (ADR 0015): entradas e saídas vêm do
+ * ledger `vehicle_movement`; impedimentos do ledger `entry_denial`.
+ */
+export enum AccessRecordKind {
+  ENTRY = 'ENTRY',
+  EXIT = 'EXIT',
+  DENIAL = 'DENIAL',
+}
+
+/**
  * Status de sincronização offline (enum `sync_status` — migration `0003`).
  * `SYNCED` = criado/confirmado no servidor (web).
  */

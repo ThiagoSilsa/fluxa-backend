@@ -96,13 +96,29 @@ export function ApiRegisterEntryDenial(): MethodDecorator {
     ApiOperation({
       summary: 'Registra um impedimento de entrada (ledger)',
       description:
-        'Exige REGISTER_DENIAL. Ledger append-only (nunca alterado). No access core o impedimento é registrado automaticamente ao negar (ADR 0010 §3); aqui é o registro manual.',
+        'Exige REGISTER_DENIAL. Ledger append-only (nunca alterado). Resolve o veículo pela placa e grava a portaria do device; `OTHER` exige observação. Com `requestBlock = true` (desmarcado por padrão) cria também o `block_request` — exige CREATE_BLOCK_REQUEST; se o pedido falhar (ex.: pendente duplicado), o impedimento permanece e o motivo vem em `blockRequestError`. No access core o impedimento é registrado automaticamente ao negar (ADR 0010 §3); aqui é o registro manual (regras 51-53, ADR 0014 §6).',
     }),
     ApiBody({ type: RegisterEntryDenialDto }),
-    ApiResponse({ status: 201, description: 'Impedimento registrado.' }),
-    ApiResponse({ status: 400, description: 'Validação.' }),
+    ApiResponse({
+      status: 201,
+      description:
+        'Impedimento registrado (+ `blockRequest` quando pedido, ou `blockRequestError`).',
+    }),
+    ApiResponse({
+      status: 400,
+      description:
+        'Validação (placa, observação ausente em OTHER, portaria inativa).',
+    }),
     ApiResponse({ status: 401, description: 'Não autenticado.' }),
-    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+    ApiResponse({
+      status: 403,
+      description:
+        'Sem REGISTER_DENIAL ou pedido de bloqueio sem CREATE_BLOCK_REQUEST.',
+    }),
+    ApiResponse({
+      status: 404,
+      description: 'Bloqueio ou portaria informados não encontrados.',
+    }),
   );
 }
 

@@ -14,11 +14,17 @@ export class RegisterEntryDenialInputDto {
     readonly plate: string,
     /** Motivo do impedimento. */
     readonly reason: EntryDenialReason,
-    /** Observação livre do porteiro. */
+    /** Observação livre do porteiro (obrigatória em `OTHER`). */
     readonly observation?: string,
     /** Bloqueio que motivou (se houver). */
     readonly blockId?: string,
     /** Veículo envolvido (resolvido da placa quando cadastrado). */
     readonly vehicleId?: string,
+    /** Portaria do device que impediu (M4 — validada ativa na empresa). */
+    readonly entranceId?: string,
+    /** Pede o bloqueio do veículo no mesmo fluxo (desmarcado por padrão). */
+    readonly requestBlock: boolean = false,
+    /** Motivo da solicitação de bloqueio (default: a observação). */
+    readonly blockReason?: string,
   ) {}
 }

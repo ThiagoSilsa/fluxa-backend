@@ -29,12 +29,14 @@ import type { AuthenticatedUserEntity } from '../../../../auth/domain/entities/a
 // DTOs (apresentação)
 import { GetAccessContextQueryDto } from '../dto/get-access-context.query.dto';
 import { GetOpenAccessQueryDto } from '../dto/get-open-access.query.dto';
+import { ListAccessRecordsQueryDto } from '../dto/list-access-records.query.dto';
 import { RegisterEntryDto } from '../dto/register-entry.dto';
 import { RegisterExitDto } from '../dto/register-exit.dto';
 
 // DTOs (aplicação)
 import { GetAccessContextInputDto } from '../../../application/dto/get-access-context-input.dto';
 import { GetOpenAccessInputDto } from '../../../application/dto/get-open-access-input.dto';
+import { ListAccessRecordsInputDto } from '../../../application/dto/list-access-records-input.dto';
 import { RegisterEntryInputDto } from '../../../application/dto/register-entry-input.dto';
 import { RegisterEntryRequestInputDto } from '../../../application/dto/register-entry-request-input.dto';
 import { RegisterExitInputDto } from '../../../application/dto/register-exit-input.dto';
@@ -43,11 +45,13 @@ import { RegisterExitInputDto } from '../../../application/dto/register-exit-inp
 import { GetAccessContextUseCase } from '../../../application/use-cases/get-access-context.use-case';
 import { GetOccupancyUseCase } from '../../../application/use-cases/get-occupancy.use-case';
 import { GetOpenAccessUseCase } from '../../../application/use-cases/get-open-access.use-case';
+import { ListAccessRecordsUseCase } from '../../../application/use-cases/list-access-records.use-case';
 import { RegisterEntryUseCase } from '../../../application/use-cases/register-entry.use-case';
 import { RegisterExitUseCase } from '../../../application/use-cases/register-exit.use-case';
 
 // Types de resposta
 import type { AccessContextResponse } from '../../../application/dto/access-context-response';
+import type { ListAccessRecordsResponse } from '../../../application/dto/access-record-response';
 import type {
   AccessEntryResponse,
   AccessExitResponse,
@@ -60,18 +64,19 @@ import {
   ApiGetAccessContext,
   ApiGetOccupancy,
   ApiGetOpenAccess,
+  ApiListAccessRecords,
   ApiRegisterEntry,
   ApiRegisterExit,
 } from '../../../decorators/api-access.decorator';
 
 /**
  * Núcleo de acesso (ADR 0010 §6) — contexto/veredito, entrada, saída,
- * conferência e ocupação.
+ * conferência, ocupação e o feed de registros da portaria (ADR 0015).
  *
- * Permissões por método: contexto (ficha da portaria) aceita
- * `REGISTER_ENTRY` **ou** `REGISTER_EXIT` **ou** `REGISTER_DENIAL` (OR);
- * entrada exige `REGISTER_ENTRY`; saída/conferência exige `REGISTER_EXIT`;
- * ocupação exige `VIEW_DASHBOARDS`.
+ * Permissões por método: contexto e feed aceitam `REGISTER_ENTRY` **ou**
+ * `REGISTER_EXIT` **ou** `REGISTER_DENIAL` (OR); entrada exige
+ * `REGISTER_ENTRY`; saída/conferência exige `REGISTER_EXIT`; ocupação exige
+ * `VIEW_DASHBOARDS`.
  */
 @Controller('access')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -82,6 +87,7 @@ export class AccessController {
     private readonly getOpenAccessUseCase: GetOpenAccessUseCase,
     private readonly getOccupancyUseCase: GetOccupancyUseCase,
     private readonly getAccessContextUseCase: GetAccessContextUseCase,
+    private readonly listAccessRecordsUseCase: ListAccessRecordsUseCase,
   ) {}
 
   @Get('context')
@@ -103,6 +109,33 @@ export class AccessController {
         query.search,
         query.departmentId,
         query.driverUserId,
+      ),
+    );
+  }
+
+  @Get('records')
+  @UseGuards(AnyPermissionsGuard)
+  @RequireAnyPermission(
+    PermissionCode.REGISTER_ENTRY,
+    PermissionCode.REGISTER_EXIT,
+    PermissionCode.REGISTER_DENIAL,
+  )
+  @ApiListAccessRecords()
+  public listAccessRecords(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: ListAccessRecordsQueryDto,
+  ): Promise<ListAccessRecordsResponse> {
+    return this.listAccessRecordsUseCase.execute(
+      this.requireUser(request),
+      new ListAccessRecordsInputDto(
+        query.kind,
+        query.plate,
+        query.dateFrom ? new Date(query.dateFrom) : undefined,
+        query.dateTo ? new Date(query.dateTo) : undefined,
+        query.entranceId,
+        query.doormanId,
+        query.limit,
+        query.offset,
       ),
     );
   }

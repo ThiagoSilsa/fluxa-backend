@@ -19,6 +19,7 @@ import { UniqueUserRolePerUserCompany1760000000008 } from '../../../../../shared
 import { DropUserObservation1760000000009 } from '../../../../../shared/database/typeorm/migrations/0010-drop-user-observation';
 import { UserCredentialsNullable1760000000011 } from '../../../../../shared/database/typeorm/migrations/0012-user-credentials-nullable';
 import { AddAccessRequestUserType1760000000012 } from '../../../../../shared/database/typeorm/migrations/0013-access-request-user-type';
+import { AddEntryDenialReasonOverdue1760000000013 } from '../../../../../shared/database/typeorm/migrations/0014-entry-denial-reason-overdue';
 
 // Seeds
 import { SeedInitialPermissions1760001000000 } from '../../../../../shared/database/typeorm/seeds/0001-seed-initial-permissions';
@@ -97,6 +98,7 @@ export async function createVehiclesIntegrationContext(): Promise<VehiclesIntegr
       DropUserObservation1760000000009,
       UserCredentialsNullable1760000000011,
       AddAccessRequestUserType1760000000012,
+      AddEntryDenialReasonOverdue1760000000013,
       SeedInitialPermissions1760001000000,
       SeedDefaultCompanyRolesAdminVehicleTypes1760001000001,
     ],

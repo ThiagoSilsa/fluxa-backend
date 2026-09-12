@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 // Modules
 import { AuthModule } from '../auth/auth.module';
+import { EntrancesModule } from '../entrances/entrances.module';
 import { UsersModule } from '../users/users.module';
 import { VehiclesModule } from '../vehicles/vehicles.module';
 
@@ -40,15 +41,17 @@ import { EntryDenialsController } from './presentation/http/controllers/entry-de
  * Módulo de bloqueios e impedimentos (ADR 0010 — M1).
  *
  * Importa `AuthModule` (guards), `UsersModule` (`USER_REPOSITORY` para nomes de
- * atores) e `VehiclesModule` (`VEHICLE_REPOSITORY` para resolver placa →
- * veículo e `VehicleOrmEntity` para manter `is_blocked` na transação). **Sem
- * ciclo**: vehicles/users não importam blocks.
+ * atores), `VehiclesModule` (`VEHICLE_REPOSITORY` para resolver placa →
+ * veículo e `VehicleOrmEntity` para manter `is_blocked` na transação) e
+ * `EntrancesModule` (`ENTRANCE_REPOSITORY` — portaria do device no impedimento
+ * manual). **Sem ciclo**: vehicles/users/entrances não importam blocks.
  */
 @Module({
   imports: [
     AuthModule,
     UsersModule,
     VehiclesModule,
+    EntrancesModule,
     TypeOrmModule.forFeature([
       VehicleBlockOrmEntity,
       EntryDenialOrmEntity,

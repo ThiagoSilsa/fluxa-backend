@@ -147,6 +147,57 @@ export function ApiGetAccessContext(): MethodDecorator {
   );
 }
 
+export function ApiListAccessRecords(): MethodDecorator {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary:
+        'Feed de registros da portaria (entradas, saídas e impedimentos)',
+      description:
+        'Exige REGISTER_ENTRY, REGISTER_EXIT ou REGISTER_DENIAL (OR). Une os ledgers `vehicle_movement` (ENTRY/EXIT) e `entry_denial` (DENIAL) em uma linha do tempo, mais recente primeiro, com nomes resolvidos (veículo, departamento, portaria, porteiro e condutor). Sem janela de tempo padrão; `parameters.entrances` alimenta o filtro de portaria (ADR 0015).',
+    }),
+    ApiQuery({
+      name: 'kind',
+      description: 'Tipo do registro: ENTRY, EXIT ou DENIAL.',
+      required: false,
+    }),
+    ApiQuery({
+      name: 'plate',
+      description: 'Placa (parcial).',
+      required: false,
+    }),
+    ApiQuery({
+      name: 'dateFrom',
+      description: 'Início do período (ISO).',
+      required: false,
+    }),
+    ApiQuery({
+      name: 'dateTo',
+      description: 'Fim do período (ISO).',
+      required: false,
+    }),
+    ApiQuery({ name: 'entranceId', description: 'Portaria.', required: false }),
+    ApiQuery({
+      name: 'doormanId',
+      description: 'Porteiro que registrou.',
+      required: false,
+    }),
+    ApiQuery({
+      name: 'limit',
+      description: '1..100 (default 20).',
+      required: false,
+    }),
+    ApiQuery({ name: 'offset', description: 'Default 0.', required: false }),
+    ApiResponse({
+      status: 200,
+      description: 'Página do feed + `parameters.entrances`.',
+    }),
+    ApiResponse({ status: 400, description: 'Validação dos filtros.' }),
+    ApiResponse({ status: 401, description: 'Não autenticado.' }),
+    ApiResponse({ status: 403, description: 'Permissão insuficiente.' }),
+  );
+}
+
 export function ApiGetOccupancy(): MethodDecorator {
   return applyDecorators(
     ApiBearerAuth(),

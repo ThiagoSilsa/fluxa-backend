@@ -32,7 +32,7 @@ import { RegisterEntryDenialInputDto } from '../../../application/dto/register-e
 import { RegisterEntryDenialUseCase } from '../../../application/use-cases/register-entry-denial.use-case';
 
 // Types de resposta
-import type { EntryDenialResponse } from '../../../application/dto/entry-denial-response';
+import type { RegisterEntryDenialResponse } from '../../../application/dto/entry-denial-response';
 
 // Decorators Swagger da feature
 import { ApiRegisterEntryDenial } from '../../../decorators/api-blocks.decorator';
@@ -56,10 +56,19 @@ export class EntryDenialsController {
   public registerEntryDenial(
     @Req() request: AuthenticatedRequest,
     @Body() dto: RegisterEntryDenialDto,
-  ): Promise<EntryDenialResponse> {
+  ): Promise<RegisterEntryDenialResponse> {
     return this.registerEntryDenialUseCase.execute(
       this.requireUser(request),
-      new RegisterEntryDenialInputDto(dto.plate, dto.reason, dto.observation),
+      new RegisterEntryDenialInputDto(
+        dto.plate,
+        dto.reason,
+        dto.observation,
+        dto.blockId,
+        dto.vehicleId,
+        dto.entranceId,
+        dto.requestBlock ?? false,
+        dto.blockReason,
+      ),
     );
   }
 
