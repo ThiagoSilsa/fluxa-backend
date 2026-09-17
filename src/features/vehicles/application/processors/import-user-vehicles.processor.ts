@@ -117,6 +117,9 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
         errorCount: 0,
         completedAt: new Date(),
       });
+
+      // Job concluído: o arquivo temporário não é mais necessário.
+      this.cleanupTempFile(filePath);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Erro desconhecido';
@@ -134,9 +137,18 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
           completedAt: new Date(),
         },
       );
+      // Com retry pendente o arquivo temporário precisa continuar no disco: a
+      // próxima tentativa relê o XLSX. Sem retry, remove (o erro real já ficou
+      // registrado no job).
+      if (this.isLastAttempt(job)) {
+        this.cleanupTempFile(filePath);
+      } else {
+        this.logger.warn(
+          `Job ${jobId} será reprocessado; arquivo temporário mantido em ${filePath}.`,
+        );
+      }
+
       throw error;
-    } finally {
-      this.cleanupTempFile(filePath);
     }
   }
 
@@ -286,7 +298,23 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
   }
 
   /**
-   * Remove o diretório temporário do arquivo (chamado em `finally`).
+   * Indica se a tentativa atual é a última do job.
+   *
+   * `attemptsMade` conta as tentativas já encerradas (BullMQ incrementa a cada
+   * falha), então o processamento em curso é o de índice `attemptsMade + 1`.
+   * Enquanto houver retry, o arquivo temporário precisa continuar no disco.
+   *
+   * @param job Job em processamento.
+   * @returns `true` quando o BullMQ não vai reprocessar este job.
+   */
+  private isLastAttempt(job: Job<ImportUserVehiclesJobData>): boolean {
+    const attempts = job.opts?.attempts ?? 1;
+    return (job.attemptsMade ?? 0) + 1 >= attempts;
+  }
+
+  /**
+   * Remove o diretório temporário do arquivo (ao concluir o job ou na última
+   * tentativa).
    *
    * @param filePath Caminho do arquivo temporário.
    */

@@ -1,6 +1,6 @@
 // Node
-import { readdirSync, readFileSync, relative, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
 // TypeScript
 import ts from 'typescript';

@@ -1,33 +1,14 @@
 // NestJS
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 
-// App
-import { AppModule } from '../../../../../app.module';
-
-// Migrations
-import { CreateInitialMultiTenantRbacSchema1760000000000 } from '../../../../../shared/database/typeorm/migrations/0001-create-initial-multi-tenant-rbac-schema';
-import { CreateVehicleCatalogSchema1760000000001 } from '../../../../../shared/database/typeorm/migrations/0002-create-vehicle-catalog-schema';
-import { CreateAccessAndBlockSchema1760000000002 } from '../../../../../shared/database/typeorm/migrations/0003-create-access-and-block-schema';
-import { CreateMovementAndOccupancySchema1760000000003 } from '../../../../../shared/database/typeorm/migrations/0004-create-movement-and-occupancy-schema';
-import { CreateRequestDeviceImportSchema1760000000004 } from '../../../../../shared/database/typeorm/migrations/0005-create-request-device-import-schema';
-import { CreateUserCompanySchema1760000000005 } from '../../../../../shared/database/typeorm/migrations/0006-create-user-company-schema';
-import { AddLastLoginAtToUser1760000000007 } from '../../../../../shared/database/typeorm/migrations/0008-add-last-login-at-to-user';
-import { UniqueUserRolePerUserCompany1760000000008 } from '../../../../../shared/database/typeorm/migrations/0009-unique-user-role-per-user-company';
-import { DropUserObservation1760000000009 } from '../../../../../shared/database/typeorm/migrations/0010-drop-user-observation';
-import { UserCredentialsNullable1760000000011 } from '../../../../../shared/database/typeorm/migrations/0012-user-credentials-nullable';
-import { AddAccessRequestUserType1760000000012 } from '../../../../../shared/database/typeorm/migrations/0013-access-request-user-type';
-import { AddEntryDenialReasonOverdue1760000000013 } from '../../../../../shared/database/typeorm/migrations/0014-entry-denial-reason-overdue';
-
-// Seeds
-import { SeedInitialPermissions1760001000000 } from '../../../../../shared/database/typeorm/seeds/0001-seed-initial-permissions';
-import { SeedDefaultCompanyRolesAdminVehicleTypes1760001000001 } from '../../../../../shared/database/typeorm/seeds/0002-seed-default-company-roles-admin-vehicle-types';
-
 // Test support
+import { createIntegrationApp } from '../../../../../test/support/integration-app';
 import { createLoginAndGetToken } from '../../../../../test/support/login-and-get-token';
+import { createIntegrationDataSource } from '../../../../../test/support/integration-data-source';
 import { PostgresTestContainer } from '../../../../../test/support/postgres-test-container';
+import { RedisTestContainer } from '../../../../../test/support/redis-test-container';
 import { resetThrottle } from '../../../../../test/support/reset-throttle';
 
 // Auth (dados seedados compartilhados)
@@ -77,43 +58,21 @@ export async function createUsersIntegrationContext(): Promise<UsersIntegrationC
   const container = new PostgresTestContainer();
   await container.start();
 
+  // Redis próprio: sem ele os workers de importação do `AppModule` conectariam
+  // no Redis herdado de outra suíte e consumiriam job alheio (o banco daqui
+  // pode nem ter a coluna que o worker grava).
+  const redis = new RedisTestContainer();
+  await redis.start();
+
   process.env.JWT_SECRET = 'integration-test-secret';
   process.env.JWT_EXPIRES_IN = '28800s';
   process.env.ADMIN_DEFAULT_PASSWORD = AUTH_SEEDED.ADMIN_PASSWORD;
 
-  const dataSource = new DataSource({
-    type: 'postgres',
-    host: process.env.DB_HOST ?? 'localhost',
-    port: parseInt(process.env.DB_PORT ?? '5432', 10),
-    username: process.env.DB_USERNAME ?? 'postgres',
-    password: process.env.DB_PASSWORD ?? 'postgres',
-    database: process.env.DB_NAME ?? 'postgres',
-    synchronize: false,
-    migrations: [
-      CreateInitialMultiTenantRbacSchema1760000000000,
-      CreateVehicleCatalogSchema1760000000001,
-      CreateAccessAndBlockSchema1760000000002,
-      CreateMovementAndOccupancySchema1760000000003,
-      CreateRequestDeviceImportSchema1760000000004,
-      CreateUserCompanySchema1760000000005,
-      AddLastLoginAtToUser1760000000007,
-      UniqueUserRolePerUserCompany1760000000008,
-      DropUserObservation1760000000009,
-      UserCredentialsNullable1760000000011,
-      AddAccessRequestUserType1760000000012,
-      AddEntryDenialReasonOverdue1760000000013,
-      SeedInitialPermissions1760001000000,
-      SeedDefaultCompanyRolesAdminVehicleTypes1760001000001,
-    ],
-  });
+  const dataSource = createIntegrationDataSource();
   await dataSource.initialize();
   await dataSource.runMigrations();
 
-  const moduleFixture: TestingModule = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
-  const app = moduleFixture.createNestApplication();
-  await app.init();
+  const { app, moduleFixture } = await createIntegrationApp();
 
   return {
     app,
@@ -137,6 +96,7 @@ export async function createUsersIntegrationContext(): Promise<UsersIntegrationC
         await dataSource.destroy();
       }
       await container.stop();
+      await redis.stop();
     },
   };
 }

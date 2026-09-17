@@ -63,6 +63,7 @@ describe('ImportUserVehiclesProcessor', () => {
 
   async function buildJob(
     rows: unknown[][],
+    attempt: { attemptsMade?: number; attempts?: number } = {},
   ): Promise<Job<ImportUserVehiclesJobData>> {
     const filePath = path.join(tempDir, 'vinculos.xlsx');
     await writeXlsxFile(filePath, DATA_SHEET, rows);
@@ -74,8 +75,46 @@ describe('ImportUserVehiclesProcessor', () => {
         filePath,
         totalRows: rows.length - 1,
       },
+      attemptsMade: attempt.attemptsMade ?? 0,
+      opts: { attempts: attempt.attempts ?? 1 },
     } as Job<ImportUserVehiclesJobData>;
   }
+
+  it('mantém o diretório temporário quando ainda houver retry', async () => {
+    const job = await buildJob(
+      [
+        ['email', 'plate'],
+        ['a@x.com', 'ABC1234'],
+      ],
+      {
+        attempts: 2,
+      },
+    );
+    // Simula a falha: sem o arquivo em disco o job falha e será reprocessado.
+    fs.rmSync(job.data.filePath);
+
+    await expect(processor.process(job)).rejects.toBeTruthy();
+
+    expect(fs.existsSync(path.dirname(job.data.filePath))).toBe(true);
+  });
+
+  it('remove o diretório temporário na última tentativa', async () => {
+    const job = await buildJob(
+      [
+        ['email', 'plate'],
+        ['a@x.com', 'ABC1234'],
+      ],
+      {
+        attemptsMade: 1,
+        attempts: 2,
+      },
+    );
+    fs.rmSync(job.data.filePath);
+
+    await expect(processor.process(job)).rejects.toBeTruthy();
+
+    expect(fs.existsSync(path.dirname(job.data.filePath))).toBe(false);
+  });
 
   function mockResolvedReferences(): void {
     vehicleRepoMock.findByPlatesAndCompanyId.mockResolvedValue([

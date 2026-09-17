@@ -2,13 +2,16 @@
 import { BadRequestException } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 
+// Constants
+import { ValidationRule } from '../constants/validation-rule.constant';
+
+// Pipes
+import { declaredValidationException } from '../pipes/validation-exception.factory';
+
 /**
  * Nome da aba fixa que contém os dados (linha 1 = cabeçalho) — ADR 0007 §4.
  */
 export const DATA_SHEET = 'data';
-
-/** Mensagem estável quando a aba `data` não existe no XLSX. */
-export const SHEET_NOT_FOUND_MESSAGE = `Planilha "${DATA_SHEET}" não encontrada no arquivo XLSX.`;
 
 /** Origem do arquivo: buffer (upload) ou caminho em disco (worker). */
 export type SheetSource = { buffer: Buffer } | { filePath: string };
@@ -52,14 +55,27 @@ function cellToText(value: ExcelJS.CellValue, header: string): string {
     if ('text' in value) return String(value.text);
     // Célula de erro
     if ('error' in value) {
-      throw new BadRequestException(
-        `Valor inválido encontrado na coluna "${header}".`,
-      );
+      throw invalidCellException(header);
     }
   }
 
-  throw new BadRequestException(
+  throw invalidCellException(header);
+}
+
+/**
+ * Exceção de célula que não pôde ser lida (célula de erro ou tipo inesperado).
+ *
+ * O código é **estável** — a coluna vai em `details`, não dentro do texto:
+ * interpolar o cabeçalho faria o código derivado mudar a cada planilha e chegar
+ * ao cliente como genérico (ADR 0016 §4).
+ *
+ * @param header Cabeçalho da coluna da célula.
+ * @returns Exceção 400 com a violação declarada.
+ */
+function invalidCellException(header: string): BadRequestException {
+  return declaredValidationException(
     `Valor inválido encontrado na coluna "${header}".`,
+    [{ field: header, code: ValidationRule.INVALID_VALUE, params: {} }],
   );
 }
 
@@ -91,7 +107,13 @@ export async function readSheetAsRows(
 
   const sheet = workbook.getWorksheet(sheetName);
   if (!sheet) {
-    throw new BadRequestException(SHEET_NOT_FOUND_MESSAGE);
+    // A mensagem fica **literal no `throw`** de propósito: é dela que o gerador
+    // do catálogo do cliente deriva o código (ADR 0016 §2). Uma constante ou um
+    // template com interpolação passa despercebido e o código chega ao cliente
+    // sem tradução.
+    throw new BadRequestException(
+      'Planilha "data" não encontrada no arquivo XLSX.',
+    );
   }
 
   const headerRow = sheet.getRow(1);

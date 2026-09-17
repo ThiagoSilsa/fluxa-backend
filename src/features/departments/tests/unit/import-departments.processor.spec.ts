@@ -48,6 +48,7 @@ describe('ImportDepartmentsProcessor', () => {
 
   async function buildJob(
     rows: unknown[][],
+    attempt: { attemptsMade?: number; attempts?: number } = {},
   ): Promise<Job<ImportDepartmentsJobData>> {
     const filePath = path.join(tempDir, 'departamentos.xlsx');
     await writeXlsxFile(filePath, DATA_SHEET, rows);
@@ -59,8 +60,46 @@ describe('ImportDepartmentsProcessor', () => {
         filePath,
         totalRows: rows.length - 1,
       },
+      attemptsMade: attempt.attemptsMade ?? 0,
+      opts: { attempts: attempt.attempts ?? 1 },
     } as Job<ImportDepartmentsJobData>;
   }
+
+  it('mantém o diretório temporário quando ainda houver retry', async () => {
+    const job = await buildJob(
+      [
+        ['name', 'parkingSpace'],
+        ['Recepção', 10],
+      ],
+      {
+        attempts: 2,
+      },
+    );
+    // Simula a falha: sem o arquivo em disco o job falha e será reprocessado.
+    fs.rmSync(job.data.filePath);
+
+    await expect(processor.process(job)).rejects.toBeTruthy();
+
+    expect(fs.existsSync(path.dirname(job.data.filePath))).toBe(true);
+  });
+
+  it('remove o diretório temporário na última tentativa', async () => {
+    const job = await buildJob(
+      [
+        ['name', 'parkingSpace'],
+        ['Recepção', 10],
+      ],
+      {
+        attemptsMade: 1,
+        attempts: 2,
+      },
+    );
+    fs.rmSync(job.data.filePath);
+
+    await expect(processor.process(job)).rejects.toBeTruthy();
+
+    expect(fs.existsSync(path.dirname(job.data.filePath))).toBe(false);
+  });
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -247,7 +286,7 @@ describe('ImportDepartmentsProcessor', () => {
     );
   });
 
-  it('remove o arquivo temporário no finally', async () => {
+  it('remove o diretório temporário no sucesso', async () => {
     const job = await buildJob([
       ['name', 'parkingSpace'],
       ['Recepção', 10],
