@@ -814,4 +814,54 @@ describe('Access requests integration — solicitações de acesso (Testcontaine
       expect(res.body.id).toBe(deOutroRequestId);
     });
   });
+
+  describe('Validação de DTO estruturada (ADR 0016 §4)', () => {
+    it('responde 400 com campo, regra e parâmetros no idioma do contrato', async () => {
+      const res = await request(context.httpServer)
+        .post('/access-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({ plate: 'A'.repeat(11), type: 'NOPE' })
+        .expect(400);
+
+      expect(res.body.statusCode).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.message.length).toBeGreaterThan(0);
+      expect(res.body.details).toEqual([
+        {
+          field: 'plate',
+          code: 'MAX_LENGTH',
+          params: { max: 10 },
+        },
+        {
+          field: 'type',
+          code: 'INVALID_VALUE',
+          params: {
+            values: expect.arrayContaining(['NEW_USER', 'NEW_VEHICLE']),
+          },
+        },
+      ]);
+    });
+
+    it('reporta o campo aninhado com o caminho pontuado', async () => {
+      const res = await request(context.httpServer)
+        .post('/access-requests')
+        .set('Authorization', `Bearer ${porteiroToken}`)
+        .send({
+          plate: 'NST1A23',
+          type: 'NEW_USER',
+          payload: { driver: { email: 'x'.repeat(300) } },
+        })
+        .expect(400);
+
+      expect(res.body.details).toEqual(
+        expect.arrayContaining([
+          {
+            field: 'payload.driver.email',
+            code: 'MAX_LENGTH',
+            params: { max: 255 },
+          },
+        ]),
+      );
+    });
+  });
 });

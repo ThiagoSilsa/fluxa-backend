@@ -2,12 +2,7 @@
 import * as fs from 'node:fs';
 
 // NestJS
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 
@@ -32,6 +27,7 @@ import type { VehicleRepository } from '../../domain/repositories/vehicle.reposi
 // Imports (feature genérica)
 import { IMPORT_JOB_REPOSITORY } from '../../../imports/domain/repositories/import-job.repository';
 import { ImportJobStatus } from '../../../imports/domain/constants/import-job.constant';
+import { ImportRowError } from '../../../imports/domain/errors/import-row.error';
 import type { ImportJobRepository } from '../../../imports/domain/repositories/import-job.repository';
 
 // DTOs
@@ -86,14 +82,24 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
       try {
         records = await readSheetAsRows({ filePath });
       } catch (error) {
-        if (error instanceof BadRequestException) {
+        if (error instanceof ImportRowError) {
           throw error;
         }
-        throw new BadRequestException('Erro ao ler o arquivo XLSX do disco.');
+        throw new ImportRowError(
+          'SPREADSHEET_READ_ERROR',
+          {},
+          error instanceof Error
+            ? error.message
+            : 'Erro ao ler o arquivo XLSX do disco.',
+        );
       }
 
       if (records.length === 0) {
-        throw new BadRequestException('A planilha está vazia.');
+        throw new ImportRowError(
+          'SPREADSHEET_EMPTY',
+          {},
+          'A planilha está vazia.',
+        );
       }
 
       const inputs = await this.buildCreateInputs(records, companyId);
@@ -114,6 +120,7 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Erro desconhecido';
+      const rowError = error instanceof ImportRowError ? error : null;
       this.logger.error(`Job ${jobId} falhou: ${message}`);
 
       await this.importJobRepository.updateStatus(
@@ -121,6 +128,8 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
         ImportJobStatus.FAILED,
         {
           errorMessage: message,
+          errorCode: rowError?.code,
+          errorParams: rowError?.params,
           errorCount: 1,
           completedAt: new Date(),
         },
@@ -198,7 +207,9 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
       const plate = normalizePlate(record.vehiclePlate ?? '');
       const vehicleId = vehicleIdByPlate.get(plate);
       if (!vehicleId) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'VEHICLE_NOT_FOUND',
+          { line: lineNumber, plate },
           `Linha ${lineNumber}: veículo não encontrado para a placa "${plate}".`,
         );
       }
@@ -206,14 +217,18 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
       const email = normalizeEmail(record.userEmail ?? '');
       const userId = userIdByEmail.get(email);
       if (!userId) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'USER_NOT_FOUND_OR_UNLINKED',
+          { line: lineNumber, email },
           `Linha ${lineNumber}: usuário "${email}" não encontrado ou sem vínculo ativo.`,
         );
       }
 
       const pair = `${vehicleId}:${userId}`;
       if (existingPairs.has(pair) || seenPairs.has(pair)) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'LINK_ALREADY_EXISTS',
+          { line: lineNumber },
           `Linha ${lineNumber}: vínculo já existe.`,
         );
       }
@@ -226,14 +241,18 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
       } else if (isPrimaryRaw === 'false' || isPrimaryRaw === '') {
         isPrimary = false;
       } else {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'IS_PRIMARY_INVALID',
+          { line: lineNumber },
           `Linha ${lineNumber}: isPrimary deve ser "true" ou "false".`,
         );
       }
 
       if (isPrimary) {
         if (primaryVehicleIds.has(vehicleId)) {
-          throw new BadRequestException(
+          throw new ImportRowError(
+            'PRIMARY_OWNER_EXISTS',
+            { line: lineNumber },
             `Linha ${lineNumber}: apenas um proprietário primário por veículo.`,
           );
         }
@@ -247,7 +266,9 @@ export class ImportUserVehiclesProcessor extends WorkerHost {
       } else if (canDriveRaw === 'false' || canDriveRaw === '') {
         canDrive = false;
       } else {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'CAN_DRIVE_INVALID',
+          { line: lineNumber },
           `Linha ${lineNumber}: canDrive deve ser "true" ou "false".`,
         );
       }

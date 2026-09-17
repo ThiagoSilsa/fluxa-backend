@@ -2,12 +2,7 @@
 import * as fs from 'node:fs';
 
 // NestJS
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 
@@ -24,6 +19,7 @@ import type { CreateDepartmentRepositoryData } from '../../domain/repositories/d
 // Imports (feature genérica)
 import { IMPORT_JOB_REPOSITORY } from '../../../imports/domain/repositories/import-job.repository';
 import { ImportJobStatus } from '../../../imports/domain/constants/import-job.constant';
+import { ImportRowError } from '../../../imports/domain/errors/import-row.error';
 import type { ImportJobRepository } from '../../../imports/domain/repositories/import-job.repository';
 
 // DTOs
@@ -75,14 +71,24 @@ export class ImportDepartmentsProcessor extends WorkerHost {
       try {
         records = await readSheetAsRows({ filePath });
       } catch (error) {
-        if (error instanceof BadRequestException) {
+        if (error instanceof ImportRowError) {
           throw error;
         }
-        throw new BadRequestException('Erro ao ler o arquivo XLSX do disco.');
+        throw new ImportRowError(
+          'SPREADSHEET_READ_ERROR',
+          {},
+          error instanceof Error
+            ? error.message
+            : 'Erro ao ler o arquivo XLSX do disco.',
+        );
       }
 
       if (records.length === 0) {
-        throw new BadRequestException('A planilha está vazia.');
+        throw new ImportRowError(
+          'SPREADSHEET_EMPTY',
+          {},
+          'A planilha está vazia.',
+        );
       }
 
       // 3. Valida linha a linha (fail-fast) e prepara os inputs
@@ -106,6 +112,7 @@ export class ImportDepartmentsProcessor extends WorkerHost {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Erro desconhecido';
+      const rowError = error instanceof ImportRowError ? error : null;
       this.logger.error(`Job ${jobId} falhou: ${message}`);
 
       // 6. FAILED com mensagem
@@ -114,6 +121,8 @@ export class ImportDepartmentsProcessor extends WorkerHost {
         ImportJobStatus.FAILED,
         {
           errorMessage: message,
+          errorCode: rowError?.code,
+          errorParams: rowError?.params,
           errorCount: 1,
           completedAt: new Date(),
         },
@@ -159,12 +168,16 @@ export class ImportDepartmentsProcessor extends WorkerHost {
 
       const name = (record.name ?? '').trim();
       if (name.length < 2 || name.length > 255) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'NAME_LENGTH',
+          { line: lineNumber, min: 2, max: 255 },
           `Linha ${lineNumber}: name deve ter entre 2 e 255 caracteres.`,
         );
       }
       if (existingNames.has(name) || seen.has(name)) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'DEPARTMENT_DUPLICATE',
+          { line: lineNumber, name },
           `Linha ${lineNumber}: departamento "${name}" já existe.`,
         );
       }
@@ -172,7 +185,9 @@ export class ImportDepartmentsProcessor extends WorkerHost {
 
       const parkingSpaceRaw = (record.parkingSpace ?? '').trim();
       if (parkingSpaceRaw === '' || !/^\d+$/.test(parkingSpaceRaw)) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'PARKING_SPACE_INVALID',
+          { line: lineNumber },
           `Linha ${lineNumber}: parkingSpace deve ser um inteiro maior ou igual a 0.`,
         );
       }

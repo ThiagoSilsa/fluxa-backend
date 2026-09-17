@@ -162,6 +162,8 @@ describe('ImportDepartmentsProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: name deve ter entre 2 e 255 caracteres.',
+        errorCode: 'NAME_LENGTH',
+        errorParams: { line: 2, min: 2, max: 255 },
         errorCount: 1,
         completedAt: expect.any(Date),
       }),
@@ -185,6 +187,8 @@ describe('ImportDepartmentsProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 3: departamento "Recepção" já existe.',
+        errorCode: 'DEPARTMENT_DUPLICATE',
+        errorParams: { line: 3, name: 'Recepção' },
       }),
     );
   });
@@ -215,6 +219,8 @@ describe('ImportDepartmentsProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: departamento "Recepção" já existe.',
+        errorCode: 'DEPARTMENT_DUPLICATE',
+        errorParams: { line: 2, name: 'Recepção' },
       }),
     );
   });
@@ -235,6 +241,8 @@ describe('ImportDepartmentsProcessor', () => {
       expect.objectContaining({
         errorMessage:
           'Linha 2: parkingSpace deve ser um inteiro maior ou igual a 0.',
+        errorCode: 'PARKING_SPACE_INVALID',
+        errorParams: { line: 2 },
       }),
     );
   });

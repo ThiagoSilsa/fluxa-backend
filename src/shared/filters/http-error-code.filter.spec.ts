@@ -127,4 +127,43 @@ describe('HttpErrorCodeFilter', () => {
 
     expect(json.mock.calls[0][0].code).toBe('ERROR_400_E_UM_ERRO');
   });
+
+  it('preserva code e details de um corpo estruturado (validação de DTO)', () => {
+    const { host, status, json } = createMockHost();
+    const details = [{ field: 'email', code: 'INVALID_EMAIL', params: {} }];
+
+    filter.catch(
+      new BadRequestException({
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+        message: ['email must be an email'],
+        details,
+      }),
+      host,
+    );
+
+    expect(status).toHaveBeenCalledWith(400);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 400,
+        code: 'VALIDATION_ERROR',
+        message: ['email must be an email'],
+        details,
+      }),
+    );
+  });
+
+  it('deixa o código explícito vencer a derivação da mensagem', () => {
+    const { host, json } = createMockHost();
+
+    filter.catch(
+      new BadRequestException({
+        code: 'EXPLICITO',
+        message: 'Placa inválida.',
+      }),
+      host,
+    );
+
+    expect(json.mock.calls[0][0].code).toBe('EXPLICITO');
+  });
 });

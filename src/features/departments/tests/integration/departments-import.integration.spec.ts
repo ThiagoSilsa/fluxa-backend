@@ -51,6 +51,8 @@ describe('Departments import integration — upload XLSX → worker → históri
     expect(job.status).toBe('DONE');
     expect(job.successCount).toBe(2);
     expect(job.errorCount).toBe(0);
+    expect(job.errorCode).toBeNull();
+    expect(job.errorParams).toBeNull();
 
     const res = await request(context.httpServer)
       .get('/departments')
@@ -78,6 +80,8 @@ describe('Departments import integration — upload XLSX → worker → históri
 
     expect(job.status).toBe('FAILED');
     expect(job.errorMessage).toContain('Linha 3');
+    expect(job.errorCode).toBe('NAME_LENGTH');
+    expect(job.errorParams).toEqual({ line: 3, min: 2, max: 255 });
     expect(job.errorCount).toBe(1);
 
     // Fail-fast: nada foi inserido

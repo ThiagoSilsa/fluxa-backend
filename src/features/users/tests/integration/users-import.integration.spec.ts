@@ -48,6 +48,8 @@ describe('Users import integration — importação de usuários (Testcontainers
     const job = await context.pollJobUntilFinished(upload.body.jobId, token);
     expect(job.status).toBe('DONE');
     expect(job.successCount).toBe(2);
+    expect(job.errorCode).toBeNull();
+    expect(job.errorParams).toBeNull();
 
     const res = await request(context.httpServer)
       .get('/users?search=joao-import@teste.local')
@@ -82,6 +84,11 @@ describe('Users import integration — importação de usuários (Testcontainers
     const job = await context.pollJobUntilFinished(upload.body.jobId, token);
     expect(job.status).toBe('FAILED');
     expect(job.errorMessage).toContain('já está vinculado');
+    expect(job.errorCode).toBe('EMAIL_ALREADY_LINKED');
+    expect(job.errorParams).toEqual({
+      line: 2,
+      email: USERS_IMPORT_SEEDED.ADMIN_EMAIL,
+    });
   });
 
   it('POST /users/import com linha inválida (name curto) → FAILED e nada inserido', async () => {
@@ -100,6 +107,8 @@ describe('Users import integration — importação de usuários (Testcontainers
     const job = await context.pollJobUntilFinished(upload.body.jobId, token);
     expect(job.status).toBe('FAILED');
     expect(job.errorMessage).toContain('Linha 3');
+    expect(job.errorCode).toBe('NAME_LENGTH');
+    expect(job.errorParams).toEqual({ line: 3, min: 2, max: 255 });
 
     const res = await request(context.httpServer)
       .get('/users?search=valido-import@teste.local')

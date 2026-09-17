@@ -3,6 +3,10 @@ import {
   ImportJobStatus,
   ImportJobType,
 } from '../constants/import-job.constant';
+import type {
+  ImportRowErrorCode,
+  ImportRowErrorParams,
+} from '../constants/import-row-error.constant';
 
 /**
  * Entidade de domínio de um job de importação — espelha a tabela `import_job`
@@ -32,8 +36,12 @@ export class ImportJobEntity {
   errorCount!: number;
   /** Status do job. */
   status!: ImportJobStatus;
-  /** Mensagem de erro (fail-fast: `Linha N: ...`). */
+  /** Mensagem de erro (fail-fast: `Linha N: ...`) — texto de desenvolvimento. */
   errorMessage!: string | null;
+  /** Código do erro de importação (contrato de tradução — ADR 0016 §6). */
+  errorCode!: ImportRowErrorCode | null;
+  /** Parâmetros que o texto do erro precisa (linha, nome, placa, limites). */
+  errorParams!: ImportRowErrorParams | null;
   /** Início do processamento. */
   startedAt!: Date | null;
   /** Fim do processamento (sucesso ou falha). */

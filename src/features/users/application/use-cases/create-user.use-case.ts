@@ -114,9 +114,7 @@ export class CreateUserUseCase {
     const isEmployee = input.type === UserType.EMPLOYEE;
     if (isEmployee) {
       if (!email) {
-        throw new BadRequestException(
-          'E-mail é obrigatório para criar um colaborador.',
-        );
+        throw new BadRequestException('E-mail é obrigatório para colaborador.');
       }
       if (!this.hasValue(input.password)) {
         throw new BadRequestException(
@@ -124,9 +122,7 @@ export class CreateUserUseCase {
         );
       }
       if (!this.hasValue(input.roleId)) {
-        throw new BadRequestException(
-          'Cargo é obrigatório para criar um colaborador.',
-        );
+        throw new BadRequestException('Cargo é obrigatório para colaborador.');
       }
     }
 

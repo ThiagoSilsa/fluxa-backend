@@ -287,7 +287,7 @@ export class AcceptAccessRequestUseCase {
     }
     if (role.isAdmin && !actor.isAdmin) {
       throw new ForbiddenException(
-        'Apenas administradores podem atribuir um cargo de administração.',
+        'Apenas administradores podem atribuir cargos de administração.',
       );
     }
     return role;

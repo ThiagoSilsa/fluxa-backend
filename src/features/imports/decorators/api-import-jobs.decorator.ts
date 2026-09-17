@@ -36,7 +36,11 @@ export function ApiListImportJobs() {
       type: Number,
       description: 'Offset da página (default 0).',
     }),
-    ApiResponse({ status: 200, description: 'Jobs listados.' }),
+    ApiResponse({
+      status: 200,
+      description:
+        'Jobs listados (com `errorCode`/`errorParams` nos que falharam).',
+    }),
   );
 }
 
@@ -47,7 +51,11 @@ export function ApiGetImportJobStatus() {
   return applyDecorators(
     ApiOperation({
       summary: 'Consulta o status de um job de importação',
-      description: 'Usado pelo polling da UI enquanto o job processa.',
+      description:
+        'Usado pelo polling da UI enquanto o job processa. Quando o job falha, ' +
+        'o motivo vem em `errorCode` + `errorParams` (é o que o cliente traduz) e ' +
+        'em `errorMessage` (texto de desenvolvimento e log, nunca exibido); jobs ' +
+        'concluídos devolvem `errorCode` e `errorParams` nulos.',
     }),
     ApiParam({
       name: 'jobId',

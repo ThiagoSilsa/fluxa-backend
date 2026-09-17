@@ -2,12 +2,7 @@
 import * as fs from 'node:fs';
 
 // NestJS
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 
@@ -36,6 +31,7 @@ import type { VehicleDepartmentRepository } from '../../domain/repositories/vehi
 // Imports (feature genérica)
 import { IMPORT_JOB_REPOSITORY } from '../../../imports/domain/repositories/import-job.repository';
 import { ImportJobStatus } from '../../../imports/domain/constants/import-job.constant';
+import { ImportRowError } from '../../../imports/domain/errors/import-row.error';
 import type { ImportJobRepository } from '../../../imports/domain/repositories/import-job.repository';
 
 // DTOs
@@ -92,14 +88,24 @@ export class ImportVehiclesProcessor extends WorkerHost {
       try {
         records = await readSheetAsRows({ filePath });
       } catch (error) {
-        if (error instanceof BadRequestException) {
+        if (error instanceof ImportRowError) {
           throw error;
         }
-        throw new BadRequestException('Erro ao ler o arquivo XLSX do disco.');
+        throw new ImportRowError(
+          'SPREADSHEET_READ_ERROR',
+          {},
+          error instanceof Error
+            ? error.message
+            : 'Erro ao ler o arquivo XLSX do disco.',
+        );
       }
 
       if (records.length === 0) {
-        throw new BadRequestException('A planilha está vazia.');
+        throw new ImportRowError(
+          'SPREADSHEET_EMPTY',
+          {},
+          'A planilha está vazia.',
+        );
       }
 
       // Resolve referências em lote (tipos por código, placas existentes,
@@ -145,6 +151,7 @@ export class ImportVehiclesProcessor extends WorkerHost {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Erro desconhecido';
+      const rowError = error instanceof ImportRowError ? error : null;
       this.logger.error(`Job ${jobId} falhou: ${message}`);
 
       await this.importJobRepository.updateStatus(
@@ -152,6 +159,8 @@ export class ImportVehiclesProcessor extends WorkerHost {
         ImportJobStatus.FAILED,
         {
           errorMessage: message,
+          errorCode: rowError?.code,
+          errorParams: rowError?.params,
           errorCount: 1,
           completedAt: new Date(),
         },
@@ -230,12 +239,16 @@ export class ImportVehiclesProcessor extends WorkerHost {
 
       const plate = normalizePlate(record.plate ?? '');
       if (!isValidBrazilianPlate(plate)) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'PLATE_INVALID',
+          { line: lineNumber },
           `Linha ${lineNumber}: placa em formato inválido.`,
         );
       }
       if (existingPlates.has(plate) || seenPlates.has(plate)) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'PLATE_ALREADY_REGISTERED',
+          { line: lineNumber, plate },
           `Linha ${lineNumber}: placa "${plate}" já cadastrada.`,
         );
       }
@@ -244,12 +257,16 @@ export class ImportVehiclesProcessor extends WorkerHost {
       const typeCode = (record.vehicleType ?? '').trim().toUpperCase();
       const type = typeByCode.get(typeCode);
       if (!type) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'VEHICLE_TYPE_NOT_FOUND',
+          { line: lineNumber, type: typeCode },
           `Linha ${lineNumber}: tipo de veículo "${typeCode}" não encontrado.`,
         );
       }
       if (!type.isActive) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'VEHICLE_TYPE_INACTIVE',
+          { line: lineNumber, type: typeCode },
           `Linha ${lineNumber}: tipo de veículo "${typeCode}" inativo.`,
         );
       }
@@ -261,14 +278,18 @@ export class ImportVehiclesProcessor extends WorkerHost {
       } else if (freePassRaw === 'false' || freePassRaw === '') {
         freePass = false;
       } else {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'FREE_PASS_INVALID',
+          { line: lineNumber },
           `Linha ${lineNumber}: freePass deve ser "true" ou "false".`,
         );
       }
 
       const departmentName = (record.department ?? '').trim();
       if (departmentName !== '' && !departmentIdByName.has(departmentName)) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'DEPARTMENT_NOT_FOUND',
+          { line: lineNumber, name: departmentName },
           `Linha ${lineNumber}: departamento "${departmentName}" não encontrado.`,
         );
       }

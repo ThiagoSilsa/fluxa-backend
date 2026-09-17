@@ -20,6 +20,8 @@ export function toImportJobResponse(job: ImportJobEntity): ImportJobResponse {
     successCount: job.successCount,
     errorCount: job.errorCount,
     errorMessage: job.errorMessage,
+    errorCode: job.errorCode,
+    errorParams: job.errorParams,
     fileName: job.fileName,
     createdAt: job.createdAt.toISOString(),
     startedAt: job.startedAt ? job.startedAt.toISOString() : null,

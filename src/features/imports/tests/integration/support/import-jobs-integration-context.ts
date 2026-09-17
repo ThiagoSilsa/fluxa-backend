@@ -21,6 +21,7 @@ import { UserCredentialsNullable1760000000011 } from '../../../../../shared/data
 import { AddAccessRequestUserType1760000000012 } from '../../../../../shared/database/typeorm/migrations/0013-access-request-user-type';
 import { AddEntryDenialReasonOverdue1760000000013 } from '../../../../../shared/database/typeorm/migrations/0014-entry-denial-reason-overdue';
 import { AdaptImportJobSchema1760000000010 } from '../../../../../shared/database/typeorm/migrations/0011-adapt-import-job-schema';
+import { AddImportJobErrorCode1760000000015 } from '../../../../../shared/database/typeorm/migrations/0015-add-import-job-error-code';
 
 // Seeds
 import { SeedInitialPermissions1760001000000 } from '../../../../../shared/database/typeorm/seeds/0001-seed-initial-permissions';
@@ -105,6 +106,7 @@ export async function createImportJobsIntegrationContext(): Promise<ImportJobsIn
       UserCredentialsNullable1760000000011,
       AddAccessRequestUserType1760000000012,
       AddEntryDenialReasonOverdue1760000000013,
+      AddImportJobErrorCode1760000000015,
       SeedInitialPermissions1760001000000,
       SeedDefaultCompanyRolesAdminVehicleTypes1760001000001,
     ],

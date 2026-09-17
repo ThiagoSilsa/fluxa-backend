@@ -22,8 +22,12 @@ export interface ImportJobResponse {
   successCount: number;
   /** Linhas com erro. */
   errorCount: number;
-  /** Mensagem de erro (fail-fast). */
+  /** Mensagem de erro (fail-fast) — texto de desenvolvimento, nunca exibido. */
   errorMessage: string | null;
+  /** Código do erro de importação (contrato de tradução — ADR 0016 §6). */
+  errorCode: string | null;
+  /** Parâmetros que o texto do erro precisa (linha, nome, placa, limites). */
+  errorParams: Record<string, string | number> | null;
   /** Nome do arquivo enviado. */
   fileName: string | null;
   /** Data de criação (ISO). */

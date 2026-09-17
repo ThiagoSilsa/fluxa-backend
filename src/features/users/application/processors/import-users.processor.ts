@@ -2,12 +2,7 @@
 import * as fs from 'node:fs';
 
 // NestJS
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
@@ -38,6 +33,7 @@ import type { UserRoleRepository } from '../../domain/repositories/user-role.rep
 // Imports (feature genérica)
 import { IMPORT_JOB_REPOSITORY } from '../../../imports/domain/repositories/import-job.repository';
 import { ImportJobStatus } from '../../../imports/domain/constants/import-job.constant';
+import { ImportRowError } from '../../../imports/domain/errors/import-row.error';
 import type { ImportJobRepository } from '../../../imports/domain/repositories/import-job.repository';
 
 // DTOs
@@ -106,14 +102,24 @@ export class ImportUsersProcessor extends WorkerHost {
       try {
         records = await readSheetAsRows({ filePath });
       } catch (error) {
-        if (error instanceof BadRequestException) {
+        if (error instanceof ImportRowError) {
           throw error;
         }
-        throw new BadRequestException('Erro ao ler o arquivo XLSX do disco.');
+        throw new ImportRowError(
+          'SPREADSHEET_READ_ERROR',
+          {},
+          error instanceof Error
+            ? error.message
+            : 'Erro ao ler o arquivo XLSX do disco.',
+        );
       }
 
       if (records.length === 0) {
-        throw new BadRequestException('A planilha está vazia.');
+        throw new ImportRowError(
+          'SPREADSHEET_EMPTY',
+          {},
+          'A planilha está vazia.',
+        );
       }
 
       const prepared = await this.buildCreateInputs(records, companyId);
@@ -153,6 +159,7 @@ export class ImportUsersProcessor extends WorkerHost {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Erro desconhecido';
+      const rowError = error instanceof ImportRowError ? error : null;
       this.logger.error(`Job ${jobId} falhou: ${message}`);
 
       await this.importJobRepository.updateStatus(
@@ -160,6 +167,8 @@ export class ImportUsersProcessor extends WorkerHost {
         ImportJobStatus.FAILED,
         {
           errorMessage: message,
+          errorCode: rowError?.code,
+          errorParams: rowError?.params,
           errorCount: 1,
           completedAt: new Date(),
         },
@@ -243,12 +252,16 @@ export class ImportUsersProcessor extends WorkerHost {
 
       const email = normalizeEmail(record.email ?? '');
       if (email === '') {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'EMAIL_REQUIRED',
+          { line: lineNumber },
           `Linha ${lineNumber}: e-mail é obrigatório.`,
         );
       }
       if (seenEmails.has(email)) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'EMAIL_ALREADY_LINKED',
+          { line: lineNumber, email },
           `Linha ${lineNumber}: usuário com e-mail "${email}" já está vinculado.`,
         );
       }
@@ -256,7 +269,9 @@ export class ImportUsersProcessor extends WorkerHost {
 
       const link = linksByEmail.get(email);
       if (link) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'EMAIL_ALREADY_LINKED',
+          { line: lineNumber, email },
           `Linha ${lineNumber}: usuário com e-mail "${email}" já está vinculado.`,
         );
       }
@@ -268,7 +283,9 @@ export class ImportUsersProcessor extends WorkerHost {
       } else if (typeRaw === 'VISITOR') {
         type = UserType.VISITOR;
       } else {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'USER_TYPE_INVALID',
+          { line: lineNumber },
           `Linha ${lineNumber}: type deve ser "EMPLOYEE" ou "VISITOR".`,
         );
       }
@@ -278,12 +295,16 @@ export class ImportUsersProcessor extends WorkerHost {
       if (roleName !== '') {
         const role = roleByName.get(roleName);
         if (!role) {
-          throw new BadRequestException(
+          throw new ImportRowError(
+            'ROLE_NOT_FOUND',
+            { line: lineNumber, role: roleName },
             `Linha ${lineNumber}: cargo "${roleName}" não encontrado.`,
           );
         }
         if (!role.isActive) {
-          throw new BadRequestException(
+          throw new ImportRowError(
+            'ROLE_INACTIVE',
+            { line: lineNumber, role: roleName },
             `Linha ${lineNumber}: cargo "${roleName}" inativo.`,
           );
         }
@@ -299,7 +320,9 @@ export class ImportUsersProcessor extends WorkerHost {
 
       const name = (record.name ?? '').trim();
       if (name.length < 2 || name.length > 255) {
-        throw new BadRequestException(
+        throw new ImportRowError(
+          'NAME_LENGTH',
+          { line: lineNumber, min: 2, max: 255 },
           `Linha ${lineNumber}: name deve ter entre 2 e 255 caracteres.`,
         );
       }
@@ -307,13 +330,17 @@ export class ImportUsersProcessor extends WorkerHost {
       const document = (record.document ?? '').trim() || null;
       if (document) {
         if (seenDocuments.has(document)) {
-          throw new BadRequestException(
+          throw new ImportRowError(
+            'DOCUMENT_ALREADY_REGISTERED',
+            { line: lineNumber },
             `Linha ${lineNumber}: documento já cadastrado.`,
           );
         }
         const byDocument = await this.userRepository.findByDocument(document);
         if (byDocument) {
-          throw new BadRequestException(
+          throw new ImportRowError(
+            'DOCUMENT_ALREADY_REGISTERED',
+            { line: lineNumber },
             `Linha ${lineNumber}: documento já cadastrado.`,
           );
         }

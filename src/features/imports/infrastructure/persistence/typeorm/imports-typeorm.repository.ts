@@ -47,6 +47,8 @@ export class ImportsTypeormRepository implements ImportJobRepository {
       errorCount: 0,
       status: ImportJobStatus.PENDING,
       errorMessage: null,
+      errorCode: null,
+      errorParams: null,
       startedAt: null,
       completedAt: null,
     });
@@ -120,6 +122,9 @@ export class ImportsTypeormRepository implements ImportJobRepository {
     if (data?.errorCount !== undefined) updateData.errorCount = data.errorCount;
     if (data?.errorMessage !== undefined)
       updateData.errorMessage = data.errorMessage;
+    if (data?.errorCode !== undefined) updateData.errorCode = data.errorCode;
+    if (data?.errorParams !== undefined)
+      updateData.errorParams = data.errorParams;
     if (data?.startedAt !== undefined) updateData.startedAt = data.startedAt;
     if (data?.completedAt !== undefined)
       updateData.completedAt = data.completedAt;
@@ -146,6 +151,8 @@ export class ImportsTypeormRepository implements ImportJobRepository {
     result.errorCount = entity.errorCount;
     result.status = entity.status;
     result.errorMessage = entity.errorMessage;
+    result.errorCode = entity.errorCode;
+    result.errorParams = entity.errorParams;
     result.startedAt = entity.startedAt;
     result.completedAt = entity.completedAt;
     result.createdAt = entity.createdAt;

@@ -84,6 +84,8 @@ describe('ImportUserVehiclesUseCase', () => {
       errorCount: 0,
       status: ImportJobStatus.PENDING,
       errorMessage: null,
+      errorCode: null,
+      errorParams: null,
       startedAt: null,
       completedAt: null,
       createdAt: new Date('2026-08-20T10:00:00Z'),

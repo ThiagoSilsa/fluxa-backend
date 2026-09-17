@@ -12,10 +12,14 @@ import {
   ImportJobStatus,
   ImportJobType,
 } from '../../../domain/constants/import-job.constant';
+import type {
+  ImportRowErrorCode,
+  ImportRowErrorParams,
+} from '../../../domain/constants/import-row-error.constant';
 
 /**
- * Job de importação — tabela `import_job` (migration `0005` + `0011`; ADR 0007
- * §3). Colunas de enum mapeiam os ENUMs nativos do Postgres.
+ * Job de importação — tabela `import_job` (migrations `0005`, `0011` e `0015`;
+ * ADR 0007 §3). Colunas de enum mapeiam os ENUMs nativos do Postgres.
  *
  * Propriedades com `!` são preenchidas pelo ORM em runtime (padrão TypeORM em
  * modo estrito).
@@ -62,6 +66,12 @@ export class ImportJobOrmEntity {
 
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage!: string | null;
+
+  @Column({ name: 'error_code', type: 'varchar', length: 100, nullable: true })
+  errorCode!: ImportRowErrorCode | null;
+
+  @Column({ name: 'error_params', type: 'jsonb', nullable: true })
+  errorParams!: ImportRowErrorParams | null;
 
   @Column({ name: 'started_at', type: 'timestamptz', nullable: true })
   startedAt!: Date | null;

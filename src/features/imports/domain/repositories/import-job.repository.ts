@@ -3,6 +3,10 @@ import type {
   ImportJobStatus,
   ImportJobType,
 } from '../constants/import-job.constant';
+import type {
+  ImportRowErrorCode,
+  ImportRowErrorParams,
+} from '../constants/import-row-error.constant';
 import type { ImportJobEntity } from '../entities/import-job.entity';
 
 /**
@@ -35,6 +39,10 @@ export interface UpdateImportJobData {
   successCount?: number;
   errorCount?: number;
   errorMessage?: string;
+  /** Código do erro de importação (quando o job falha — ADR 0016 §6). */
+  errorCode?: ImportRowErrorCode;
+  /** Parâmetros que o texto do erro precisa. */
+  errorParams?: ImportRowErrorParams;
   startedAt?: Date;
   completedAt?: Date;
 }

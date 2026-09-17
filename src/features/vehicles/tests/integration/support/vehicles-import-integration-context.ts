@@ -21,6 +21,7 @@ import { UserCredentialsNullable1760000000011 } from '../../../../../shared/data
 import { AddAccessRequestUserType1760000000012 } from '../../../../../shared/database/typeorm/migrations/0013-access-request-user-type';
 import { AddEntryDenialReasonOverdue1760000000013 } from '../../../../../shared/database/typeorm/migrations/0014-entry-denial-reason-overdue';
 import { AdaptImportJobSchema1760000000010 } from '../../../../../shared/database/typeorm/migrations/0011-adapt-import-job-schema';
+import { AddImportJobErrorCode1760000000015 } from '../../../../../shared/database/typeorm/migrations/0015-add-import-job-error-code';
 
 // Seeds
 import { SeedInitialPermissions1760001000000 } from '../../../../../shared/database/typeorm/seeds/0001-seed-initial-permissions';
@@ -51,6 +52,8 @@ export const VEHICLES_IMPORT_SEEDED = {
 export interface JobPollResult {
   status: 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED';
   errorMessage: string | null;
+  errorCode: string | null;
+  errorParams: Record<string, string | number> | null;
   successCount: number;
   errorCount: number;
 }
@@ -108,6 +111,7 @@ export async function createVehiclesImportIntegrationContext(): Promise<Vehicles
       UserCredentialsNullable1760000000011,
       AddAccessRequestUserType1760000000012,
       AddEntryDenialReasonOverdue1760000000013,
+      AddImportJobErrorCode1760000000015,
       SeedInitialPermissions1760001000000,
       SeedDefaultCompanyRolesAdminVehicleTypes1760001000001,
     ],
@@ -214,6 +218,8 @@ async function pollJobUntilFinished(
       return {
         status,
         errorMessage: res.body.errorMessage,
+        errorCode: res.body.errorCode,
+        errorParams: res.body.errorParams,
         successCount: res.body.successCount,
         errorCount: res.body.errorCount,
       };

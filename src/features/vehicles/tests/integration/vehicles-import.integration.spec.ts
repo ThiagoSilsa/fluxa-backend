@@ -132,6 +132,8 @@ describe('Vehicles import integration — veículos e vínculo usuário-veículo
     const job = await context.pollJobUntilFinished(upload.body.jobId, token);
     expect(job.status).toBe('FAILED');
     expect(job.errorMessage).toContain('Linha 3');
+    expect(job.errorCode).toBe('PLATE_INVALID');
+    expect(job.errorParams).toEqual({ line: 3 });
 
     const res = await request(context.httpServer)
       .get('/vehicles?search=JKL1234')
@@ -198,6 +200,11 @@ describe('Vehicles import integration — veículos e vínculo usuário-veículo
     const job = await context.pollJobUntilFinished(upload.body.jobId, token);
     expect(job.status).toBe('FAILED');
     expect(job.errorMessage).toContain('Linha 2');
+    expect(job.errorCode).toBe('USER_NOT_FOUND_OR_UNLINKED');
+    expect(job.errorParams).toEqual({
+      line: 2,
+      email: 'ninguem@teste.local',
+    });
   });
 
   it('POST /vehicles/import com usuário sem MANAGE_IMPORTS → 403', async () => {

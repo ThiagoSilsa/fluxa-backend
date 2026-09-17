@@ -180,6 +180,8 @@ describe('ImportUserVehiclesProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: veículo não encontrado para a placa "XYZ9999".',
+        errorCode: 'VEHICLE_NOT_FOUND',
+        errorParams: { line: 2, plate: 'XYZ9999' },
       }),
     );
     expect(userVehicleRepoMock.createBatch).not.toHaveBeenCalled();
@@ -218,6 +220,8 @@ describe('ImportUserVehiclesProcessor', () => {
       expect.objectContaining({
         errorMessage:
           'Linha 2: usuário "desconhecido@somar.local" não encontrado ou sem vínculo ativo.',
+        errorCode: 'USER_NOT_FOUND_OR_UNLINKED',
+        errorParams: { line: 2, email: 'desconhecido@somar.local' },
       }),
     );
   });
@@ -249,6 +253,8 @@ describe('ImportUserVehiclesProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: vínculo já existe.',
+        errorCode: 'LINK_ALREADY_EXISTS',
+        errorParams: { line: 2 },
       }),
     );
   });
@@ -308,6 +314,8 @@ describe('ImportUserVehiclesProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 3: apenas um proprietário primário por veículo.',
+        errorCode: 'PRIMARY_OWNER_EXISTS',
+        errorParams: { line: 3 },
       }),
     );
   });
@@ -327,6 +335,8 @@ describe('ImportUserVehiclesProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: isPrimary deve ser "true" ou "false".',
+        errorCode: 'IS_PRIMARY_INVALID',
+        errorParams: { line: 2 },
       }),
     );
   });

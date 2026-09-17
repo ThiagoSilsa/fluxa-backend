@@ -233,6 +233,8 @@ describe('ImportVehiclesProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: placa em formato inválido.',
+        errorCode: 'PLATE_INVALID',
+        errorParams: { line: 2 },
       }),
     );
     expect(vehicleRepoMock.createBatch).not.toHaveBeenCalled();
@@ -256,6 +258,8 @@ describe('ImportVehiclesProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 3: placa "ABC1234" já cadastrada.',
+        errorCode: 'PLATE_ALREADY_REGISTERED',
+        errorParams: { line: 3, plate: 'ABC1234' },
       }),
     );
   });
@@ -277,6 +281,8 @@ describe('ImportVehiclesProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: tipo de veículo "INEXISTENTE" não encontrado.',
+        errorCode: 'VEHICLE_TYPE_NOT_FOUND',
+        errorParams: { line: 2, type: 'INEXISTENTE' },
       }),
     );
   });
@@ -298,6 +304,8 @@ describe('ImportVehiclesProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: departamento "Inexistente" não encontrado.',
+        errorCode: 'DEPARTMENT_NOT_FOUND',
+        errorParams: { line: 2, name: 'Inexistente' },
       }),
     );
   });

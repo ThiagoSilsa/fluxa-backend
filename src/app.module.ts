@@ -16,6 +16,7 @@ import { UsersModule } from './features/users/users.module';
 import { VehiclesModule } from './features/vehicles/vehicles.module';
 import { buildTypeOrmOptions } from './shared/database/typeorm/config/typeorm.config';
 import { HttpErrorCodeFilter } from './shared/filters/http-error-code.filter';
+import { validationExceptionFactory } from './shared/pipes/validation-exception.factory';
 import { QueueModule } from './shared/queue/queue.module';
 import { ThrottlerConfigModule } from './shared/throttler/throttler-config.module';
 import { validateEnvironment } from './shared/validators/environment.validator';
@@ -45,12 +46,15 @@ import { validateEnvironment } from './shared/validators/environment.validator';
     ImportsModule,
   ],
   providers: [
-    // Validação global de DTOs (sem tocar no main.ts — AGENTS.md).
+    // Validação global de DTOs (sem tocar no main.ts — AGENTS.md). A fábrica de
+    // exceção troca o 400 padrão por `details` com campo + regra + parâmetros
+    // (ADR 0016 §4) — é o que o cliente traduz.
     {
       provide: APP_PIPE,
       useValue: new ValidationPipe({
         transform: true,
         whitelist: true,
+        exceptionFactory: validationExceptionFactory,
       }),
     },
     // Filtro global que adiciona `code` estável ao corpo de erro (ADR 0007 §7).

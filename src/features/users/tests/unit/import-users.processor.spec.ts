@@ -252,6 +252,8 @@ describe('ImportUsersProcessor', () => {
       expect.objectContaining({
         errorMessage:
           'Linha 2: usuário com e-mail "vinculado@somar.local" já está vinculado.',
+        errorCode: 'EMAIL_ALREADY_LINKED',
+        errorParams: { line: 2, email: 'vinculado@somar.local' },
       }),
     );
   });
@@ -273,6 +275,8 @@ describe('ImportUsersProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: name deve ter entre 2 e 255 caracteres.',
+        errorCode: 'NAME_LENGTH',
+        errorParams: { line: 2, min: 2, max: 255 },
       }),
     );
   });
@@ -294,6 +298,8 @@ describe('ImportUsersProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: type deve ser "EMPLOYEE" ou "VISITOR".',
+        errorCode: 'USER_TYPE_INVALID',
+        errorParams: { line: 2 },
       }),
     );
   });
@@ -315,6 +321,8 @@ describe('ImportUsersProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: cargo "Inexistente" não encontrado.',
+        errorCode: 'ROLE_NOT_FOUND',
+        errorParams: { line: 2, role: 'Inexistente' },
       }),
     );
   });
@@ -348,6 +356,8 @@ describe('ImportUsersProcessor', () => {
       ImportJobStatus.FAILED,
       expect.objectContaining({
         errorMessage: 'Linha 2: documento já cadastrado.',
+        errorCode: 'DOCUMENT_ALREADY_REGISTERED',
+        errorParams: { line: 2 },
       }),
     );
   });
