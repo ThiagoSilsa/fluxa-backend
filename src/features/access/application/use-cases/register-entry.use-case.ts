@@ -13,6 +13,10 @@ import { randomUUID } from 'crypto';
 
 // Shared
 import {
+  deriveErrorCode,
+  UNKNOWN_ERROR_CODE,
+} from '../../../../shared/utils/error-code.util';
+import {
   isValidBrazilianPlate,
   normalizePlate,
 } from '../../../../shared/utils/plate.util';
@@ -187,12 +191,12 @@ export class RegisterEntryUseCase {
           companyId,
         );
         if (access) {
-          return {
+          return this.toEntryResponse({
             granted: true,
             message: 'Entrada já registrada.',
             access: toAccessResponse(access),
             movement: toMovementResponse(existing),
-          };
+          });
         }
       }
     }
@@ -244,11 +248,11 @@ export class RegisterEntryUseCase {
         `Veículo bloqueado: ${block.reason}`,
         entranceId,
       );
-      return {
+      return this.toEntryResponse({
         granted: false,
         message: 'VEÍCULO PROIBIDO DE ENTRAR',
         denial,
-      };
+      });
     }
 
     // 2. Veículo inativo → nega.
@@ -262,17 +266,21 @@ export class RegisterEntryUseCase {
         'Veículo inativo.',
         entranceId,
       );
-      return { granted: false, message: 'Veículo inativo.', denial };
+      return this.toEntryResponse({
+        granted: false,
+        message: 'Veículo inativo.',
+        denial,
+      });
     }
 
     // 3. Condutor / solicitação da entrada (Modelo B — ADR 0014 §1).
     const driver = await this.resolveDriver(actor, plate, vehicle, input);
     if (driver.denial) {
-      return {
+      return this.toEntryResponse({
         granted: false,
         message: driver.denialMessage ?? 'Entrada negada.',
         denial: driver.denial,
-      };
+      });
     }
 
     // 4. Departamento (pré-seleciona o padrão do veículo; vazio = vagas livres).
@@ -336,7 +344,7 @@ export class RegisterEntryUseCase {
         occurredAt: new Date(),
       });
 
-      return {
+      return this.toEntryResponse({
         granted: true,
         message: input.request
           ? 'Entrada registrada com solicitação.'
@@ -350,13 +358,29 @@ export class RegisterEntryUseCase {
               companyId,
             )
           : null,
-      };
+      });
     } catch (error) {
       if (createdRequestId) {
         await this.revertCreatedRequest(actor, createdRequestId);
       }
       throw error;
     }
+  }
+
+  /**
+   * Monta a resposta do registro derivando o `code` da mensagem de desfecho
+   * (ADR 0016 §3) — o cliente traduz pelo código, nunca pelo texto.
+   *
+   * @param response Desfecho sem o código (mensagem + o resto da resposta).
+   * @returns A mesma resposta com o `code` derivado da mensagem.
+   */
+  private toEntryResponse(
+    response: Omit<AccessEntryResponse, 'code'>,
+  ): AccessEntryResponse {
+    return {
+      ...response,
+      code: deriveErrorCode(response.message) ?? UNKNOWN_ERROR_CODE,
+    };
   }
 
   /**

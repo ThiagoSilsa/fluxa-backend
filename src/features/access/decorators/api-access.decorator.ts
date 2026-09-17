@@ -33,11 +33,12 @@ export function ApiRegisterEntry(): MethodDecorator {
     ApiResponse({
       status: 201,
       description:
-        'Entrada registrada (granted=true; com solicitação quando o bloco `request` foi enviado).',
+        'Entrada registrada (`granted=true` + `code` do desfecho; com solicitação quando o bloco `request` foi enviado).',
     }),
     ApiResponse({
       status: 200,
-      description: 'Impedimento registrado (granted=false + denial).',
+      description:
+        'Impedimento registrado (`granted=false` + `code` do desfecho + denial).',
     }),
     ApiResponse({
       status: 400,

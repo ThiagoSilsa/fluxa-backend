@@ -464,5 +464,8 @@ describe('RegisterEntryDenialUseCase', () => {
     expect(result.blockRequestError).toBe(
       'Já existe uma solicitação de bloqueio pendente para esta placa.',
     );
+    expect(result.blockRequestErrorCode).toBe(
+      'JA_EXISTE_UMA_SOLICITACAO_DE_BLOQUEIO_PENDENTE_PARA_ESTA_PLACA',
+    );
   });
 });

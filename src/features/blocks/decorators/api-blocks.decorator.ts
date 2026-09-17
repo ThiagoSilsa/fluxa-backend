@@ -102,7 +102,7 @@ export function ApiRegisterEntryDenial(): MethodDecorator {
     ApiResponse({
       status: 201,
       description:
-        'Impedimento registrado (+ `blockRequest` quando pedido, ou `blockRequestError`).',
+        'Impedimento registrado (+ `blockRequest` quando pedido, ou `blockRequestError` + `blockRequestErrorCode`).',
     }),
     ApiResponse({
       status: 400,

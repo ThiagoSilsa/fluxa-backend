@@ -14,6 +14,10 @@ import { randomUUID } from 'crypto';
 
 // Shared
 import { PermissionCode } from '../../../../shared/constants/access-control.constant';
+import {
+  deriveErrorCode,
+  UNKNOWN_ERROR_CODE,
+} from '../../../../shared/utils/error-code.util';
 import { normalizePlate } from '../../../../shared/utils/plate.util';
 
 // Repositories
@@ -160,6 +164,9 @@ export class RegisterEntryDenialUseCase {
       ...toEntryDenialResponse(denial),
       blockRequest,
       blockRequestError,
+      blockRequestErrorCode: blockRequestError
+        ? (deriveErrorCode(blockRequestError) ?? UNKNOWN_ERROR_CODE)
+        : null,
     };
   }
 

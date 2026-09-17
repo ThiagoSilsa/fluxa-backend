@@ -137,7 +137,12 @@ export interface AccessFichaVehicleResponse {
 export interface AccessEntryResponse {
   /** `true` = entrada liberada; `false` = impedimento (denial preenchido). */
   granted: boolean;
-  /** Mensagem amigável para o client exibir. */
+  /**
+   * Código do desfecho, derivado da mensagem (ADR 0016 §3). É o contrato que o
+   * cliente traduz — a mensagem não é exibida.
+   */
+  code: string;
+  /** Mensagem do desfecho (texto de desenvolvimento e log). */
   message: string;
   /** Visita criada (quando liberada). */
   access?: AccessResponse;

@@ -54,4 +54,10 @@ export interface RegisterEntryDenialResponse extends EntryDenialResponse {
    * pendente para a placa). O impedimento **permanece** registrado.
    */
   blockRequestError: string | null;
+  /**
+   * Código do `blockRequestError`, derivado da mensagem (ADR 0016 §3). É o
+   * contrato que o cliente traduz; `null` quando o pedido foi criado ou não foi
+   * pedido.
+   */
+  blockRequestErrorCode: string | null;
 }

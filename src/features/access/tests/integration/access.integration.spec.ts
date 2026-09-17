@@ -490,6 +490,7 @@ describe('Access integration — entrada/saída/ocupação (Testcontainers, ADR 
 
       expect(retry.body.granted).toBe(true);
       expect(retry.body.message).toBe('Entrada já registrada.');
+      expect(retry.body.code).toBe('ENTRADA_JA_REGISTRADA');
       expect(retry.body.access.id).toBe(first.body.access.id);
       expect(await context.countInsideByPlate('DUP1A23')).toBe(1);
       expect(await context.countMovementsByType('DUP1A23', 'ENTRY')).toBe(1);

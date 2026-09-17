@@ -6,19 +6,20 @@ import {
   HttpException,
 } from '@nestjs/common';
 
+// Shared
+import { deriveErrorCode } from '../utils/error-code.util';
+
 // Types
 import type { Response } from 'express';
 
 /**
  * Filtro global de exceções que adiciona um `code` estável ao corpo de erro
- * (ADR 0007 §7).
+ * (ADR 0007 §7; ampliado pelo ADR 0016).
  *
  * Mantém o formato padrão do NestJS (`{ statusCode, message, error? }`) e
- * acrescenta `code`, derivado da mensagem (normalização NFD → `_` →
- * `UPPERCASE`; prefixo `ERROR_` quando começa com dígito). Isso permite ao
- * client traduzir erros de importação do padrão `Linha {N}: ...` →
- * `LINHA_{N}_{MENSAGEM}` — o front já espera `payload.code`
- * (`ApiErrorPayload`).
+ * acrescenta `code`, derivado da mensagem pelo util compartilhado
+ * (`deriveErrorCode`) — o mesmo que as respostas de resultado usam. O `code` é
+ * o contrato que o cliente traduz; a mensagem é texto de desenvolvimento e log.
  */
 @Catch()
 export class HttpErrorCodeFilter implements ExceptionFilter {
@@ -61,34 +62,12 @@ export class HttpErrorCodeFilter implements ExceptionFilter {
     }
 
     const code =
-      typeof message === 'string'
-        ? this.deriveCodeFromMessage(message)
-        : undefined;
+      typeof message === 'string' ? deriveErrorCode(message) : undefined;
 
     const payload: Record<string, unknown> = { statusCode: status, message };
     if (error !== undefined) payload.error = error;
     if (code !== undefined) payload.code = code;
 
     response.status(status).json(payload);
-  }
-
-  /**
-   * Deriva um código estável e normalizado a partir de uma mensagem de erro.
-   *
-   * @param message Mensagem de erro (ex.: `Linha 3: name inválido.`).
-   * @returns Código normalizado ou `undefined` quando a mensagem não gera código.
-   */
-  private deriveCodeFromMessage(message: string): string | undefined {
-    const normalized = message
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .replace(/_+/g, '_')
-      .toUpperCase();
-
-    if (normalized.length === 0) return undefined;
-    if (/^\d/.test(normalized)) return `ERROR_${normalized}`;
-    return normalized;
   }
 }

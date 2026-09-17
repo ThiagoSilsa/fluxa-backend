@@ -338,6 +338,9 @@ describe('Blocks integration — bloqueios, impedimentos e solicitações (Testc
       expect(res.body.plateSnapshot).toBe('DEN1A23');
       expect(res.body.blockRequest).toBeNull();
       expect(res.body.blockRequestError).toMatch(/já existe/i);
+      expect(res.body.blockRequestErrorCode).toBe(
+        'JA_EXISTE_UMA_SOLICITACAO_DE_BLOQUEIO_PENDENTE_PARA_ESTA_PLACA',
+      );
     });
   });
 

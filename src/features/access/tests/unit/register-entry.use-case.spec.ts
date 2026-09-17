@@ -799,6 +799,7 @@ describe('RegisterEntryUseCase', () => {
 
     expect(result.granted).toBe(true);
     expect(result.message).toBe('Entrada já registrada.');
+    expect(result.code).toBe('ENTRADA_JA_REGISTRADA');
     expect(result.access?.id).toBe(access.id);
     expect(result.movement?.id).toBe(movement.id);
     expect(accessRepoMock.createEntry).not.toHaveBeenCalled();
@@ -938,6 +939,7 @@ describe('RegisterEntryUseCase', () => {
     );
     expect(result.granted).toBe(true);
     expect(result.message).toBe('Entrada registrada com solicitação.');
+    expect(result.code).toBe('ENTRADA_REGISTRADA_COM_SOLICITACAO');
     expect(accessRepoMock.createEntry).toHaveBeenCalledWith(
       expect.objectContaining({
         accessRequestId: '50000000-0000-0000-0000-000000000099',
