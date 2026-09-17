@@ -52,7 +52,9 @@ A consequência aceita é que a mensagem passa a fazer parte do contrato: renome
 - `details[].params` carrega o que o texto precisa (`{ "max": 100 }`, `{ "min": 2 }`);
 - o `message` original de cada violação é mantido **apenas** como texto de desenvolvimento.
 
-Catálogo de regras: `REQUIRED`, `MAX_LENGTH`, `MIN_LENGTH`, `INVALID_EMAIL`, `INVALID_FORMAT`, `MIN_VALUE`, `MAX_VALUE`, `INVALID_TYPE`, `INVALID_VALUE`, `INVALID_DATE`.
+Catálogo de regras: `REQUIRED`, `MAX_LENGTH`, `MIN_LENGTH`, `INVALID_EMAIL`, `INVALID_FORMAT`, `MIN_VALUE`, `MAX_VALUE`, `INVALID_TYPE`, `INVALID_VALUE`, `INVALID_DATE` e `UNKNOWN_COLUMN`.
+
+A superfície não é exclusiva do `class-validator`: a validação de estrutura da planilha de importação declara as mesmas `details` para dizer qual coluna falta (`REQUIRED`) ou não pertence ao modelo (`UNKNOWN_COLUMN`) — `declaredValidationException` no `shared/pipes`. É o que evita a mensagem interpolada (`Colunas obrigatórias ausentes: name, email.`) virar um código que muda a cada requisição e chegar ao cliente como genérico.
 
 ### 5. Três pares de mensagem duplicada são consolidados
 

@@ -19,6 +19,8 @@ import { PermissionCode } from '../../../../shared/constants/access-control.cons
 import { QUEUE_NAMES } from '../../../../shared/queue/queue.module';
 import { readSheetAsRows } from '../../../../shared/spreadsheet/read-spreadsheet.util';
 import type { SheetRow } from '../../../../shared/spreadsheet/read-spreadsheet.util';
+import { ValidationRule } from '../../../../shared/constants/validation-rule.constant';
+import { declaredValidationException } from '../../../../shared/pipes/validation-exception.factory';
 
 // Imports (feature genérica)
 import { IMPORT_JOB_REPOSITORY } from '../../../imports/domain/repositories/import-job.repository';
@@ -118,8 +120,13 @@ export class ImportVehiclesUseCase {
         (col) => !headers.includes(col),
       );
       if (missingColumns.length > 0) {
-        throw new BadRequestException(
+        throw declaredValidationException(
           `Colunas obrigatórias ausentes na planilha: ${missingColumns.join(', ')}.`,
+          missingColumns.map((column) => ({
+            field: column,
+            code: ValidationRule.REQUIRED,
+            params: {},
+          })),
         );
       }
 
@@ -127,8 +134,13 @@ export class ImportVehiclesUseCase {
         (col) => !EXPECTED_COLUMNS.includes(col),
       );
       if (unknownColumns.length > 0) {
-        throw new BadRequestException(
+        throw declaredValidationException(
           `Colunas desconhecidas na planilha: ${unknownColumns.join(', ')}.`,
+          unknownColumns.map((column) => ({
+            field: column,
+            code: ValidationRule.UNKNOWN_COLUMN,
+            params: {},
+          })),
         );
       }
 

@@ -177,12 +177,19 @@ describe('ImportVehiclesUseCase', () => {
       ['ABC1234'],
     ]);
 
-    await expect(
-      useCase.execute(actor, {
+    const error = await useCase
+      .execute(actor, {
         originalname: 'faltando.xlsx',
         buffer,
-      }),
-    ).rejects.toThrow('Colunas obrigatórias ausentes');
+      })
+      .then(() => null)
+      .catch((caught: unknown) => caught as BadRequestException);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error?.getResponse()).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'vehicleType', code: 'REQUIRED', params: {} }],
+    });
 
     expect(importJobRepoMock.create).not.toHaveBeenCalled();
   });
@@ -193,12 +200,19 @@ describe('ImportVehiclesUseCase', () => {
       ['ABC1234', 'FROTA', 'preto'],
     ]);
 
-    await expect(
-      useCase.execute(actor, {
+    const error = await useCase
+      .execute(actor, {
         originalname: 'desconhecida.xlsx',
         buffer,
-      }),
-    ).rejects.toThrow('Colunas desconhecidas');
+      })
+      .then(() => null)
+      .catch((caught: unknown) => caught as BadRequestException);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error?.getResponse()).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'cor', code: 'UNKNOWN_COLUMN', params: {} }],
+    });
 
     expect(importJobRepoMock.create).not.toHaveBeenCalled();
   });

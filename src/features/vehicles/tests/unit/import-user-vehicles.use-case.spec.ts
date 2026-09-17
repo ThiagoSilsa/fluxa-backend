@@ -140,12 +140,19 @@ describe('ImportUserVehiclesUseCase', () => {
       ['ABC1234'],
     ]);
 
-    await expect(
-      useCase.execute(actor, {
+    const error = await useCase
+      .execute(actor, {
         originalname: 'faltando.xlsx',
         buffer,
-      }),
-    ).rejects.toThrow('Colunas obrigatórias ausentes');
+      })
+      .then(() => null)
+      .catch((caught: unknown) => caught as BadRequestException);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error?.getResponse()).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'userEmail', code: 'REQUIRED', params: {} }],
+    });
   });
 
   it('rejeita colunas desconhecidas', async () => {
@@ -154,11 +161,18 @@ describe('ImportUserVehiclesUseCase', () => {
       ['ABC1234', 'x@y.com', 'recepção'],
     ]);
 
-    await expect(
-      useCase.execute(actor, {
+    const error = await useCase
+      .execute(actor, {
         originalname: 'desconhecida.xlsx',
         buffer,
-      }),
-    ).rejects.toThrow('Colunas desconhecidas');
+      })
+      .then(() => null)
+      .catch((caught: unknown) => caught as BadRequestException);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error?.getResponse()).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'setor', code: 'UNKNOWN_COLUMN', params: {} }],
+    });
   });
 });

@@ -55,6 +55,32 @@ export function validationExceptionFactory(
 }
 
 /**
+ * Exceção 400 de uma validação **declarada** pela aplicação (não pelo
+ * `class-validator`) na mesma superfície do cliente.
+ *
+ * Usada por quem valida estrutura que não passa por DTO — hoje, as colunas da
+ * planilha de importação. A mensagem continua sendo texto de desenvolvimento
+ * (pode ser interpolada com o dado da requisição): o cliente lê `details`.
+ *
+ * @param message Mensagem em texto de desenvolvimento (log).
+ * @param details Violações declaradas: campo, regra e parâmetros.
+ * @returns Exceção 400 com o corpo de validação.
+ */
+export function declaredValidationException(
+  message: string,
+  details: ValidationDetail[],
+): BadRequestException {
+  const body: ValidationErrorBody = {
+    statusCode: HttpStatus.BAD_REQUEST,
+    code: VALIDATION_ERROR_CODE,
+    message: [message],
+    details,
+  };
+
+  return new BadRequestException(body);
+}
+
+/**
  * Achata as mensagens originais do `class-validator`, incluindo as de DTO
  * aninhado.
  *

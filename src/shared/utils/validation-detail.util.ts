@@ -63,6 +63,7 @@ const RULE_SPECIFICITY: Readonly<Record<ValidationRule, number>> = {
   [ValidationRule.INVALID_EMAIL]: 2,
   [ValidationRule.INVALID_DATE]: 2,
   [ValidationRule.INVALID_FORMAT]: 2,
+  [ValidationRule.UNKNOWN_COLUMN]: 2,
   [ValidationRule.MIN_LENGTH]: 3,
   [ValidationRule.MAX_LENGTH]: 3,
   [ValidationRule.MIN_VALUE]: 3,

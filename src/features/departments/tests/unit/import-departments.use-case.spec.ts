@@ -154,12 +154,20 @@ describe('ImportDepartmentsUseCase', () => {
       ['Recepção'],
     ]);
 
-    await expect(
-      useCase.execute(actor, {
+    const error = await useCase
+      .execute(actor, {
         originalname: 'faltando.xlsx',
         buffer,
-      }),
-    ).rejects.toThrow('Colunas obrigatórias ausentes');
+      })
+      .then(() => null)
+      .catch((caught: unknown) => caught as BadRequestException);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error?.getResponse()).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: ['Colunas obrigatórias ausentes na planilha: parkingSpace.'],
+      details: [{ field: 'parkingSpace', code: 'REQUIRED', params: {} }],
+    });
 
     expect(importJobRepoMock.create).not.toHaveBeenCalled();
   });
@@ -170,12 +178,19 @@ describe('ImportDepartmentsUseCase', () => {
       ['Recepção', 10, 'x@y.com'],
     ]);
 
-    await expect(
-      useCase.execute(actor, {
+    const error = await useCase
+      .execute(actor, {
         originalname: 'desconhecida.xlsx',
         buffer,
-      }),
-    ).rejects.toThrow('Colunas desconhecidas');
+      })
+      .then(() => null)
+      .catch((caught: unknown) => caught as BadRequestException);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error?.getResponse()).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'email', code: 'UNKNOWN_COLUMN', params: {} }],
+    });
 
     expect(importJobRepoMock.create).not.toHaveBeenCalled();
   });

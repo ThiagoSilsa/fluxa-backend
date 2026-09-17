@@ -30,6 +30,15 @@ export enum ValidationRule {
   INVALID_VALUE = 'INVALID_VALUE',
   /** Data inválida. */
   INVALID_DATE = 'INVALID_DATE',
+  /**
+   * Coluna que a planilha não aceita (o campo é o nome da coluna, `params`
+   * vazio).
+   *
+   * Não vem do `class-validator`: é **declarada** pela validação de estrutura da
+   * importação por planilha, que reaproveita a mesma superfície de detalhes
+   * (ADR 0016 §4).
+   */
+  UNKNOWN_COLUMN = 'UNKNOWN_COLUMN',
 }
 
 /**
