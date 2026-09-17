@@ -207,6 +207,82 @@ describe('Vehicles import integration — veículos e vínculo usuário-veículo
     });
   });
 
+  it('POST /vehicles/import sem coluna obrigatória → 400 com a violação declarada', async () => {
+    const missing = await buildXlsxBufferFromRows(DATA_SHEET, [
+      ['plate'],
+      ['ABC1234'],
+    ]);
+
+    const missingRes = await request(context.httpServer)
+      .post('/vehicles/import')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', missing, 'faltando.xlsx')
+      .expect(400);
+
+    expect(missingRes.body).toMatchObject({
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'vehicleType', code: 'REQUIRED', params: {} }],
+    });
+  });
+
+  it('POST /vehicles/import com coluna desconhecida → 400 com a violação declarada', async () => {
+    const buffer = await buildXlsxBufferFromRows(DATA_SHEET, [
+      ['plate', 'vehicleType', 'cor'],
+      ['ABC1234', 'FROTA', 'preto'],
+    ]);
+
+    const res = await request(context.httpServer)
+      .post('/vehicles/import')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', buffer, 'desconhecida.xlsx')
+      .expect(400);
+
+    expect(res.body).toMatchObject({
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'cor', code: 'UNKNOWN_COLUMN', params: {} }],
+    });
+  });
+
+  it('POST /user-vehicles/import sem coluna obrigatória → 400 com a violação declarada', async () => {
+    const missing = await buildXlsxBufferFromRows(DATA_SHEET, [
+      ['vehiclePlate'],
+      ['ABC1234'],
+    ]);
+
+    const missingRes = await request(context.httpServer)
+      .post('/user-vehicles/import')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', missing, 'faltando.xlsx')
+      .expect(400);
+
+    expect(missingRes.body).toMatchObject({
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'userEmail', code: 'REQUIRED', params: {} }],
+    });
+  });
+
+  it('POST /user-vehicles/import com coluna desconhecida → 400 com a violação declarada', async () => {
+    const buffer = await buildXlsxBufferFromRows(DATA_SHEET, [
+      ['vehiclePlate', 'userEmail', 'setor'],
+      ['ABC1234', 'x@y.com', 'recepção'],
+    ]);
+
+    const res = await request(context.httpServer)
+      .post('/user-vehicles/import')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', buffer, 'desconhecida.xlsx')
+      .expect(400);
+
+    expect(res.body).toMatchObject({
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'setor', code: 'UNKNOWN_COLUMN', params: {} }],
+    });
+  });
+
   it('POST /vehicles/import com usuário sem MANAGE_IMPORTS → 403', async () => {
     await context.seedUserWithRole(
       'porteiro-vehicles@teste.local',

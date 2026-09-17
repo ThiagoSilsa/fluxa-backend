@@ -91,6 +91,44 @@ describe('Users import integration — importação de usuários (Testcontainers
     });
   });
 
+  it('POST /users/import sem coluna obrigatória → 400 com a violação declarada', async () => {
+    const missing = await buildXlsxBufferFromRows(DATA_SHEET, [
+      ['email'],
+      ['joao@somar.local'],
+    ]);
+
+    const missingRes = await request(context.httpServer)
+      .post('/users/import')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', missing, 'faltando.xlsx')
+      .expect(400);
+
+    expect(missingRes.body).toMatchObject({
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'name', code: 'REQUIRED', params: {} }],
+    });
+  });
+
+  it('POST /users/import com coluna desconhecida → 400 com a violação declarada', async () => {
+    const buffer = await buildXlsxBufferFromRows(DATA_SHEET, [
+      ['email', 'name', 'setor'],
+      ['joao@somar.local', 'João', 'recepção'],
+    ]);
+
+    const res = await request(context.httpServer)
+      .post('/users/import')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', buffer, 'desconhecida.xlsx')
+      .expect(400);
+
+    expect(res.body).toMatchObject({
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'setor', code: 'UNKNOWN_COLUMN', params: {} }],
+    });
+  });
+
   it('POST /users/import com linha inválida (name curto) → FAILED e nada inserido', async () => {
     const buffer = await buildXlsxBufferFromRows(DATA_SHEET, [
       ['email', 'name'],

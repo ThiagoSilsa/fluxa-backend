@@ -92,6 +92,44 @@ describe('Departments import integration — upload XLSX → worker → históri
     expect(res.body.count).toBe(0);
   });
 
+  it('POST /departments/import sem coluna obrigatória → 400 com a violação declarada', async () => {
+    const missing = await buildXlsxBufferFromRows(DATA_SHEET, [
+      ['name'],
+      ['Recepção'],
+    ]);
+
+    const missingRes = await request(context.httpServer)
+      .post('/departments/import')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', missing, 'faltando.xlsx')
+      .expect(400);
+
+    expect(missingRes.body).toMatchObject({
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'parkingSpace', code: 'REQUIRED', params: {} }],
+    });
+  });
+
+  it('POST /departments/import com coluna desconhecida → 400 com a violação declarada', async () => {
+    const buffer = await buildXlsxBufferFromRows(DATA_SHEET, [
+      ['name', 'parkingSpace', 'email'],
+      ['Recepção', 10, 'x@y.com'],
+    ]);
+
+    const res = await request(context.httpServer)
+      .post('/departments/import')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', buffer, 'desconhecida.xlsx')
+      .expect(400);
+
+    expect(res.body).toMatchObject({
+      statusCode: 400,
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'email', code: 'UNKNOWN_COLUMN', params: {} }],
+    });
+  });
+
   it('POST /departments/import com arquivo não .xlsx → 400', async () => {
     await request(context.httpServer)
       .post('/departments/import')

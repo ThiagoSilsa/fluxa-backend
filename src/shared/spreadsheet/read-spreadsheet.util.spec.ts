@@ -1,9 +1,5 @@
 // Spreadsheet
-import {
-  DATA_SHEET,
-  SHEET_NOT_FOUND_MESSAGE,
-  readSheetAsRows,
-} from './read-spreadsheet.util';
+import { DATA_SHEET, readSheetAsRows } from './read-spreadsheet.util';
 
 // Fixtures
 import { buildXlsxBufferFromRows } from '../../test/support/xlsx-fixture';
@@ -70,7 +66,7 @@ describe('readSheetAsRows', () => {
     ]);
 
     await expect(readSheetAsRows({ buffer })).rejects.toThrow(
-      SHEET_NOT_FOUND_MESSAGE,
+      'Planilha "data" não encontrada no arquivo XLSX.',
     );
   });
 
