@@ -57,7 +57,17 @@ export class PostgresTestContainer {
     if (!this.container) {
       return;
     }
-    await this.container.stop();
-    this.container = null;
+    try {
+      await this.container.stop();
+    } catch (error) {
+      // Teardown não pode reprovar a suíte: sob carga o Docker pode responder
+      // 409 ("container is running") ao remover o container logo após o stop.
+      // O container é removido pelo Ryuk de qualquer forma.
+      console.warn(
+        `Falha ao derrubar o container Postgres: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      this.container = null;
+    }
   }
 }
